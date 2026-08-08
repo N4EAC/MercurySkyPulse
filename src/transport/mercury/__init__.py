@@ -1,0 +1,2 @@
+"""Documented Mercury interface adapters."""
+

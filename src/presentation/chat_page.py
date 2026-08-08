@@ -1,0 +1,235 @@
+"""Station-to-station text chat page."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QFormLayout,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPlainTextEdit,
+    QPushButton,
+    QProgressBar,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
+
+from application.messaging import ChatMessage, Conversation, MessageDirection
+
+
+class ChatPage(QWidget):
+    listen_requested = Signal(str)
+    connect_requested = Signal(str, str)
+    disconnect_requested = Signal()
+    send_requested = Signal(str)
+    file_requested = Signal(str)
+    transfer_pause_requested = Signal(str)
+    transfer_resume_requested = Signal(str)
+    conversation_selected = Signal(int)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._conversation_ids: list[int] = []
+        root = QVBoxLayout(self)
+        title = QLabel("Station Chat")
+        title.setObjectName("PageTitle")
+        root.addWidget(title)
+
+        controls = QFrame()
+        controls.setObjectName("Card")
+        control_row = QHBoxLayout(controls)
+        form = QFormLayout()
+        self.local_call = QLineEdit()
+        self.local_call.setPlaceholderText("N0CALL")
+        self.local_call.setMaxLength(15)
+        self.remote_call = QLineEdit()
+        self.remote_call.setPlaceholderText("REMOTE")
+        self.remote_call.setMaxLength(15)
+        form.addRow("My callsign", self.local_call)
+        form.addRow("Station", self.remote_call)
+        control_row.addLayout(form, 1)
+        self.listen_button = QPushButton("Listen")
+        self.connect_button = QPushButton("Connect")
+        self.connect_button.setObjectName("PrimaryButton")
+        self.disconnect_button = QPushButton("Disconnect")
+        control_row.addWidget(self.listen_button)
+        control_row.addWidget(self.connect_button)
+        control_row.addWidget(self.disconnect_button)
+        self.link_state = QLabel("TNC: disconnected")
+        self.link_state.setObjectName("StatusPill")
+        control_row.addWidget(self.link_state)
+        root.addWidget(controls)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.conversations = QListWidget()
+        self.conversations.setMinimumWidth(180)
+        splitter.addWidget(self.conversations)
+
+        chat = QWidget()
+        chat_layout = QVBoxLayout(chat)
+        chat_layout.setContentsMargins(0, 0, 0, 0)
+        self.heading = QLabel("Connect to a station or select a conversation")
+        self.heading.setObjectName("SectionTitle")
+        chat_layout.addWidget(self.heading)
+        self.messages = QListWidget()
+        self.messages.setWordWrap(True)
+        self.messages.setSelectionMode(QListWidget.SelectionMode.NoSelection)
+        chat_layout.addWidget(self.messages, 1)
+        compose_row = QHBoxLayout()
+        self.composer = QPlainTextEdit()
+        self.composer.setPlaceholderText("Type a text message…")
+        self.composer.setMaximumHeight(90)
+        self.send_button = QPushButton("Send")
+        self.send_button.setObjectName("PrimaryButton")
+        compose_row.addWidget(self.composer, 1)
+        compose_row.addWidget(self.send_button)
+        chat_layout.addLayout(compose_row)
+
+        transfer_row = QHBoxLayout()
+        self.send_file_button = QPushButton("Send File…")
+        self.pause_file_button = QPushButton("Pause")
+        self.resume_file_button = QPushButton("Resume")
+        self.transfer_status = QLabel("No file transfer")
+        self.transfer_thumbnail = QLabel()
+        self.transfer_thumbnail.setFixedSize(72, 72)
+        self.transfer_thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.transfer_thumbnail.setObjectName("Muted")
+        self.transfer_progress = QProgressBar()
+        self.transfer_progress.setRange(0, 100)
+        self.transfer_progress.setValue(0)
+        transfer_row.addWidget(self.send_file_button)
+        transfer_row.addWidget(self.transfer_thumbnail)
+        transfer_row.addWidget(self.pause_file_button)
+        transfer_row.addWidget(self.resume_file_button)
+        transfer_row.addWidget(self.transfer_status, 1)
+        transfer_row.addWidget(self.transfer_progress)
+        chat_layout.addLayout(transfer_row)
+        splitter.addWidget(chat)
+        splitter.setStretchFactor(1, 1)
+        root.addWidget(splitter, 1)
+
+        self.listen_button.clicked.connect(
+            lambda: self.listen_requested.emit(self.local_call.text())
+        )
+        self.connect_button.clicked.connect(
+            lambda: self.connect_requested.emit(
+                self.local_call.text(), self.remote_call.text()
+            )
+        )
+        self.disconnect_button.clicked.connect(self.disconnect_requested)
+        self.send_button.clicked.connect(self._send)
+        self.send_file_button.clicked.connect(self._choose_file)
+        self.pause_file_button.clicked.connect(self._pause_transfer)
+        self.resume_file_button.clicked.connect(self._resume_transfer)
+        self.conversations.currentRowChanged.connect(self._select_row)
+        self._transfer_id = ""
+
+    def set_state(self, state: str) -> None:
+        self.link_state.setText(f"TNC: {state}")
+
+    def show_error(self, message: str) -> None:
+        self.link_state.setText(message)
+        self.link_state.setToolTip(message)
+
+    def set_active_conversation(self, conversation: Conversation) -> None:
+        self.heading.setText(
+            f"{conversation.local_call} ↔ {conversation.remote_call}"
+        )
+        self.local_call.setText(conversation.local_call)
+        self.remote_call.setText(conversation.remote_call)
+
+    def set_conversations(self, conversations: list[Conversation]) -> None:
+        selected = self._conversation_ids[self.conversations.currentRow()] if (
+            0 <= self.conversations.currentRow() < len(self._conversation_ids)
+        ) else None
+        self.conversations.blockSignals(True)
+        self.conversations.clear()
+        self._conversation_ids = [item.id for item in conversations]
+        for conversation in conversations:
+            item = QListWidgetItem(conversation.remote_call)
+            item.setToolTip(f"From {conversation.local_call}")
+            self.conversations.addItem(item)
+        if selected in self._conversation_ids:
+            self.conversations.setCurrentRow(self._conversation_ids.index(selected))
+        self.conversations.blockSignals(False)
+
+    def set_messages(self, messages: list[ChatMessage]) -> None:
+        self.messages.clear()
+        for message in messages:
+            direction = "You" if message.direction is MessageDirection.OUTGOING else "Station"
+            timestamp = self._display_time(message.sent_at)
+            status = f" · {message.status.value}" if direction == "You" else ""
+            item = QListWidgetItem(
+                f"{direction}  {timestamp}{status}\n{message.body}"
+            )
+            if message.direction is MessageDirection.OUTGOING:
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
+            self.messages.addItem(item)
+        self.messages.scrollToBottom()
+
+    def set_transfers(self, transfers: list[object]) -> None:
+        if not transfers:
+            return
+        transfer = transfers[-1]
+        self._transfer_id = transfer.id
+        self.transfer_status.setText(
+            f"{transfer.name} · {transfer.direction} · {transfer.status} · "
+            f"SHA-256 {transfer.checksum[:12]}…"
+        )
+        self.transfer_status.setToolTip(
+            f"{transfer.path}\nSHA-256: {transfer.checksum}"
+        )
+        self.transfer_progress.setValue(transfer.progress)
+        if transfer.thumbnail:
+            pixmap = QPixmap()
+            if pixmap.loadFromData(transfer.thumbnail):
+                self.transfer_thumbnail.setPixmap(
+                    pixmap.scaled(
+                        self.transfer_thumbnail.size(),
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+        else:
+            self.transfer_thumbnail.clear()
+        self.pause_file_button.setEnabled(transfer.status in {"offered", "transferring"})
+        self.resume_file_button.setEnabled(transfer.status == "paused")
+
+    def _send(self) -> None:
+        text = self.composer.toPlainText()
+        if text.strip():
+            self.send_requested.emit(text)
+            self.composer.clear()
+
+    def _choose_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Send file")
+        if path:
+            self.file_requested.emit(path)
+
+    def _pause_transfer(self) -> None:
+        if self._transfer_id:
+            self.transfer_pause_requested.emit(self._transfer_id)
+
+    def _resume_transfer(self) -> None:
+        if self._transfer_id:
+            self.transfer_resume_requested.emit(self._transfer_id)
+
+    def _select_row(self, row: int) -> None:
+        if 0 <= row < len(self._conversation_ids):
+            self.conversation_selected.emit(self._conversation_ids[row])
+
+    @staticmethod
+    def _display_time(value: str) -> str:
+        try:
+            return datetime.fromisoformat(value).astimezone().strftime("%b %d, %H:%M:%S")
+        except ValueError:
+            return value

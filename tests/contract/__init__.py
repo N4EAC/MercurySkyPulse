@@ -1,0 +1,2 @@
+"""External interface contract tests."""
+

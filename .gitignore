@@ -1,0 +1,50 @@
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs, captures, and runtime state
+*.log
+*.jsonl
+*.pcap
+*.raw
+run/
+*.sqlite
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Build and test output (toolchain-neutral)
+build/
+dist/
+out/
+coverage/
+tmp/
+*.tmp
+*.egg-info/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# Local Mercury artifacts
+/mercury
+/mercury.exe
+/mercury-ui
+/mercury-ui.exe
+/Mercury.app/

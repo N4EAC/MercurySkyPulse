@@ -1,0 +1,638 @@
+"""Main dockable desktop window."""
+
+from __future__ import annotations
+
+from PySide6.QtCore import Qt, QSize, QTimer, QUrl
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeySequence
+from PySide6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QStyle,
+    QTabWidget,
+    QToolBar,
+)
+
+from application.chat_service import ChatService
+from application.file_transfer import FileTransferService
+from application.location import LocationService
+from application.beacon import BeaconService
+from application.ping import PingService
+from application.bbs import BbsService
+from application.web_dashboard import WebDashboardSnapshot
+from application.licensing import LicenseState, community_state
+from application.plugins import PluginRegistry
+from platform_runtime.local_web import LocalWebServer
+from .bbs_page import BbsPage
+from .beacon_page import BeaconPage
+from .chat_page import ChatPage
+from .location_page import LocationPage
+from .ping_page import PingPage
+from .panels import (
+    ActivityPanel,
+    Dashboard,
+    create_inspector_panel,
+    create_navigation_panel,
+)
+from .themes import Appearance, PlatformPreset, Theme, apply_appearance
+from platform_runtime import MercuryProcessConfig, MercuryProcessSupervisor
+from transport.mercury.telemetry import MercuryTelemetryClient
+
+
+class MainWindow(QMainWindow):
+    """Presentation-only shell with real docking and appearance controls."""
+
+    def __init__(
+        self,
+        app: QApplication,
+        chat_service: ChatService | None = None,
+        file_transfer_service: FileTransferService | None = None,
+        location_service: LocationService | None = None,
+        beacon_service: BeaconService | None = None,
+        ping_service: PingService | None = None,
+        bbs_service: BbsService | None = None,
+        web_snapshot: WebDashboardSnapshot | None = None,
+        web_server: LocalWebServer | None = None,
+        license_state: LicenseState | None = None,
+        plugin_registry: PluginRegistry | None = None,
+        auto_start: bool = True,
+    ) -> None:
+        super().__init__()
+        self._app = app
+        self._appearance = Appearance.system()
+        self._docks: dict[str, QDockWidget] = {}
+        self.dashboard = Dashboard()
+        self.chat_page = ChatPage()
+        self.location_page = LocationPage()
+        self.beacon_service = beacon_service
+        self.beacon_page = BeaconPage(
+            beacon_service.capabilities if beacon_service else ()
+        )
+        self.ping_service = ping_service
+        self.ping_page = PingPage()
+        self.bbs_service = bbs_service
+        self.bbs_page = BbsPage()
+        self.web_snapshot = web_snapshot
+        self.web_server = web_server
+        self.license_state = license_state or community_state()
+        self.plugin_registry = plugin_registry
+        self.chat_service = chat_service
+        self.file_transfer_service = file_transfer_service
+        self.location_service = location_service
+        self.activity_panel = ActivityPanel()
+        self.supervisor = MercuryProcessSupervisor(MercuryProcessConfig(), self)
+        self.telemetry = MercuryTelemetryClient(parent=self)
+
+        self.setObjectName("MercurySkyPulseMainWindow")
+        self.setWindowTitle("MercurySkyPulse")
+        self.setMinimumSize(860, 600)
+        self.resize(1280, 820)
+        self.setDockOptions(
+            QMainWindow.DockOption.AnimatedDocks
+            | QMainWindow.DockOption.AllowNestedDocks
+            | QMainWindow.DockOption.AllowTabbedDocks
+            | QMainWindow.DockOption.GroupedDragging
+        )
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.dashboard, "Overview")
+        self.tabs.addTab(self.chat_page, "Chat")
+        self.tabs.addTab(self.location_page, "Location")
+        self.tabs.addTab(self.beacon_page, "Beacon")
+        self.tabs.addTab(self.ping_page, "Ping")
+        self.tabs.addTab(self.bbs_page, "BBS")
+        self.setCentralWidget(self.tabs)
+
+        self._create_docks()
+        self._create_toolbar()
+        self._create_status_bar()
+        self._create_menus()
+        self._connect_mercury_services()
+        self._connect_chat_service()
+        self._connect_location_service()
+        self._connect_beacon_service()
+        self._connect_ping_service()
+        self._connect_bbs_service()
+        self._connect_web_snapshot()
+        self._reset_layout()
+        if auto_start:
+            QTimer.singleShot(0, self._start_mercury)
+
+    def _make_dock(
+        self,
+        key: str,
+        title: str,
+        widget,
+        area: Qt.DockWidgetArea,
+        minimum_width: int = 220,
+    ) -> QDockWidget:
+        dock = QDockWidget(title, self)
+        dock.setObjectName(f"{key}Dock")
+        dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
+        dock.setFeatures(
+            QDockWidget.DockWidgetFeature.DockWidgetClosable
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
+            | QDockWidget.DockWidgetFeature.DockWidgetFloatable
+        )
+        widget.setMinimumWidth(minimum_width)
+        dock.setWidget(widget)
+        self.addDockWidget(area, dock)
+        self._docks[key] = dock
+        return dock
+
+    def _create_docks(self) -> None:
+        self._make_dock(
+            "navigation",
+            "Navigator",
+            create_navigation_panel(),
+            Qt.DockWidgetArea.LeftDockWidgetArea,
+            190,
+        )
+        self._make_dock(
+            "inspector",
+            "Inspector",
+            create_inspector_panel(),
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            230,
+        )
+        activity = self._make_dock(
+            "activity",
+            "Activity",
+            self.activity_panel,
+            Qt.DockWidgetArea.BottomDockWidgetArea,
+            300,
+        )
+        activity.setMinimumHeight(140)
+
+    def _create_toolbar(self) -> None:
+        toolbar = QToolBar("Main", self)
+        toolbar.setObjectName("MainToolBar")
+        toolbar.setMovable(True)
+        toolbar.setIconSize(QSize(18, 18))
+        self.addToolBar(toolbar)
+
+        connect_action = QAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton),
+            "Restart Mercury",
+            self,
+        )
+        connect_action.setToolTip("Restart the supervised Mercury process")
+        connect_action.triggered.connect(self._restart_mercury)
+        toolbar.addAction(connect_action)
+        toolbar.addSeparator()
+
+        for key in ("navigation", "inspector", "activity"):
+            toolbar.addAction(self._docks[key].toggleViewAction())
+        self._toolbar = toolbar
+
+    def _create_status_bar(self) -> None:
+        self.statusBar().showMessage("Starting Mercury")
+        self._telemetry_status = QLabel("Telemetry: disconnected")
+        self._telemetry_status.setObjectName("Muted")
+        self._engine_status = QLabel("Mercury: starting")
+        self._engine_status.setObjectName("StatusPill")
+        self.statusBar().addPermanentWidget(self._telemetry_status)
+        self.statusBar().addPermanentWidget(self._engine_status)
+        self._license_status = QLabel(f"Edition: {self.license_state.edition.title()}")
+        self._license_status.setObjectName("Muted")
+        self.statusBar().addPermanentWidget(self._license_status)
+
+    def _create_menus(self) -> None:
+        file_menu = self.menuBar().addMenu("&File")
+        new_window = QAction("New Window", self)
+        new_window.setShortcut(QKeySequence.StandardKey.New)
+        new_window.setEnabled(False)
+        new_window.setToolTip("Reserved for a future application workflow")
+        file_menu.addAction(new_window)
+        file_menu.addSeparator()
+        exit_action = QAction("E&xit", self)
+        exit_action.setShortcut(QKeySequence.StandardKey.Quit)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+
+        edit_menu = self.menuBar().addMenu("&Edit")
+        preferences = QAction("Preferences…", self)
+        preferences.setShortcut(QKeySequence.StandardKey.Preferences)
+        preferences.setEnabled(False)
+        edit_menu.addAction(preferences)
+
+        view_menu = self.menuBar().addMenu("&View")
+        view_menu.addAction(self._toolbar.toggleViewAction())
+        view_menu.addSeparator()
+        panels_menu = view_menu.addMenu("Panels")
+        for dock in self._docks.values():
+            panels_menu.addAction(dock.toggleViewAction())
+
+        appearance_menu = self.menuBar().addMenu("&Appearance")
+        self._add_theme_menu(appearance_menu)
+        self._add_platform_menu(appearance_menu)
+        self._add_scale_menu(appearance_menu)
+
+        window_menu = self.menuBar().addMenu("&Window")
+        reset = QAction("Reset Panel Layout", self)
+        reset.setShortcut("Ctrl+Shift+0")
+        reset.triggered.connect(self._reset_layout)
+        window_menu.addAction(reset)
+        window_menu.addSeparator()
+        for dock in self._docks.values():
+            window_menu.addAction(dock.toggleViewAction())
+
+        help_menu = self.menuBar().addMenu("&Help")
+        about = QAction("About MercurySkyPulse", self)
+        about.triggered.connect(self._show_about)
+        help_menu.addAction(about)
+        licensing = QAction("License Information", self)
+        licensing.triggered.connect(self._show_license)
+        help_menu.addAction(licensing)
+        plugins = QAction("Plugin Information", self)
+        plugins.triggered.connect(self._show_plugins)
+        help_menu.addAction(plugins)
+
+        mercury_menu = self.menuBar().addMenu("&Mercury")
+        restart = QAction("Restart Mercury", self)
+        restart.setShortcut("Ctrl+Shift+R")
+        restart.triggered.connect(self._restart_mercury)
+        mercury_menu.addAction(restart)
+        stop = QAction("Stop Mercury", self)
+        stop.triggered.connect(self._stop_mercury)
+        mercury_menu.addAction(stop)
+
+        if self.web_server and self.web_server.url:
+            mercury_menu.addSeparator()
+            web = QAction("Open Local Web Interface", self)
+            web.triggered.connect(
+                lambda: QDesktopServices.openUrl(QUrl(self.web_server.url or ""))
+            )
+            mercury_menu.addAction(web)
+
+    def _add_theme_menu(self, parent_menu) -> None:
+        menu = parent_menu.addMenu("Theme")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for label, theme in (
+            ("System", Theme.SYSTEM),
+            ("Light", Theme.LIGHT),
+            ("Dark", Theme.DARK),
+        ):
+            action = QAction(label, self, checkable=True)
+            action.setChecked(theme is Theme.SYSTEM)
+            action.triggered.connect(lambda checked=False, value=theme: self._set_theme(value))
+            group.addAction(action)
+            menu.addAction(action)
+
+    def _add_platform_menu(self, parent_menu) -> None:
+        menu = parent_menu.addMenu("Platform Style")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for label, preset in (
+            ("System Native", PlatformPreset.SYSTEM),
+            ("macOS", PlatformPreset.MACOS),
+            ("Windows", PlatformPreset.WINDOWS),
+        ):
+            action = QAction(label, self, checkable=True)
+            action.setChecked(preset is PlatformPreset.SYSTEM)
+            action.triggered.connect(
+                lambda checked=False, value=preset: self._set_platform(value)
+            )
+            group.addAction(action)
+            menu.addAction(action)
+
+    def _add_scale_menu(self, parent_menu) -> None:
+        menu = parent_menu.addMenu("UI Scale")
+        group = QActionGroup(self)
+        group.setExclusive(True)
+        for label, scale in (("90%", 0.9), ("100%", 1.0), ("110%", 1.1), ("125%", 1.25), ("150%", 1.5)):
+            action = QAction(label, self, checkable=True)
+            action.setChecked(scale == 1.0)
+            action.triggered.connect(lambda checked=False, value=scale: self._set_scale(value))
+            group.addAction(action)
+            menu.addAction(action)
+
+        menu.addSeparator()
+        zoom_in = QAction("Increase Scale", self)
+        zoom_in.setShortcut(QKeySequence.StandardKey.ZoomIn)
+        zoom_in.triggered.connect(lambda: self._set_scale(self._appearance.scale + 0.1))
+        menu.addAction(zoom_in)
+        zoom_out = QAction("Decrease Scale", self)
+        zoom_out.setShortcut(QKeySequence.StandardKey.ZoomOut)
+        zoom_out.triggered.connect(lambda: self._set_scale(self._appearance.scale - 0.1))
+        menu.addAction(zoom_out)
+
+    def _set_theme(self, theme: Theme) -> None:
+        self._appearance = self._appearance.with_theme(theme)
+        apply_appearance(self._app, self._appearance)
+        self.statusBar().showMessage(f"Theme: {theme.value}", 2500)
+
+    def _set_platform(self, preset: PlatformPreset) -> None:
+        self._appearance = self._appearance.with_platform(preset)
+        apply_appearance(self._app, self._appearance)
+        self.statusBar().showMessage(f"Platform style: {preset.value}", 2500)
+
+    def _set_scale(self, scale: float) -> None:
+        self._appearance = self._appearance.with_scale(scale)
+        apply_appearance(self._app, self._appearance)
+        self.statusBar().showMessage(f"UI scale: {self._appearance.scale:.0%}", 2500)
+
+    def _reset_layout(self) -> None:
+        for dock in self._docks.values():
+            dock.setFloating(False)
+            dock.show()
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._docks["navigation"])
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._docks["inspector"])
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._docks["activity"])
+        self.resizeDocks(
+            [self._docks["navigation"], self._docks["inspector"]],
+            [220, 270],
+            Qt.Orientation.Horizontal,
+        )
+        self.resizeDocks(
+            [self._docks["activity"]],
+            [185],
+            Qt.Orientation.Vertical,
+        )
+        self.statusBar().showMessage("Panel layout reset", 2500)
+
+    def _show_about(self) -> None:
+        QMessageBox.about(
+            self,
+            "About MercurySkyPulse",
+            "<b>MercurySkyPulse</b><br>"
+            "Supervised Mercury telemetry shell<br><br>"
+            "Displays modem status, SNR, bitrate, spectrum, and waterfall, "
+            "with station-to-station text chat.",
+        )
+
+    def _show_license(self) -> None:
+        state = self.license_state
+        expiration = state.expires_at.isoformat() if state.expires_at else "No expiration"
+        organization = state.organization or "Individual / not specified"
+        features = ", ".join(sorted(state.features)) or "None"
+        QMessageBox.information(
+            self, "License Information",
+            f"Edition: {state.edition.title()}\nStatus: {state.status.value}\n"
+            f"Organization: {organization}\nExpiration: {expiration}\n\n"
+            f"Enabled features: {features}\n\n{state.reason}",
+        )
+
+    def _show_plugins(self) -> None:
+        records = [] if self.plugin_registry is None else self.plugin_registry.snapshot()
+        lines = [
+            f"{item['name']} {item['version']} — {item['state']}"
+            + (f" ({item['reason']})" if item["reason"] else "")
+            for item in records
+        ]
+        lines.append("Encryption provider — no provider installed")
+        QMessageBox.information(
+            self, "Plugin Information",
+            "Built-in plugins\n\n" + ("\n".join(lines) if lines else "Plugin registry unavailable"),
+        )
+
+    def _connect_mercury_services(self) -> None:
+        self.supervisor.state_changed.connect(self._on_engine_state)
+        self.supervisor.output_received.connect(self.activity_panel.append_log)
+        self.supervisor.restart_scheduled.connect(
+            lambda delay: self.activity_panel.append_log(
+                f"Automatic Mercury restart in {delay / 1000:.1f} seconds"
+            )
+        )
+        self.supervisor.executable_resolved.connect(
+            lambda path: self.activity_panel.append_log(f"Mercury executable: {path}")
+        )
+        self.telemetry.state_changed.connect(self._on_telemetry_state)
+        self.telemetry.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"Telemetry error: {error}")
+        )
+        self.telemetry.status_received.connect(self.dashboard.update_status)
+        if self.ping_service:
+            self.telemetry.status_received.connect(self.ping_service.update_status)
+        self.telemetry.spectrum_received.connect(self.dashboard.update_spectrum)
+
+    def _connect_chat_service(self) -> None:
+        if not self.chat_service:
+            self.chat_page.setEnabled(False)
+            return
+        service = self.chat_service
+        self.chat_page.listen_requested.connect(service.listen)
+        self.chat_page.connect_requested.connect(service.connect_station)
+        self.chat_page.disconnect_requested.connect(service.disconnect_station)
+        self.chat_page.send_requested.connect(service.send_text)
+        self.chat_page.conversation_selected.connect(service.select_conversation)
+        service.state_changed.connect(self.chat_page.set_state)
+        service.conversations_changed.connect(self.chat_page.set_conversations)
+        service.messages_changed.connect(self.chat_page.set_messages)
+        service.active_conversation_changed.connect(
+            self.chat_page.set_active_conversation
+        )
+        service.error_received.connect(self.chat_page.show_error)
+        service.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"Chat error: {error}")
+        )
+        service.client.control_event.connect(
+            lambda event: self.activity_panel.append_log(f"TNC: {event}")
+        )
+        if self.file_transfer_service:
+            transfers = self.file_transfer_service
+            self.chat_page.file_requested.connect(transfers.send_file)
+            self.chat_page.transfer_pause_requested.connect(transfers.pause)
+            self.chat_page.transfer_resume_requested.connect(transfers.resume)
+            transfers.transfers_changed.connect(self.chat_page.set_transfers)
+            transfers.error_received.connect(self.chat_page.show_error)
+            transfers.error_received.connect(
+                lambda error: self.activity_panel.append_log(
+                    f"File transfer error: {error}"
+                )
+            )
+
+    def _start_mercury(self) -> None:
+        self.activity_panel.append_log("Starting supervised Mercury process")
+        self.supervisor.start()
+        self.telemetry.start()
+        if self.chat_service:
+            self.chat_service.start()
+        if self.location_service:
+            self.location_service.publish_current()
+        if self.beacon_service:
+            self.beacon_service.start()
+        if self.bbs_service:
+            self.bbs_service.start()
+
+    def _connect_location_service(self) -> None:
+        if not self.location_service:
+            self.location_page.setEnabled(False)
+            return
+        service = self.location_service
+        self.location_page.manual_requested.connect(service.set_manual)
+        self.location_page.aprs_requested.connect(service.set_manual_aprs)
+        self.location_page.gps_start_requested.connect(service.start_gps)
+        self.location_page.gps_stop_requested.connect(service.stop_gps)
+        self.location_page.share_requested.connect(service.share)
+        self.location_page.retention_requested.connect(service.set_retention)
+        self.location_page.export_requested.connect(service.export_history)
+        service.current_changed.connect(self.location_page.set_current)
+        service.shared_received.connect(self.location_page.set_received)
+        service.gps_state_changed.connect(self.location_page.set_gps_state)
+        service.retention_changed.connect(self.location_page.set_retention)
+        service.history_changed.connect(self.location_page.set_history_count)
+        service.export_completed.connect(self.location_page.show_export_completed)
+        service.error_received.connect(self.location_page.show_error)
+        service.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"Location error: {error}")
+        )
+
+    def _connect_beacon_service(self) -> None:
+        if not self.beacon_service:
+            self.beacon_page.setEnabled(False)
+            return
+        service = self.beacon_service
+        self.beacon_page.configure_requested.connect(service.configure)
+        self.beacon_page.send_requested.connect(service.send_now)
+        self.beacon_page.disable_requested.connect(service.disable)
+        service.config_changed.connect(self.beacon_page.set_config)
+        service.state_changed.connect(self.beacon_page.set_state)
+        service.beacon_received.connect(self.beacon_page.set_received)
+        service.error_received.connect(self.beacon_page.show_error)
+        service.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"Beacon error: {error}")
+        )
+        if self.location_service:
+            self.location_service.current_changed.connect(service.update_location)
+
+    def _connect_ping_service(self) -> None:
+        if not self.ping_service:
+            self.ping_page.setEnabled(False)
+            return
+        service = self.ping_service
+        self.ping_page.ping_requested.connect(service.ping)
+        service.result_received.connect(self.ping_page.set_result)
+        service.state_changed.connect(self.ping_page.set_state)
+        service.error_received.connect(self.ping_page.show_error)
+        service.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"Ping error: {error}")
+        )
+
+    def _connect_bbs_service(self) -> None:
+        if not self.bbs_service:
+            self.bbs_page.setEnabled(False)
+            return
+        service = self.bbs_service
+        self.bbs_page.folder_requested.connect(service.select_folder)
+        self.bbs_page.private_requested.connect(service.send_private)
+        self.bbs_page.bulletin_requested.connect(service.post_bulletin)
+        self.bbs_page.upload_requested.connect(service.upload)
+        self.bbs_page.download_requested.connect(service.download)
+        self.bbs_page.authenticate_requested.connect(service.authenticate)
+        self.bbs_page.enable_protection_requested.connect(service.enable_protection)
+        self.bbs_page.unlock_commander_requested.connect(service.unlock_commander)
+        self.bbs_page.disable_protection_requested.connect(service.disable_protection)
+        self.bbs_page.role_requested.connect(service.set_role)
+        service.folders_changed.connect(self.bbs_page.set_folders)
+        service.messages_changed.connect(self.bbs_page.set_messages)
+        service.files_changed.connect(self.bbs_page.set_files)
+        service.security_changed.connect(self.bbs_page.set_security)
+        service.roles_changed.connect(self.bbs_page.set_roles)
+        service.auth_changed.connect(self.bbs_page.set_auth)
+        service.status_changed.connect(self.bbs_page.set_status)
+        service.error_received.connect(self.bbs_page.show_error)
+        service.error_received.connect(
+            lambda error: self.activity_panel.append_log(f"BBS error: {error}")
+        )
+
+    def _connect_web_snapshot(self) -> None:
+        snapshot = self.web_snapshot
+        if snapshot is None:
+            return
+        self.activity_panel.log_added.connect(snapshot.append_log)
+        self.supervisor.state_changed.connect(
+            lambda state: snapshot.update_station(engine=state)
+        )
+        self.telemetry.state_changed.connect(
+            lambda state: snapshot.update_station(telemetry=state)
+        )
+        self.telemetry.status_received.connect(self._update_web_modem)
+        if self.chat_service:
+            self.chat_service.state_changed.connect(
+                lambda state: snapshot.update_station(link=state)
+            )
+            self.chat_service.conversations_changed.connect(
+                lambda _items: self._refresh_web_messages()
+            )
+            self.chat_service.messages_changed.connect(
+                lambda _items: self._refresh_web_messages()
+            )
+            self.chat_service.client.session_connected.connect(
+                lambda source, destination, bandwidth: snapshot.update_station(
+                    source_call=source, destination_call=destination,
+                    bandwidth_hz=bandwidth,
+                )
+            )
+            self.chat_service.client.session_disconnected.connect(
+                lambda: snapshot.update_station(
+                    source_call=None, destination_call=None, bandwidth_hz=None
+                )
+            )
+        if self.file_transfer_service:
+            self.file_transfer_service.transfers_changed.connect(
+                snapshot.update_transfers
+            )
+        if self.web_server and self.web_server.url:
+            self.activity_panel.append_log(
+                f"Local read-only web interface: {self.web_server.url}"
+            )
+
+    def _refresh_web_messages(self) -> None:
+        if not self.web_snapshot or not self.chat_service:
+            return
+        conversations = self.chat_service.repository.list_conversations()
+        messages = [
+            message for conversation in conversations
+            for message in self.chat_service.repository.list_messages(conversation.id)
+        ]
+        self.web_snapshot.update_messages(conversations, messages)
+
+    def _update_web_modem(self, status) -> None:
+        if self.web_snapshot:
+            self.web_snapshot.update_station(
+                modem="linked" if status.sync else "listening",
+                direction=status.direction,
+                snr_db=round(status.snr_db, 1),
+                bitrate_bps=status.bitrate_bps,
+            )
+
+    def _restart_mercury(self) -> None:
+        self.activity_panel.append_log("Manual Mercury restart requested")
+        self.telemetry.reconnect_now()
+        self.supervisor.restart_now()
+
+    def _stop_mercury(self) -> None:
+        self.activity_panel.append_log("Stopping Mercury")
+        self.telemetry.stop()
+        self.supervisor.stop()
+
+    def _on_engine_state(self, state: str) -> None:
+        self.dashboard.set_engine_state(state)
+        self._engine_status.setText(f"Mercury: {state}")
+        self.statusBar().showMessage(f"Mercury process: {state}", 3000)
+
+    def _on_telemetry_state(self, state: str) -> None:
+        self.dashboard.set_telemetry_state(state)
+        self._telemetry_status.setText(f"Telemetry: {state}")
+
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        if self.web_server:
+            self.web_server.stop()
+        if self.plugin_registry:
+            self.plugin_registry.stop_all()
+        if self.ping_service:
+            self.ping_service.stop()
+        if self.beacon_service:
+            self.beacon_service.stop()
+        if self.location_service:
+            self.location_service.stop()
+        if self.file_transfer_service:
+            self.file_transfer_service.stop()
+        if self.chat_service:
+            self.chat_service.close()
+        self.telemetry.stop()
+        self.supervisor.shutdown_blocking()
+        event.accept()
