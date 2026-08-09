@@ -34,7 +34,8 @@ class MercurySupervisorTests(unittest.TestCase):
             application = Path(directory) / "MercurySkyPulse.exe"
             application.touch()
             mercury_name = "mercury.exe" if os.name == "nt" else "mercury"
-            mercury = Path(directory) / mercury_name
+            mercury = Path(directory) / "mercury" / mercury_name
+            mercury.parent.mkdir()
             mercury.touch()
             mercury.chmod(0o755)
             with (

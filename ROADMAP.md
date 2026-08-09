@@ -29,7 +29,7 @@ Exit criteria: accepted ADRs define a minimal, reproducible toolchain without in
 
 The language/UI, process, protocol, transfer, location, beacon, ping, BBS, web,
 licensing, plugin, test, opaque-transport, and setup/privacy decisions are recorded
-in ADRs 0001–0019. Packaging targets, persisted configuration conventions, supported platforms,
+in ADRs 0001–0020. Packaging targets, persisted configuration conventions, supported platforms,
 Mercury compatibility, and the project legal license remain open.
 
 ## Phase 2 — Mercury contract layer (prototype complete; hardening remains)
@@ -97,6 +97,8 @@ Exit criteria: a minimal application can connect to Mercury and display verified
 - Add persistence/retention controls, observability, diagnostics, accessibility,
   packaging, backup/recovery, and upgrade policy.
 - Establish release automation and Mercury/OS compatibility matrices.
+- The Windows engineering builder bundles a pinned, checksum-verified official
+  Mercury runtime; production installer, update, and GPL-compliance review remain.
 
 The next milestone should harden existing behavior rather than add another large
 product feature.

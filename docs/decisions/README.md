@@ -30,3 +30,4 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0017 — Typed Mercury endpoint profiles and remote safety](0017-mercury-endpoint-profiles.md)
 - [0018 — Mercury-owned Hamlib radio setup and bounded tuning](0018-radio-setup-and-safe-tuning.md)
 - [0019 — Separate station setup window](0019-separate-setup-window.md)
+- [0020 — Bundled Mercury Windows runtime](0020-bundled-mercury-windows-runtime.md)
