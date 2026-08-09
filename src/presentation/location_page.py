@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (
     QFormLayout,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -64,9 +65,12 @@ class LocationPage(QWidget):
         gps_card = QFrame()
         gps_card.setObjectName("Card")
         gps_layout = QFormLayout(gps_card)
-        self.serial_port = QLineEdit()
-        self.serial_port.setPlaceholderText(
-            "Blank for system GPS, or serial port such as /dev/cu.usbserial"
+        self.serial_port = QComboBox()
+        self.serial_port.setEditable(True)
+        self.serial_port.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.serial_port.addItem("System location (no serial receiver)", "")
+        self.serial_port.lineEdit().setPlaceholderText(
+            "Select a receiver or enter a port such as COM5"
         )
         gps_layout.addRow("GPS receiver", self.serial_port)
         gps_buttons = QHBoxLayout()
@@ -110,12 +114,34 @@ class LocationPage(QWidget):
         )
         apply_aprs.clicked.connect(lambda: self.aprs_requested.emit(self.aprs.text()))
         start_gps.clicked.connect(
-            lambda: self.gps_start_requested.emit(self.serial_port.text())
+            lambda: self.gps_start_requested.emit(self.selected_serial_port())
         )
         stop_gps.clicked.connect(self.gps_stop_requested)
         share.clicked.connect(self.share_requested)
         self.retain_history.toggled.connect(self.retention_requested)
         export.clicked.connect(self._choose_export)
+
+    def set_serial_ports(self, ports) -> None:
+        current = self.selected_serial_port()
+        self.serial_port.blockSignals(True)
+        self.serial_port.clear()
+        self.serial_port.addItem("System location (no serial receiver)", "")
+        for port in ports:
+            self.serial_port.addItem(port.label, port.identifier)
+        index = self.serial_port.findData(current)
+        if index >= 0:
+            self.serial_port.setCurrentIndex(index)
+        elif current:
+            self.serial_port.setEditText(current)
+        self.serial_port.blockSignals(False)
+
+    def selected_serial_port(self) -> str:
+        index = self.serial_port.currentIndex()
+        if index >= 0 and self.serial_port.currentText() == self.serial_port.itemText(index):
+            identifier = self.serial_port.itemData(index)
+            if identifier is not None:
+                return str(identifier).strip()
+        return self.serial_port.currentText().strip()
 
     def set_current(self, location) -> None:
         self.latitude.setText(f"{location.latitude:.6f}")

@@ -54,7 +54,10 @@ thumbnail is shown in the transfer UI. Source images are never modified.
 
 The Setup window's GPS tab accepts manual decimal latitude/longitude or APRS-compatible
 `DDMM.mmN/DDDMM.mmE` coordinates. It can use the operating system location source
-or a serial NMEA GPS receiver at 4800 baud. Manual position is retained locally;
+or a serial NMEA GPS receiver at 4800 baud. Available serial/COM ports are listed
+in an editable selector, so an unlisted port can still be entered manually.
+Missing, non-finite, or negative receiver accuracy is treated as unknown without
+discarding an otherwise valid coordinate fix. Manual position is retained locally;
 GPS fixes are not stored as history.
 
 **Share Location** sends the current validated position to the connected station.

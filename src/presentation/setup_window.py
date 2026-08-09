@@ -45,6 +45,7 @@ class SetupWindow(QDialog):
         self.audio_page.apply_requested.connect(radio.apply_audio)
         radio.catalog_changed.connect(self.radio_page.set_catalog)
         radio.serial_ports_changed.connect(self.radio_page.set_serial_ports)
+        radio.serial_ports_changed.connect(self.gps_page.set_serial_ports)
         radio.config_changed.connect(self.radio_page.set_config)
         radio.config_changed.connect(self.audio_page.set_config)
         radio.tune_level_changed.connect(self.radio_page.set_tune_level)

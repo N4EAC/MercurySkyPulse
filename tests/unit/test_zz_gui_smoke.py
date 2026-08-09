@@ -19,6 +19,7 @@ try:
     from presentation.main_window import MainWindow
     from presentation.radio_page import RadioPage
     from presentation.audio_setup_page import AudioSetupPage
+    from presentation.location_page import LocationPage
     from platform_runtime.station_devices import SerialPort
     from transport.mercury.telemetry.protocol import MercuryDevice
 except ImportError:  # Allows static-only environments to run the boundary tests.
@@ -134,6 +135,19 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(audio_page.output_device.currentData(), "playback:usb")
         radio_page.deleteLater()
         audio_page.deleteLater()
+
+    def test_gps_port_selector_lists_com_ports_and_allows_manual_entry(self) -> None:
+        page = LocationPage()
+        page.set_serial_ports((
+            SerialPort("COM4", "COM4 — USB UART"),
+            SerialPort("COM5", "COM5 — GPS Receiver"),
+        ))
+        self.assertEqual(page.serial_port.findData("COM5"), 2)
+        page.serial_port.setCurrentIndex(2)
+        self.assertEqual(page.selected_serial_port(), "COM5")
+        page.serial_port.setEditText("COM9")
+        self.assertEqual(page.selected_serial_port(), "COM9")
+        page.deleteLater()
 
     def test_station_io_apply_emits_native_device_ids(self) -> None:
         page = AudioSetupPage()
