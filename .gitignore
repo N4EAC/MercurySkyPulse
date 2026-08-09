@@ -41,6 +41,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-build-macos/
 
 # Local Mercury artifacts
 /mercury

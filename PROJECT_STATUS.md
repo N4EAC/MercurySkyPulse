@@ -29,8 +29,9 @@ manual testing, but it is not yet a production release.
   Windows builder with bundled Mercury 1.9.11 runtime plus Windows GPS fixes.
 - Current handoff branch: `agent/fix-windows-audio-theme`. It adds OS audio-device
   fallback, complete dark surface styling, and opt-in spectrum/waterfall defaults.
-- Interpreter-based macOS launches can still display **Python** in the global
-  application menu; treat this as a known unresolved packaging issue.
+- Interpreter-based macOS launches can still display **Python** because macOS
+  identifies the Python host bundle. `build.app.sh` now creates a named,
+  unsigned `MercurySkyPulse.app` engineering bundle for correct menu identity.
 - The worktree was clean when this handoff was committed. Always recheck
   `git status`, remote branches, and recent history before editing.
 
@@ -239,7 +240,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 155 tests passing.
+- Current aggregate result at this review: 158 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -250,6 +251,7 @@ MercurySkyPulse/
 ├── .github/workflows/tests.yml       Cross-platform automated test workflow
 ├── apps/desktop/main.py              Alternate installed-package launcher
 ├── build.exe.bat                     Windows 10/11 PyInstaller test builder
+├── build.app.sh                      macOS PyInstaller application-bundle builder
 ├── docs/
 │   ├── ARCHITECTURE.md               Full design specification
 │   ├── LICENSE_FORMAT.md             Signed license envelope and canonical signing
@@ -435,7 +437,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 155 tests passed in 2.706 seconds.
+aggregate suite successfully: 158 tests passed.
 
 Focused suites:
 
@@ -567,10 +569,9 @@ Additional standing decisions:
   still require review.
 - New Window remains a placeholder. Navigator destinations are operational, while
   the Inspector remains read-only shell telemetry; Edit → Setup is implemented.
-- The macOS global application menu still identifies interpreter launches as
-  **Python** despite Qt/process/Cocoa naming attempts. Resolve and verify this in a
-  real MercurySkyPulse `.app` bundle rather than adding more unverified runtime
-  renaming claims.
+- Interpreter launches may still show **Python** in the macOS menu bar. The named
+  `MercurySkyPulse.app` builder is implemented, but the unsigned bundle still
+  needs manual validation and eventual signing/notarization for release.
 - Local web is intentionally read-only, loopback-only, and manually refreshed. It
   has no authentication and must not be exposed beyond loopback without a new ADR.
 - APRS support is coordinate-format compatibility only, not APRS packet or APRS-IS

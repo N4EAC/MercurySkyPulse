@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QListWidget,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -43,12 +45,12 @@ class BbsPage(QWidget):
         self.security_banner = QLabel("Protection status loading…")
         self.security_banner.setObjectName("StatusPill")
         root.addWidget(self.security_banner)
-        tabs = QTabWidget()
-        tabs.addTab(self._mailbox_tab(), "Mailbox")
-        tabs.addTab(self._compose_tab(), "Compose")
-        tabs.addTab(self._files_tab(), "Files")
-        tabs.addTab(self._security_tab(), "Access")
-        root.addWidget(tabs, 1)
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._mailbox_tab(), "Mailbox")
+        self.tabs.addTab(self._compose_tab(), "Compose")
+        self.tabs.addTab(self._files_tab(), "Files")
+        self.tabs.addTab(self._security_tab(), "Access")
+        root.addWidget(self.tabs, 1)
         self.status = QLabel("BBS ready")
         self.status.setObjectName("Muted")
         root.addWidget(self.status)
@@ -73,12 +75,19 @@ class BbsPage(QWidget):
         return widget
 
     def _security_tab(self) -> QWidget:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         widget = QWidget()
         layout = QVBoxLayout(widget)
+        layout.setContentsMargins(14, 14, 14, 14)
+        layout.setSpacing(14)
 
         sign_in = QFrame()
         sign_in.setObjectName("Card")
+        self.sign_in_card = sign_in
         sign_form = QFormLayout(sign_in)
+        self._configure_access_form(sign_form)
         self.auth_call = QLineEdit()
         self.auth_call.setPlaceholderText("Your callsign")
         self.auth_password = QLineEdit()
@@ -95,7 +104,10 @@ class BbsPage(QWidget):
 
         commander = QFrame()
         commander.setObjectName("Card")
+        self.commander_card = commander
         commander_form = QFormLayout(commander)
+        self.commander_form = commander_form
+        self._configure_access_form(commander_form)
         self.commander_call = QLineEdit()
         self.commander_call.setPlaceholderText("Station commander callsign")
         self.commander_password = QLineEdit()
@@ -108,16 +120,19 @@ class BbsPage(QWidget):
         actions.addWidget(unlock)
         actions.addWidget(disable)
         self.commander_state = QLabel("Commander locked")
-        commander_help = QLabel(
+        self.commander_help = QLabel(
             "The commander is this local BBS administrator. The commander can "
             "unlock local security controls and assign station roles; this is "
             "not the callsign used to sign in to a remote BBS."
         )
-        commander_help.setWordWrap(True)
-        commander_help.setObjectName("Muted")
+        self.commander_help.setWordWrap(True)
+        self.commander_help.setObjectName("Muted")
+        self.commander_help.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+        )
         commander_form.addRow("Commander", self.commander_call)
         commander_form.addRow("Password", self.commander_password)
-        commander_form.addRow("Role", commander_help)
+        commander_form.addRow(self.commander_help)
         commander_form.addRow(actions)
         commander_form.addRow("Local controls", self.commander_state)
         enable.clicked.connect(self._enable_protection)
@@ -127,13 +142,16 @@ class BbsPage(QWidget):
 
         roles = QFrame()
         roles.setObjectName("Card")
+        self.roles_card = roles
         roles_form = QFormLayout(roles)
+        self._configure_access_form(roles_form)
         self.role_call = QLineEdit()
         self.role_call.setPlaceholderText("Callsign")
         self.role = QComboBox()
         self.role.addItems(["user", "operator", "commander"])
         apply_role = QPushButton("Apply Role")
         self.role_list = QListWidget()
+        self.role_list.setMinimumHeight(90)
         roles_form.addRow("Callsign", self.role_call)
         roles_form.addRow("Role", self.role)
         roles_form.addRow(apply_role)
@@ -143,7 +161,16 @@ class BbsPage(QWidget):
         )
         layout.addWidget(roles)
         layout.addStretch()
-        return widget
+        scroll.setWidget(widget)
+        return scroll
+
+    @staticmethod
+    def _configure_access_form(form: QFormLayout) -> None:
+        form.setContentsMargins(18, 18, 18, 18)
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(10)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
 
     def set_security(self, enabled: bool, commander_state: str) -> None:
         self.security_banner.setText(

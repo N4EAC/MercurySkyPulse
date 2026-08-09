@@ -240,11 +240,18 @@ mercury-skypulse
 
 Alternatively, after installation, run `python -m presentation`.
 
-Known macOS development-launch limitation: although interpreter-based launches
-set Qt metadata, the native process name, and the Cocoa application-menu item,
-the system menu can still display **Python**. A packaged `.app` with MercurySkyPulse
-bundle metadata is expected to be the reliable resolution; that packaging work is
-not yet implemented.
+An interpreter launch can still display **Python** in the macOS menu bar because
+macOS identifies the Python host bundle. Build and launch the named application
+bundle for the correct **MercurySkyPulse** menu:
+
+```bash
+./build.app.sh
+open dist/MercurySkyPulse.app
+```
+
+The script creates an isolated build environment, runs the aggregate tests, and
+produces an unsigned engineering `.app` with MercurySkyPulse bundle metadata.
+Generated `build/`, `dist/`, and `.venv-build-macos/` content is ignored by Git.
 
 ### Windows test executable
 

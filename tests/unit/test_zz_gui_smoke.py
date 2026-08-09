@@ -190,6 +190,27 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.chat_page.local_call.text(), "K1CHAT")
         self.assertEqual(self.window.bbs_page.auth_call.text(), "K1BBS")
 
+    def test_bbs_access_cards_do_not_overlap_at_minimum_window_size(self) -> None:
+        page = self.window.bbs_page
+        page.resize(760, 560)
+        page.show()
+        page.tabs.setCurrentIndex(3)
+        self.app.processEvents()
+
+        cards = (page.sign_in_card, page.commander_card, page.roles_card)
+        positions = [card.mapTo(page, QPoint(0, 0)).y() for card in cards]
+        bottoms = [position + card.height() for position, card in zip(positions, cards)]
+        self.assertLessEqual(bottoms[0], positions[1])
+        self.assertLessEqual(bottoms[1], positions[2])
+        self.assertGreaterEqual(
+            page.commander_help.height(), page.fontMetrics().height() * 2
+        )
+        password_row, _ = page.commander_form.getWidgetPosition(
+            page.commander_password
+        )
+        help_row, _ = page.commander_form.getWidgetPosition(page.commander_help)
+        self.assertGreater(help_row, password_row)
+
 
 if __name__ == "__main__":
     unittest.main()
