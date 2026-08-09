@@ -108,8 +108,16 @@ class BbsPage(QWidget):
         actions.addWidget(unlock)
         actions.addWidget(disable)
         self.commander_state = QLabel("Commander locked")
+        commander_help = QLabel(
+            "The commander is this local BBS administrator. The commander can "
+            "unlock local security controls and assign station roles; this is "
+            "not the callsign used to sign in to a remote BBS."
+        )
+        commander_help.setWordWrap(True)
+        commander_help.setObjectName("Muted")
         commander_form.addRow("Commander", self.commander_call)
         commander_form.addRow("Password", self.commander_password)
+        commander_form.addRow("Role", commander_help)
         commander_form.addRow(actions)
         commander_form.addRow("Local controls", self.commander_state)
         enable.clicked.connect(self._enable_protection)
@@ -150,6 +158,11 @@ class BbsPage(QWidget):
 
     def set_auth(self, state: str) -> None:
         self.auth_state.setText(state)
+
+    def set_station_callsign_once(self, callsign: str) -> None:
+        """Use station identity as the initial remote-BBS login without overwrites."""
+        if not self.auth_call.text().strip():
+            self.auth_call.setText(callsign)
 
     def _authenticate(self) -> None:
         self.authenticate_requested.emit(self.auth_call.text(), self.auth_password.text())

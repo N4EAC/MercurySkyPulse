@@ -542,6 +542,7 @@ class MainWindow(QMainWindow):
         self.beacon_page.send_requested.connect(service.send_now)
         self.beacon_page.disable_requested.connect(service.disable)
         service.config_changed.connect(self.beacon_page.set_config)
+        service.config_changed.connect(self._apply_station_callsign_defaults)
         service.state_changed.connect(self.beacon_page.set_state)
         service.beacon_received.connect(self.beacon_page.set_received)
         service.error_received.connect(self.beacon_page.show_error)
@@ -550,6 +551,13 @@ class MainWindow(QMainWindow):
         )
         if self.location_service:
             self.location_service.current_changed.connect(service.update_location)
+
+    def _apply_station_callsign_defaults(self, config) -> None:
+        callsign = config.callsign.strip()
+        if not callsign:
+            return
+        self.chat_page.set_station_callsign_once(callsign)
+        self.bbs_page.set_station_callsign_once(callsign)
 
     def _connect_ping_service(self) -> None:
         if not self.ping_service:

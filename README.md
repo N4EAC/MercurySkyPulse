@@ -135,6 +135,9 @@ Binary spectrum frames are not parsed while both views are disabled.
 
 ### BBS mailbox
 
+For field-by-field setup, roles, connection steps, and security limitations, see
+the [BBS usage guide](docs/BBS_GUIDE.md).
+
 The BBS tab provides persistent Inbox, Outbox, Bulletins, and Files folders.
 Operators can send addressed private messages, post public bulletins, upload files
 to an application-owned catalog, and request remote catalog files for verified
@@ -194,6 +197,7 @@ MercurySkyPulse/
 │   └── integration/             # Reserved for real-Mercury tests
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── BBS_GUIDE.md
 │   ├── LICENSE_FORMAT.md
 │   ├── PLUGIN_SYSTEM.md
 │   └── decisions/               # Architecture decision records
