@@ -23,12 +23,12 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Pull requests #1–#7 are merged into `main` at `f533e6c`. They contain the
+- Pull requests #1–#8 are merged into `main` at `f2d14a8`. They contain the
   endpoint-profile and safety work, station setup, operational Navigator, the
   attempted macOS menu correction, GitHub Actions v7 updates, and the hardened
-  Windows builder with bundled Mercury 1.9.11 runtime.
-- Current handoff branch: `agent/fix-windows-gps`. It adds the editable GPS
-  serial/COM selector and accepts coordinate fixes whose accuracy is unavailable.
+  Windows builder with bundled Mercury 1.9.11 runtime plus Windows GPS fixes.
+- Current handoff branch: `agent/fix-windows-audio-theme`. It adds OS audio-device
+  fallback, complete dark surface styling, and opt-in spectrum/waterfall defaults.
 - Interpreter-based macOS launches can still display **Python** in the global
   application menu; treat this as a known unresolved packaging issue.
 - The worktree was clean when this handoff was committed. Always recheck
@@ -85,13 +85,17 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
   Navigator routes Overview/Signal/Waterfall dashboard sections, opens Activity,
   and exposes the Inspector plus Activity docks for diagnostics.
 - Menu, toolbar, status bar, scalable fonts, high-DPI behavior, and system/light/
-  dark themes with system/macOS/Windows style presets.
+  dark themes with system/macOS/Windows style presets. Explicit palette and tab,
+  input, header, pane, and viewport styling prevent native white gaps in dark mode.
 - Interpreter launchers set the process name before importing Qt and a Cocoa
   adapter attempts to label the native application-menu item. Manual testing still
   shows **Python**. A packaged `.app` with MercurySkyPulse bundle metadata is the
   recommended next resolution path; do not claim this issue is fixed yet.
 - Live modem status cards, SNR, bitrate, spectrum, and rolling waterfall; spectrum
-  and waterfall can be hidden independently and stop updating while hidden.
+  and waterfall default off, can be enabled independently, and binary frames are
+  not parsed while both views are disabled.
+- Audio selectors prefer Mercury-native capture/playback IDs and use editable
+  operating-system device names as a fallback when Mercury omits either list.
 - GPS setup lists discovered serial/COM ports in an editable selector. Valid fixes
   remain usable when the receiver reports missing or invalid horizontal accuracy.
 - Offscreen GUI construction tests for headless CI.
@@ -233,7 +237,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 151 tests passing.
+- Current aggregate result at this review: 155 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -429,7 +433,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 151 tests passed in 2.694 seconds.
+aggregate suite successfully: 155 tests passed in 2.706 seconds.
 
 Focused suites:
 
@@ -501,9 +505,9 @@ Additional standing decisions:
   must begin with a dummy load, low dBFS drive, and independent PTT observation.
 - The Hamlib catalog is available only when a local Mercury executable can be
   discovered. Its contents vary with the Hamlib backends compiled into that build.
-- Audio selectors populate only after a running Mercury WebSocket publishes its
-  capture/playback lists. Editable fields preserve saved/manual IDs when Mercury
-  or a device is temporarily unavailable.
+- Audio selectors prefer lists published by Mercury WebSocket telemetry. Local
+  operating-system capture/playback names fill missing lists, and editable fields
+  preserve saved/manual IDs when a device is temporarily unavailable.
 - Radio configuration is intentionally managed-local only. Unmanaged-local and
   remote Mercury CAT/PTT settings must be administered on the Mercury host.
 - Tune cleanup is best-effort after a control-socket failure; the application

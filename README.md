@@ -106,7 +106,9 @@ executable for its complete compiled Hamlib catalog with `mercury -K`; the list 
 scrollable and searchable by manufacturer or model. Select a model, a discovered
 COM/USB serial port (or manually enter a device/`ip:port`), and serial speed.
 Mercury's WebSocket-reported capture and playback devices populate editable audio
-selectors. Choose **Save Station I/O and Restart Mercury** to persist the CAT and
+selectors. When Mercury omits either list, locally discovered operating-system
+audio names provide a fallback that Mercury resolves to its native device ID.
+Choose **Save Station I/O and Restart Mercury** to persist the CAT and
 audio device IDs in the application-owned Mercury configuration and restart the
 managed modem once. Mercury remains the only process that opens audio, Hamlib,
 and PTT. External Mercury profiles must be configured at their host.
@@ -118,7 +120,8 @@ disconnects, or closes the application; Mercury retains its independent 60-secon
 hard failsafe. Tuning is refused while an ARQ link is active. Always begin into a
 dummy load at low drive and verify that PTT unkeys.
 
-Audio uses capture/playback IDs reported by Mercury. User stores the station
+Audio prefers capture/playback IDs reported by Mercury and falls back to editable
+local device names when a Mercury list is unavailable. User stores the station
 callsign and Maidenhead grid used by beaconing. GPS contains manual, system/serial
 GPS, history/export, and sharing controls. Saving a valid manual position or
 receiving a valid GPS position also
@@ -127,7 +130,8 @@ manual coordinates produce a direct prompt to enter latitude and longitude. GRID
 calculation is local and does not use an internet geolocation provider.
 
 The Overview page has independent **Spectrum** and **Waterfall** checkboxes. Both
-are enabled by default and may be hidden separately.
+are disabled by default for lower CPU use and may be enabled independently.
+Binary spectrum frames are not parsed while both views are disabled.
 
 ### BBS mailbox
 

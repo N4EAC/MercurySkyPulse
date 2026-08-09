@@ -7,7 +7,7 @@ from enum import Enum
 import os
 import platform
 
-from PySide6.QtGui import QFont, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
 
@@ -118,6 +118,10 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         color: {colors['text']};
         selection-background-color: {colors['accent']};
     }}
+    QDialog > QWidget, QMainWindow > QWidget,
+    QScrollArea, QAbstractScrollArea::viewport {{
+        background: {colors['window']};
+    }}
     QFrame#Card {{
         background: {colors['surface']};
         border: 1px solid {colors['border']};
@@ -134,10 +138,11 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         border-radius: 10px;
         padding: 3px 9px;
     }}
-    QPushButton, QToolButton, QComboBox {{
+    QPushButton, QToolButton, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox {{
         min-height: {control_height}px;
         padding: 0 {padding_x}px;
         background: {colors['surface']};
+        color: {colors['text']};
         border: 1px solid {colors['border']};
         border-radius: {radius}px;
     }}
@@ -167,6 +172,31 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
     QListWidget::item:selected, QTreeWidget::item:selected {{
         background: {colors['accent']};
         color: white;
+    }}
+    QTabWidget::pane {{
+        background: {colors['surface']};
+        border: 1px solid {colors['border']};
+        border-radius: {radius}px;
+    }}
+    QTabBar::tab {{
+        background: {colors['surface_alt']};
+        color: {colors['text']};
+        border: 1px solid {colors['border']};
+        border-bottom: 0;
+        padding: 7px 13px;
+    }}
+    QTabBar::tab:selected {{
+        background: {colors['accent']};
+        color: white;
+    }}
+    QTabBar::tab:hover:!selected {{ background: {colors['surface']}; }}
+    QHeaderView::section {{
+        background: {colors['surface_alt']};
+        color: {colors['text']};
+        border: 0;
+        border-right: 1px solid {colors['border']};
+        border-bottom: 1px solid {colors['border']};
+        padding: 5px;
     }}
     QDockWidget {{
         background: {colors['surface']};
@@ -208,6 +238,18 @@ def apply_appearance(app: QApplication, appearance: Appearance) -> None:
     _set_qt_style(app, appearance.platform)
     dark = _effective_dark(app, appearance.theme)
     colors = DARK if dark else LIGHT
+
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor(colors["window"]))
+    palette.setColor(QPalette.ColorRole.WindowText, QColor(colors["text"]))
+    palette.setColor(QPalette.ColorRole.Base, QColor(colors["surface"]))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(colors["surface_alt"]))
+    palette.setColor(QPalette.ColorRole.Text, QColor(colors["text"]))
+    palette.setColor(QPalette.ColorRole.Button, QColor(colors["surface"]))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(colors["text"]))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(colors["accent"]))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+    app.setPalette(palette)
 
     font = QFont(app.font())
     font.setPointSizeF(9.0 * appearance.scale)

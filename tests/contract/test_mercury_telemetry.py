@@ -13,6 +13,7 @@ from transport.mercury.telemetry.protocol import (
     parse_spectrum_frame,
     parse_status_message,
 )
+from transport.mercury.telemetry.client import MercuryTelemetryClient
 
 
 class MercuryTelemetryContractTests(unittest.TestCase):
@@ -48,6 +49,18 @@ class MercuryTelemetryContractTests(unittest.TestCase):
         self.assertIsNotNone(frame)
         self.assertEqual(8000, frame.sample_rate_hz)
         self.assertEqual(bins, frame.bins_db)
+
+    def test_client_skips_spectrum_parsing_until_visualization_is_enabled(self) -> None:
+        bins = (-100.0, -75.5)
+        payload = struct.pack("<IHH2f", SPECTRUM_MAGIC, len(bins), 8000, *bins)
+        client = MercuryTelemetryClient()
+        received = []
+        client.spectrum_received.connect(received.append)
+        client._on_binary(payload)
+        self.assertEqual(received, [])
+        client.set_spectrum_processing_enabled(True)
+        client._on_binary(payload)
+        self.assertEqual(received[0].bins_db, bins)
 
     def test_parses_bounded_mercury_audio_device_lists(self) -> None:
         parsed = parse_device_list_message(json.dumps({
