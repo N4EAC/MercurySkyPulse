@@ -47,7 +47,9 @@ class MercuryHamlibCatalog(QObject):
         executable = discover_mercury_executable(self.executable)
         if executable is None:
             self.error_received.emit(
-                "Mercury executable not found; Hamlib radio catalog is unavailable"
+                "Mercury executable not found; Hamlib radio catalog is unavailable. "
+                "Install Mercury beside the packaged application, set "
+                "MERCURY_EXECUTABLE, or add Mercury to PATH"
             )
             return
         process = QProcess(self)

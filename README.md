@@ -243,6 +243,19 @@ aggregate test suite, and creates a windowed one-directory test build at
 unsigned engineering build, not an installer or release artifact; Mercury remains
 a separately supplied executable.
 
+For a self-contained test folder, copy a compatible `mercury.exe` beside the
+built application executable:
+
+```text
+dist\MercurySkyPulse\
+├── MercurySkyPulse.exe
+├── mercury.exe
+└── _internal\
+```
+
+MercurySkyPulse discovers that side-by-side executable automatically. It is not
+copied by the builder and must not be committed to this repository.
+
 The builder accepts Python 3.11 or newer through either the Windows `py` launcher
 or `python` on `PATH`. If a build fails, it reports the failed stage and pauses so
 the error remains visible when the batch file was opened by double-clicking. Run
@@ -252,9 +265,11 @@ it from an existing Command Prompt for the clearest diagnostic output.
 
 MercurySkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:
 
-1. `MERCURY_EXECUTABLE`;
-2. the sibling `/Users/eduardo/development/mercury/mercury`-style checkout location; or
-3. `mercury` on `PATH`.
+1. the explicitly configured executable, when endpoint-profile persistence is implemented;
+2. `MERCURY_EXECUTABLE`;
+3. `mercury.exe` beside a packaged `MercurySkyPulse.exe` (`mercury` beside a packaged application on other platforms);
+4. the sibling `/Users/eduardo/development/mercury/mercury`-style checkout location; or
+5. `mercury` on `PATH`.
 
 To select an explicit build:
 

@@ -1,6 +1,6 @@
 # MercurySkyPulse Project Status and Handoff
 
-Last reviewed: 2026-08-08
+Last reviewed: 2026-08-09
 
 This is the primary handoff for a new Codex session with no conversation history.
 Read this file, then `AGENTS.md`, before changing code. The repository described
@@ -23,12 +23,14 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Branch: `agent/station-setup-and-safety`, tracking the same branch on `origin`.
-- The endpoint-profile/safety, radio/tuning, and separate setup work (ADRs
-  0017–0019) are committed, pushed, and represented by draft pull request #1
-  against `main`.
-- The worktree was clean at this handoff. Always recheck `git status` and recent
-  history before editing because the pull request may have advanced.
+- Pull request #1 is merged into `main` at merge commit `0e23ac3`.
+- Current handoff branch: `agent/fix-windows-builder`. It contains the hardened
+  Windows builder plus packaged side-by-side Mercury executable discovery.
+- `agent/update-github-actions` and `agent/fix-macos-menu-name` are also pushed but
+  require separate review/merge. The latter records that interpreter-based macOS
+  launches can still display **Python** in the global application menu.
+- The worktree was clean when this handoff was committed. Always recheck
+  `git status`, remote branches, and recent history before editing.
 
 ## 2. Mandatory architecture
 
@@ -90,6 +92,8 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Optional supervised Mercury child process using `QProcess`.
 - Executable discovery via `MERCURY_EXECUTABLE`, sibling checkout, or `PATH`.
+- Frozen/package builds also discover `mercury.exe` placed beside
+  `MercurySkyPulse.exe` (`mercury` beside packaged applications on other systems).
 - Launch arguments include `-G -U <UI port>` and, when radio setup is enabled,
   documented `-R <model> -A <device>` options plus `-C <application INI>` for CAT
   serial speed; default UI port is 10000.
@@ -220,7 +224,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 145 tests passing.
+- Current aggregate result at this review: 146 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -413,8 +417,8 @@ python -m compileall -q src tests tools
 python tools/run_tests.py all
 ```
 
-Last handoff verification on 2026-08-08 completed source compilation and the
-aggregate suite successfully: 145 tests passed in 2.704 seconds.
+Last handoff verification on 2026-08-09 completed source compilation and the
+aggregate suite successfully: 146 tests passed in 2.740 seconds.
 
 Focused suites:
 

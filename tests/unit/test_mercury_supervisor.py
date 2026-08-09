@@ -29,6 +29,22 @@ class MercurySupervisorTests(unittest.TestCase):
         found = discover_mercury_executable(Path(sys.executable))
         self.assertEqual(Path(sys.executable).resolve(), found)
 
+    def test_frozen_application_discovers_side_by_side_mercury(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            application = Path(directory) / "MercurySkyPulse.exe"
+            application.touch()
+            mercury_name = "mercury.exe" if os.name == "nt" else "mercury"
+            mercury = Path(directory) / mercury_name
+            mercury.touch()
+            mercury.chmod(0o755)
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(sys, "frozen", True, create=True),
+                patch.object(sys, "executable", str(application)),
+            ):
+                found = discover_mercury_executable()
+            self.assertEqual(mercury.resolve(), found)
+
     @unittest.skipIf(os.name == "nt", "fake Mercury uses Unix executable semantics")
     def test_unexpected_exit_schedules_restart(self) -> None:
         config = MercuryProcessConfig(
