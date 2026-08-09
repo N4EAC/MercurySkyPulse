@@ -29,7 +29,9 @@ Mercury as an independent engine and keeping module boundaries explicit.
   UI code consumes application services and typed modem projections.
 - `apps/desktop` is an alternate installed-package launcher.
 - `build.exe.bat` creates an unsigned PyInstaller one-directory Windows test build
-  after running the aggregate suite. Do not commit its `build/` or `dist/` output.
+  after running the aggregate suite. It locates a separately built/supplied
+  Mercury executable and copies it into the generated test package. Do not commit
+  Mercury binaries or the builder's `build/` or `dist/` output.
 - Tests may depend inward or instantiate outer adapters, but production dependencies must follow the architecture.
 
 ## Mercury integration rules
