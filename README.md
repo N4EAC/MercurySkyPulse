@@ -227,11 +227,11 @@ mercury-skypulse
 
 Alternatively, after installation, run `python -m presentation`.
 
-On macOS, interpreter-based development launches set Qt metadata and the native
-Cocoa process name before Qt loads, then explicitly label the native application
-menu after Qt creates it. Completely quit older running instances before verifying
-that the system application menu displays **MercurySkyPulse** rather than
-**Python**.
+Known macOS development-launch limitation: although interpreter-based launches
+set Qt metadata, the native process name, and the Cocoa application-menu item,
+the system menu can still display **Python**. A packaged `.app` with MercurySkyPulse
+bundle metadata is expected to be the reliable resolution; that packaging work is
+not yet implemented.
 
 ### Windows test executable
 

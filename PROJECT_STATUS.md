@@ -26,7 +26,8 @@ manual testing, but it is not yet a production release.
 - Pull request #1 is merged into `main` at merge commit `0e23ac3`; it contains the
   endpoint-profile/safety, radio/tuning, setup-window, and Ubuntu Qt CI work.
 - Current handoff branch: `agent/fix-macos-menu-name`, containing the operational
-  Navigator and native macOS application-menu correction described below.
+  Navigator and an attempted native macOS application-menu correction. Manual
+  testing still shows **Python**; treat this as a known unresolved issue.
 - The separate branch `agent/update-github-actions` is pushed at `81a23d6` and
   updates `actions/checkout` and `actions/setup-python` to v7. It still requires a
   pull request and merge into `main`.
@@ -85,9 +86,10 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
   and exposes the Inspector plus Activity docks for diagnostics.
 - Menu, toolbar, status bar, scalable fonts, high-DPI behavior, and system/light/
   dark themes with system/macOS/Windows style presets.
-- Interpreter launchers set the process name before importing Qt; after Qt creates
-  its native menu, a Cocoa adapter explicitly labels the application-menu item
-  MercurySkyPulse.
+- Interpreter launchers set the process name before importing Qt and a Cocoa
+  adapter attempts to label the native application-menu item. Manual testing still
+  shows **Python**. A packaged `.app` with MercurySkyPulse bundle metadata is the
+  recommended next resolution path; do not claim this issue is fixed yet.
 - Live modem status cards, SNR, bitrate, spectrum, and rolling waterfall; spectrum
   and waterfall can be hidden independently and stop updating while hidden.
 - Offscreen GUI construction tests for headless CI.
@@ -551,6 +553,10 @@ Additional standing decisions:
   still require review.
 - New Window remains a placeholder. Navigator destinations are operational, while
   the Inspector remains read-only shell telemetry; Edit → Setup is implemented.
+- The macOS global application menu still identifies interpreter launches as
+  **Python** despite Qt/process/Cocoa naming attempts. Resolve and verify this in a
+  real MercurySkyPulse `.app` bundle rather than adding more unverified runtime
+  renaming claims.
 - Local web is intentionally read-only, loopback-only, and manually refreshed. It
   has no authentication and must not be exposed beyond loopback without a new ADR.
 - APRS support is coordinate-format compatibility only, not APRS packet or APRS-IS
