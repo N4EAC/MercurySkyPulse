@@ -23,13 +23,12 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Branch: `main`, tracking `origin/main`.
-- `HEAD`: `3a95494 Initial MercurySkyPulse vertical slice`.
-- The endpoint-profile/safety, radio/tuning, and separate setup/privacy work (ADRs
-  0017–0019) are implemented and verified in the working tree but are not committed.
-- The working tree is intentionally dirty with those related source, test, ADR,
-  and documentation changes. Review `git status` and `git diff` before further
-  editing; do not discard or overwrite them.
+- Branch: `agent/station-setup-and-safety`, tracking the same branch on `origin`.
+- The endpoint-profile/safety, radio/tuning, and separate setup work (ADRs
+  0017–0019) are committed, pushed, and represented by draft pull request #1
+  against `main`.
+- The worktree was clean at this handoff. Always recheck `git status` and recent
+  history before editing because the pull request may have advanced.
 
 ## 2. Mandatory architecture
 
@@ -543,8 +542,8 @@ Additional standing decisions:
   compatibility matrix, or supported OS-version policy.
 - No project legal license has been selected; Mercury distribution/GPL obligations
   still require review.
-- Preferences and New Window actions are placeholders. Navigation/inspector docks
-  are mostly shell UI rather than complete workflows.
+- New Window remains a placeholder. Navigation/inspector docks are mostly shell UI
+  rather than complete workflows; Edit → Setup is implemented.
 - Local web is intentionally read-only, loopback-only, and manually refreshed. It
   has no authentication and must not be exposed beyond loopback without a new ADR.
 - APRS support is coordinate-format compatibility only, not APRS packet or APRS-IS
