@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import sys
 
-from PySide6.QtCore import QCoreApplication, QStandardPaths
+from PySide6.QtCore import QCoreApplication, QStandardPaths, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 
