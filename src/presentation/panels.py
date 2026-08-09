@@ -218,13 +218,21 @@ class Dashboard(QWidget):
         self.spectrum_enabled.toggled.connect(self.spectrum_card.setVisible)
         self.waterfall_enabled.toggled.connect(self.waterfall_card.setVisible)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(content)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setWidget(content)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(scroll)
+        layout.addWidget(self.scroll)
+
+    def show_section(self, section: str) -> None:
+        target = {
+            "overview": self.engine_card,
+            "signal": self.snr_card,
+            "waterfall": self.waterfall_card,
+        }.get(section.casefold(), self.engine_card)
+        self.scroll.ensureWidgetVisible(target, 20, 20)
 
     def set_engine_state(self, state: str) -> None:
         labels = {
@@ -278,18 +286,27 @@ class ActivityPanel(QWidget):
         self.log_added.emit(line)
 
 
-def create_navigation_panel() -> QWidget:
-    panel = QWidget()
-    layout = QVBoxLayout(panel)
-    layout.setContentsMargins(10, 10, 10, 10)
-    layout.addWidget(_label("Workspace", "SectionTitle"))
-    navigation = QListWidget()
-    navigation.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-    for label in ("Overview", "Signal", "Waterfall", "Activity", "Diagnostics"):
-        QListWidgetItem(label, navigation)
-    navigation.setCurrentRow(0)
-    layout.addWidget(navigation, 1)
-    return panel
+class NavigationPanel(QWidget):
+    destination_requested = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.addWidget(_label("Workspace", "SectionTitle"))
+        self.navigation = QListWidget()
+        self.navigation.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        for label in ("Overview", "Signal", "Waterfall", "Activity", "Diagnostics"):
+            QListWidgetItem(label, self.navigation)
+        self.navigation.setCurrentRow(0)
+        self.navigation.currentTextChanged.connect(self.destination_requested)
+        layout.addWidget(self.navigation, 1)
+
+
+def create_navigation_panel() -> NavigationPanel:
+    return NavigationPanel()
 
 
 def create_inspector_panel() -> QWidget:
