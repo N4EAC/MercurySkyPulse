@@ -23,12 +23,16 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Branch: `agent/station-setup-and-safety`, tracking the same branch on `origin`.
-- The endpoint-profile/safety, radio/tuning, and separate setup work (ADRs
-  0017–0019) are committed, pushed, and represented by draft pull request #1
-  against `main`.
-- The worktree was clean at this handoff. Always recheck `git status` and recent
-  history before editing because the pull request may have advanced.
+- Pull request #1 is merged into `main` at merge commit `0e23ac3`; it contains the
+  endpoint-profile/safety, radio/tuning, setup-window, and Ubuntu Qt CI work.
+- Current handoff branch: `agent/fix-macos-menu-name`, containing the operational
+  Navigator and an attempted native macOS application-menu correction. Manual
+  testing still shows **Python**; treat this as a known unresolved issue.
+- The separate branch `agent/update-github-actions` is pushed at `81a23d6` and
+  updates `actions/checkout` and `actions/setup-python` to v7. It still requires a
+  pull request and merge into `main`.
+- The worktree was clean when this handoff was committed. Always recheck
+  `git status`, remote branches, and recent history before editing.
 
 ## 2. Mandatory architecture
 
@@ -77,11 +81,15 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 - PySide6 main window with operational Overview, Chat, Beacon, Ping, and BBS tabs.
 - Separate Edit → Setup window prepared for additional configuration categories;
   its initial tabs are Radio, Audio, User, and GPS in that order.
-- Movable, floatable, closable docks for navigation, inspector, and activity.
+- Movable, floatable, closable docks for navigation, inspector, and activity. The
+  Navigator routes Overview/Signal/Waterfall dashboard sections, opens Activity,
+  and exposes the Inspector plus Activity docks for diagnostics.
 - Menu, toolbar, status bar, scalable fonts, high-DPI behavior, and system/light/
   dark themes with system/macOS/Windows style presets.
-- Qt display metadata plus a process-lifetime-safe native macOS program name keep
-  the application menu labeled MercurySkyPulse even for interpreter launches.
+- Interpreter launchers set the process name before importing Qt and a Cocoa
+  adapter attempts to label the native application-menu item. Manual testing still
+  shows **Python**. A packaged `.app` with MercurySkyPulse bundle metadata is the
+  recommended next resolution path; do not claim this issue is fixed yet.
 - Live modem status cards, SNR, bitrate, spectrum, and rolling waterfall; spectrum
   and waterfall can be hidden independently and stop updating while hidden.
 - Offscreen GUI construction tests for headless CI.
@@ -220,7 +228,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 145 tests passing.
+- Current aggregate result at this review: 147 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -283,7 +291,8 @@ Most important implementation files:
 | `src/application/radio.py` | Persisted radio selection and bounded tuning workflow |
 | `src/platform_runtime/hamlib_catalog.py` | Mercury `-K` Hamlib catalog adapter |
 | `src/platform_runtime/station_devices.py` | Cross-platform COM/USB serial-port discovery |
-| `src/platform_runtime/macos_application.py` | Native macOS application-menu process metadata |
+| `src/platform_runtime/macos_application.py` | Native macOS process metadata and Cocoa application-menu labeling |
+| `src/presentation/__init__.py` | Qt-free launcher bootstrap for native process metadata |
 | `src/presentation/setup_window.py` | Radio/Audio/User/GPS configuration window |
 | `src/platform_runtime/local_web.py` | Loopback-only read-only HTTP adapter |
 | `tests/unit/test_architecture_layers.py` | Mercury/application dependency enforcement |
@@ -414,7 +423,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-08 completed source compilation and the
-aggregate suite successfully: 145 tests passed in 2.704 seconds.
+aggregate suite successfully: 147 tests passed in 2.723 seconds.
 
 Focused suites:
 
@@ -542,8 +551,12 @@ Additional standing decisions:
   compatibility matrix, or supported OS-version policy.
 - No project legal license has been selected; Mercury distribution/GPL obligations
   still require review.
-- New Window remains a placeholder. Navigation/inspector docks are mostly shell UI
-  rather than complete workflows; Edit → Setup is implemented.
+- New Window remains a placeholder. Navigator destinations are operational, while
+  the Inspector remains read-only shell telemetry; Edit → Setup is implemented.
+- The macOS global application menu still identifies interpreter launches as
+  **Python** despite Qt/process/Cocoa naming attempts. Resolve and verify this in a
+  real MercurySkyPulse `.app` bundle rather than adding more unverified runtime
+  renaming claims.
 - Local web is intentionally read-only, loopback-only, and manually refreshed. It
   has no authentication and must not be exposed beyond loopback without a new ADR.
 - APRS support is coordinate-format compatibility only, not APRS packet or APRS-IS

@@ -63,6 +63,24 @@ class GuiSmokeTests(unittest.TestCase):
             self.assertTrue(features & QDockWidget.DockWidgetFeature.DockWidgetMovable)
             self.assertTrue(features & QDockWidget.DockWidgetFeature.DockWidgetFloatable)
 
+    def test_navigator_routes_to_dashboard_sections_and_docks(self) -> None:
+        self.window.tabs.setCurrentWidget(self.window.chat_page)
+        self.window.navigation_panel.navigation.setCurrentRow(1)
+        self.app.processEvents()
+        self.assertIs(self.window.tabs.currentWidget(), self.window.dashboard)
+
+        activity = self.window._docks["activity"]
+        activity.hide()
+        self.window.navigation_panel.navigation.setCurrentRow(3)
+        self.app.processEvents()
+        self.assertFalse(activity.isHidden())
+
+        inspector = self.window._docks["inspector"]
+        inspector.hide()
+        self.window.navigation_panel.navigation.setCurrentRow(4)
+        self.app.processEvents()
+        self.assertFalse(inspector.isHidden())
+
     def test_spectrum_and_waterfall_can_be_hidden_independently(self) -> None:
         self.window.dashboard.spectrum_enabled.setChecked(False)
         self.assertTrue(self.window.dashboard.spectrum_card.isHidden())
