@@ -185,6 +185,8 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 - Salted scrypt verifier at rest and 60-second nonce/HMAC-SHA-256 proof exchange;
   the plaintext password is neither stored nor transmitted.
 - `user`, `operator`, and `commander` roles with centralized permission checks.
+- Saving the station callsign initializes blank Chat and remote-BBS login
+  callsign fields once without overwriting later operator edits.
 - Protected sender/file-owner fields must match the authenticated callsign.
 - Authentication state and challenges are cleared on disconnect.
 

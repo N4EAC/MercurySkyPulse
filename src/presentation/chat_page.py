@@ -136,6 +136,11 @@ class ChatPage(QWidget):
     def set_state(self, state: str) -> None:
         self.link_state.setText(f"TNC: {state}")
 
+    def set_station_callsign_once(self, callsign: str) -> None:
+        """Use station identity as the initial chat identity without overriding edits."""
+        if not self.local_call.text().strip():
+            self.local_call.setText(callsign)
+
     def show_error(self, message: str) -> None:
         self.link_state.setText(message)
         self.link_state.setToolTip(message)

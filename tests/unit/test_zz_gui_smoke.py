@@ -6,6 +6,7 @@ This module sorts last because Qt owns process-level application teardown.
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -173,6 +174,21 @@ class GuiSmokeTests(unittest.TestCase):
             ("capture:native", "playback:native"),
         )
         page.deleteLater()
+
+    def test_station_callsign_populates_chat_and_bbs_once(self) -> None:
+        self.window._apply_station_callsign_defaults(
+            SimpleNamespace(callsign="N0CALL")
+        )
+        self.assertEqual(self.window.chat_page.local_call.text(), "N0CALL")
+        self.assertEqual(self.window.bbs_page.auth_call.text(), "N0CALL")
+
+        self.window.chat_page.local_call.setText("K1CHAT")
+        self.window.bbs_page.auth_call.setText("K1BBS")
+        self.window._apply_station_callsign_defaults(
+            SimpleNamespace(callsign="W2NEW")
+        )
+        self.assertEqual(self.window.chat_page.local_call.text(), "K1CHAT")
+        self.assertEqual(self.window.bbs_page.auth_call.text(), "K1BBS")
 
 
 if __name__ == "__main__":
