@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import os
 from pathlib import Path
 import shutil
@@ -12,8 +12,15 @@ from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, Signa
 
 @dataclass(frozen=True, slots=True)
 class MercuryProcessConfig:
+    managed: bool = True
     executable: Path | None = None
     ui_port: int = 10000
+    radio_model: int | None = None
+    radio_address: str | None = None
+    radio_serial_speed: int = 0
+    input_device: str | None = None
+    output_device: str | None = None
+    config_file: Path | None = None
     extra_arguments: tuple[str, ...] = ()
     restart_delays_ms: tuple[int, ...] = (1000, 2000, 4000, 8000, 15000, 30000)
 
@@ -86,6 +93,10 @@ class MercuryProcessSupervisor(QObject):
         return self._resolved_executable
 
     def start(self) -> None:
+        if not self.config.managed:
+            self._intended_running = False
+            self._set_state("external")
+            return
         self._intended_running = True
         self._restart_attempt = 0
         self._restart_timer.stop()
@@ -93,6 +104,9 @@ class MercuryProcessSupervisor(QObject):
             self._spawn()
 
     def restart_now(self) -> None:
+        if not self.config.managed:
+            self._set_state("external")
+            return
         self._intended_running = True
         self._restart_attempt = 0
         self._restart_timer.stop()
@@ -102,6 +116,42 @@ class MercuryProcessSupervisor(QObject):
         self._set_state("restarting")
         self.process.terminate()
         QTimer.singleShot(2500, self._kill_for_restart_if_needed)
+
+    def configure_radio(self, model_id: int | None, address: str | None,
+                        serial_speed: int = 0) -> None:
+        """Apply documented Hamlib startup options and restart owned Mercury."""
+        self.configure_station(
+            model_id, address, serial_speed,
+            self.config.input_device, self.config.output_device,
+        )
+
+    def configure_station(self, model_id: int | None, address: str | None,
+                          serial_speed: int = 0,
+                          input_device: str | None = None,
+                          output_device: str | None = None) -> None:
+        """Apply documented CAT/audio configuration and restart owned Mercury."""
+        if not self.config.managed:
+            raise RuntimeError("Cannot configure radio on an externally managed Mercury")
+        if model_id is not None and model_id <= 0:
+            raise ValueError("Hamlib radio model must be a positive integer")
+        if address is not None and (
+            len(address) > 512 or any(character in address for character in "\r\n\0")
+        ):
+            raise ValueError("Radio address is invalid")
+        if serial_speed not in {0, 1200, 2400, 4800, 9600, 19200, 38400,
+                                57600, 115200, 230400}:
+            raise ValueError("Unsupported CAT serial speed")
+        for label, device in (("Input", input_device), ("Output", output_device)):
+            if device is not None and (
+                len(device) > 512 or any(character in device for character in "\r\n\0")
+            ):
+                raise ValueError(f"{label} audio device is invalid")
+        self.config = replace(
+            self.config, radio_model=model_id, radio_address=address or None,
+            radio_serial_speed=serial_speed,
+            input_device=input_device or None, output_device=output_device or None,
+        )
+        self.restart_now()
 
     def stop(self) -> None:
         self._intended_running = False
@@ -140,7 +190,15 @@ class MercuryProcessSupervisor(QObject):
 
         self._resolved_executable = executable
         self.executable_resolved.emit(str(executable))
-        arguments = ["-G", "-U", str(self.config.ui_port), *self.config.extra_arguments]
+        arguments = ["-G", "-U", str(self.config.ui_port)]
+        if self.config.config_file is not None:
+            self._write_application_config()
+            arguments.extend(("-C", str(self.config.config_file)))
+        if self.config.radio_model is not None:
+            arguments.extend(("-R", str(self.config.radio_model)))
+        if self.config.radio_address:
+            arguments.extend(("-A", self.config.radio_address))
+        arguments.extend(self.config.extra_arguments)
         environment = QProcessEnvironment.systemEnvironment()
         self.process.setProcessEnvironment(environment)
         self.process.setWorkingDirectory(str(executable.parent))
@@ -148,6 +206,31 @@ class MercuryProcessSupervisor(QObject):
         self.process.setArguments(arguments)
         self._set_state("starting")
         self.process.start()
+
+    def _write_application_config(self) -> None:
+        path = self.config.config_file
+        if path is None:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(path.suffix + ".tmp")
+        contents = (
+            "[main]\n"
+            f"radio_serial_speed = {self.config.radio_serial_speed}\n"
+            + (
+                f'input_device = "{self._escape_ini(self.config.input_device)}"\n'
+                if self.config.input_device else ""
+            )
+            + (
+                f'output_device = "{self._escape_ini(self.config.output_device)}"\n'
+                if self.config.output_device else ""
+            )
+        )
+        temporary.write_text(contents, encoding="utf-8")
+        temporary.replace(path)
+
+    @staticmethod
+    def _escape_ini(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"')
 
     def _on_started(self) -> None:
         self._stable_timer.start()

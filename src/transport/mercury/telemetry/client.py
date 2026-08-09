@@ -6,16 +6,24 @@ from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtNetwork import QAbstractSocket
 from PySide6.QtWebSockets import QWebSocket, QWebSocketProtocol
 
-from .protocol import parse_spectrum_frame, parse_status_message
+from .protocol import (
+    parse_device_list_message,
+    parse_spectrum_frame,
+    parse_status_message,
+)
 
 
 class MercuryTelemetryClient(QObject):
     status_received = Signal(object)
     spectrum_received = Signal(object)
+    audio_devices_received = Signal(str, object, str)
     state_changed = Signal(str)
     error_received = Signal(str)
 
-    def __init__(self, url: str = "ws://127.0.0.1:10000/websocket", parent=None) -> None:
+    def __init__(self, url: str = "ws://127.0.0.1:10000/websocket",
+                 reconnect_initial_ms: int = 500,
+                 reconnect_maximum_ms: int = 8000,
+                 reconnect_multiplier: float = 2.0, parent=None) -> None:
         super().__init__(parent)
         self.url = QUrl(url)
         self.socket = QWebSocket(
@@ -33,6 +41,9 @@ class MercuryTelemetryClient(QObject):
         self._intended_running = False
         self._attempt = 0
         self._state = "disconnected"
+        self._reconnect_initial_ms = reconnect_initial_ms
+        self._reconnect_maximum_ms = reconnect_maximum_ms
+        self._reconnect_multiplier = reconnect_multiplier
 
     @property
     def state(self) -> str:
@@ -73,11 +84,20 @@ class MercuryTelemetryClient(QObject):
         self._set_state("disconnected")
         if not self._intended_running:
             return
-        delay = min(8000, 500 * (2 ** min(self._attempt, 4)))
+        delay = min(
+            self._reconnect_maximum_ms,
+            int(self._reconnect_initial_ms * (
+                self._reconnect_multiplier ** min(self._attempt, 32)
+            )),
+        )
         self._attempt += 1
         self._reconnect_timer.start(delay)
 
     def _on_text(self, payload: str) -> None:
+        device_list = parse_device_list_message(payload)
+        if device_list is not None:
+            self.audio_devices_received.emit(*device_list)
+            return
         status = parse_status_message(payload)
         if status is not None:
             self.status_received.emit(status)

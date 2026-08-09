@@ -46,7 +46,7 @@ thumbnail is shown in the transfer UI. Source images are never modified.
 
 ### Position and GPS
 
-The Location tab accepts manual decimal latitude/longitude or APRS-compatible
+The Setup window's GPS tab accepts manual decimal latitude/longitude or APRS-compatible
 `DDMM.mmN/DDDMM.mmE` coordinates. It can use the operating system location source
 or a serial NMEA GPS receiver at 4800 baud. Manual position is retained locally;
 GPS fixes are not stored as history.
@@ -58,7 +58,7 @@ coordinate compatibility only; MercurySkyPulse does not transmit APRS packets or
 connect to APRS-IS.
 
 GPS track retention is disabled by default. Enable **Retain GPS location updates**
-to store subsequent fixes with timestamps and optional accuracy. The Location tab
+to store subsequent fixes with timestamps and optional accuracy. The GPS setup tab
 shows the retained point count and exports the track as GPX, Google Earth KML,
 GeoJSON, or latitude/longitude CSV. Disabling retention stops new points but keeps
 existing history available for later export.
@@ -86,6 +86,39 @@ and application path. Pings time out after 15 seconds and only one may be active
 Mercury's current telemetry does not expose its exact FreeDV modulation name, so
 the mode is reported as `ARQ` or `idle` unless Mercury supplies a future `mode` or
 `modem_mode` status field.
+
+### Station setup, radio, and tuning
+
+Edit → **Setup…** opens a separate window with **Radio**, **Audio**, **User**, and
+**GPS** tabs. The main window remains focused on operating views. Radio configures
+CAT and PTT without making MercurySkyPulse a second
+radio controller. For a managed local engine, it asks the selected Mercury
+executable for its complete compiled Hamlib catalog with `mercury -K`; the list is
+scrollable and searchable by manufacturer or model. Select a model, a discovered
+COM/USB serial port (or manually enter a device/`ip:port`), and serial speed.
+Mercury's WebSocket-reported capture and playback devices populate editable audio
+selectors. Choose **Save Station I/O and Restart Mercury** to persist the CAT and
+audio device IDs in the application-owned Mercury configuration and restart the
+managed modem once. Mercury remains the only process that opens audio, Hamlib,
+and PTT. External Mercury profiles must be configured at their host.
+
+The Tune control sends Mercury's documented 1000 Hz `TUNE` carrier at the absolute
+slider level from -60 through 0 dBFS. The last slider position is remembered.
+MercurySkyPulse sends `TUNE OFF` after 12 seconds or when the operator stops,
+disconnects, or closes the application; Mercury retains its independent 60-second
+hard failsafe. Tuning is refused while an ARQ link is active. Always begin into a
+dummy load at low drive and verify that PTT unkeys.
+
+Audio uses capture/playback IDs reported by Mercury. User stores the station
+callsign and Maidenhead grid used by beaconing. GPS contains manual, system/serial
+GPS, history/export, and sharing controls. Saving a valid manual position or
+receiving a valid GPS position also
+recalculates the proposed User-tab GRID, replacing stale placeholder text. Blank
+manual coordinates produce a direct prompt to enter latitude and longitude. GRID
+calculation is local and does not use an internet geolocation provider.
+
+The Overview page has independent **Spectrum** and **Waterfall** checkboxes. Both
+are enabled by default and may be hidden separately.
 
 ### BBS mailbox
 
@@ -165,7 +198,15 @@ in [`docs/decisions/README.md`](docs/decisions/README.md).
 
 ## Mercury dependency
 
-Mercury is an external runtime dependency, not a source dependency. During development it may be launched from a separately checked-out Mercury repository or addressed on another host. A future configuration layer will supply host names, ports, process paths, and lifecycle policy without leaking those details into the domain layer.
+Mercury is an external runtime dependency, not a source dependency. During
+development it may be launched from a separately checked-out Mercury repository
+or addressed on another host. `application.endpoints` defines typed managed-local,
+unmanaged-local, and remote profiles for independent control, data, KISS, and
+WebSocket endpoints, executable selection, reconnect policy, and receive limits.
+The current desktop uses the backward-compatible managed-loopback default; a
+preferences UI and persisted profile loader are not yet implemented. Remote
+profiles require explicit acceptance that Mercury TNC/KISS traffic is not
+authenticated or encrypted.
 
 The architecture and intended dependency rules are described in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Planned implementation stages are in [`ROADMAP.md`](ROADMAP.md).
 
@@ -181,6 +222,26 @@ mercury-skypulse
 ```
 
 Alternatively, after installation, run `python -m presentation`.
+
+On macOS, interpreter-based development launches set both Qt metadata and the
+native Cocoa process name so the system application menu displays
+**MercurySkyPulse** rather than **Python**.
+
+### Windows test executable
+
+On a Windows 10 or 11 development machine with Python 3.11 or newer installed,
+run the repository-root builder from Command Prompt:
+
+```bat
+build.exe.bat
+```
+
+The script creates/reuses `.venv`, installs the project and PyInstaller, runs the
+aggregate test suite, and creates a windowed one-directory test build at
+`dist\MercurySkyPulse\MercurySkyPulse.exe`. Copy the entire
+`dist\MercurySkyPulse` directory when testing on another computer. This is an
+unsigned engineering build, not an installer or release artifact; Mercury remains
+a separately supplied executable.
 
 ### Mercury executable
 
@@ -276,9 +337,9 @@ and unsafe input. GUI smoke tests construct all primary pages and dock panels wi
 Qt's offscreen platform. `.github/workflows/tests.yml` runs the aggregate suite on
 Linux, macOS, and Windows using supported Python versions.
 
-Before release, the project still needs endpoint profiles, bounded hostile-input
-handling, real-Mercury integration tests, further plugin migration, packaging,
-and platform/legal decisions described in the roadmap.
+Before release, the project still needs a persisted endpoint-profile UI,
+real-Mercury integration tests, further plugin migration, packaging, and
+platform/legal decisions described in the roadmap.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes.
 

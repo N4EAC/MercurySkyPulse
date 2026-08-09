@@ -67,6 +67,18 @@ class ApplicationMessagingClient(QObject):
     def disconnect_station(self) -> None:
         self.transport.send_control("DISCONNECT")
 
+    def start_tune(self, level_dbfs: int) -> None:
+        level = int(level_dbfs)
+        if not -60 <= level <= 0:
+            raise ValueError("Mercury tune level must be between -60 and 0 dBFS")
+        self.transport.send_control(f"TUNE {level}")
+
+    def set_tune_level(self, level_dbfs: int) -> None:
+        self.start_tune(level_dbfs)
+
+    def stop_tune(self) -> None:
+        self.transport.send_control("TUNE OFF")
+
     def send_message(self, message_id: str, timestamp: str, text: str) -> None:
         self.transport.write(encode_message(message_id, timestamp, text))
         self.message_sent.emit(message_id)
@@ -82,9 +94,14 @@ class ApplicationMessagingClient(QObject):
         for envelope in self._decoder.feed(data):
             if envelope.kind == "message":
                 self.message_received.emit(envelope)
-                self.transport.write(encode_ack(
-                    envelope.message_id, datetime.now(UTC).isoformat()
-                ))
+                try:
+                    self.transport.write(encode_ack(
+                        envelope.message_id, datetime.now(UTC).isoformat()
+                    ))
+                except (OSError, RuntimeError) as error:
+                    self.error_received.emit(
+                        f"Could not acknowledge received message: {error}"
+                    )
             elif envelope.kind == "ack":
                 self.message_delivered.emit(envelope.message_id)
             elif envelope.kind.startswith("file_"):

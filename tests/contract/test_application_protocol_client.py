@@ -22,11 +22,15 @@ class FakeByteTransport(QObject):
         self.controls = []
         self.writes = []
         self.started = False
+        self.write_error = None
 
     def start(self): self.started = True
     def stop(self): self.started = False
     def send_control(self, command): self.controls.append(command)
-    def write(self, payload): self.writes.append(payload)
+    def write(self, payload):
+        if self.write_error:
+            raise self.write_error
+        self.writes.append(payload)
     def write_ready(self): return True
 
 
@@ -56,6 +60,18 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertEqual(received[0].text, "hello")
         self.assertTrue(self.transport.writes[-1].startswith(b"MSP1"))
 
+    def test_acknowledgement_disconnect_race_is_reported(self) -> None:
+        received, errors = [], []
+        self.client.message_received.connect(received.append)
+        self.client.error_received.connect(errors.append)
+        self.transport.write_error = RuntimeError("station link disconnected")
+        self.transport.data_received.emit(encode_message("incoming", self.now, "hello"))
+        self.assertEqual([item.text for item in received], ["hello"])
+        self.assertEqual(
+            errors,
+            ["Could not acknowledge received message: station link disconnected"],
+        )
+
     def test_feature_events_are_routed_above_mercury_transport(self) -> None:
         files, bbs, pings = [], [], []
         self.client.file_event_received.connect(files.append)
@@ -77,6 +93,16 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.transport.data_received.emit(encode_ack("sent", self.now))
         self.assertEqual(delivered, ["sent"])
         self.assertEqual(self.transport.controls, [])
+
+    def test_tune_uses_documented_mercury_control_commands(self) -> None:
+        self.client.start_tune(-15)
+        self.client.set_tune_level(-10)
+        self.client.stop_tune()
+        self.assertEqual(
+            self.transport.controls, ["TUNE -15", "TUNE -10", "TUNE OFF"]
+        )
+        with self.assertRaises(ValueError):
+            self.client.start_tune(1)
 
 
 if __name__ == "__main__":

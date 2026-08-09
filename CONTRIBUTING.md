@@ -28,6 +28,8 @@ Mercury as an independent engine and keeping module boundaries explicit.
 - `presentation` owns PySide6 UI coordination and the current composition root;
   UI code consumes application services and typed modem projections.
 - `apps/desktop` is an alternate installed-package launcher.
+- `build.exe.bat` creates an unsigned PyInstaller one-directory Windows test build
+  after running the aggregate suite. Do not commit its `build/` or `dist/` output.
 - Tests may depend inward or instantiate outer adapters, but production dependencies must follow the architecture.
 
 ## Mercury integration rules

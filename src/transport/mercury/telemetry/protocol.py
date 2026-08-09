@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import struct
+from dataclasses import dataclass
 
 from application.modem import ModemStatus, SpectrumFrame
 
@@ -12,6 +13,13 @@ from application.modem import ModemStatus, SpectrumFrame
 SPECTRUM_MAGIC = 0x4D435259
 SPECTRUM_HEADER = struct.Struct("<IHH")
 MAX_SPECTRUM_BINS = 4096
+MAX_DEVICE_COUNT = 64
+
+
+@dataclass(frozen=True, slots=True)
+class MercuryDevice:
+    name: str
+    identifier: str
 
 
 def _finite_float(value: object, default: float = 0.0) -> float:
@@ -54,6 +62,36 @@ def parse_status_message(payload: str | bytes) -> ModemStatus | None:
             raw.get("modem_mode", raw.get("mode", "ARQ" if raw.get("sync") else "idle"))
         )[:32],
     )
+
+
+def parse_device_list_message(
+    payload: str | bytes,
+) -> tuple[str, tuple[MercuryDevice, ...], str] | None:
+    """Parse Mercury's bounded capture/playback device-list message."""
+    try:
+        raw = json.loads(payload)
+    except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    message_type = raw.get("type")
+    if message_type not in {"capture_dev_list", "playback_dev_list"}:
+        return None
+    entries = raw.get("list")
+    if not isinstance(entries, list) or len(entries) > MAX_DEVICE_COUNT:
+        return None
+    devices: list[MercuryDevice] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            return None
+        name = entry.get("name")
+        identifier = entry.get("id")
+        if not isinstance(name, str) or not isinstance(identifier, str):
+            return None
+        if not identifier or len(name) > 256 or len(identifier) > 512:
+            return None
+        devices.append(MercuryDevice(name, identifier))
+    return str(message_type), tuple(devices), str(raw.get("selected", ""))[:512]
 
 
 def parse_spectrum_frame(payload: bytes) -> SpectrumFrame | None:

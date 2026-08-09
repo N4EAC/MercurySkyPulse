@@ -9,6 +9,7 @@ import unittest
 
 from transport.mercury.telemetry.protocol import (
     SPECTRUM_MAGIC,
+    parse_device_list_message,
     parse_spectrum_frame,
     parse_status_message,
 )
@@ -47,6 +48,27 @@ class MercuryTelemetryContractTests(unittest.TestCase):
         self.assertIsNotNone(frame)
         self.assertEqual(8000, frame.sample_rate_hz)
         self.assertEqual(bins, frame.bins_db)
+
+    def test_parses_bounded_mercury_audio_device_lists(self) -> None:
+        parsed = parse_device_list_message(json.dumps({
+            "type": "capture_dev_list",
+            "selected": "capture:2",
+            "list": [
+                {"name": "USB Audio CODEC", "id": "capture:2"},
+                {"name": "Built-in", "id": "capture:1"},
+            ],
+        }))
+        self.assertEqual(parsed[0], "capture_dev_list")
+        self.assertEqual(parsed[1][0].name, "USB Audio CODEC")
+        self.assertEqual(parsed[1][0].identifier, "capture:2")
+        self.assertEqual(parsed[2], "capture:2")
+
+    def test_rejects_oversized_audio_device_lists(self) -> None:
+        payload = json.dumps({
+            "type": "playback_dev_list",
+            "list": [{"name": "speaker", "id": str(i)} for i in range(65)],
+        })
+        self.assertIsNone(parse_device_list_message(payload))
 
     def test_rejects_malformed_external_payloads(self) -> None:
         self.assertIsNone(parse_status_message("not json"))

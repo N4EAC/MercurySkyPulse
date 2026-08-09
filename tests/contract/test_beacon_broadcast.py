@@ -35,6 +35,12 @@ class BeaconBroadcastContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_beacon(b"not-a-beacon")
 
+    def test_kiss_decoder_rejects_unbounded_input(self) -> None:
+        decoder = KissDecoder(maximum_frame_bytes=16, maximum_buffer_bytes=20)
+        self.assertEqual(decoder.feed(b"X" * 21), [])
+        self.assertEqual(decoder.buffer, bytearray())
+        self.assertEqual(decoder.malformed_frame_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

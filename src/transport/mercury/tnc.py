@@ -14,9 +14,22 @@ class MercuryTncTransport(QObject):
     data_received = Signal(bytes)
     error_received = Signal(str)
 
-    def __init__(self, host: str = "127.0.0.1", base_port: int = 8300, parent=None) -> None:
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        control_port: int = 8300,
+        data_host: str | None = None,
+        data_port: int = 8301,
+        reconnect_delay_ms: int = 1000,
+        maximum_control_line_bytes: int = 4096,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
-        self.host, self.base_port = host, base_port
+        self.host, self.control_port = host, control_port
+        self.data_host, self.data_port = data_host or host, data_port
+        self.reconnect_delay_ms = reconnect_delay_ms
+        self.maximum_control_line_bytes = maximum_control_line_bytes
+        self.malformed_input_count = 0
         self.control, self.data = QTcpSocket(self), QTcpSocket(self)
         self.control.readyRead.connect(self._read_control)
         self.data.readyRead.connect(lambda: self.data_received.emit(bytes(self.data.readAll())))
@@ -67,9 +80,9 @@ class MercuryTncTransport(QObject):
             return
         self._set_state("connecting-tnc")
         if self.control.state() == QAbstractSocket.SocketState.UnconnectedState:
-            self.control.connectToHost(self.host, self.base_port)
+            self.control.connectToHost(self.host, self.control_port)
         if self.data.state() == QAbstractSocket.SocketState.UnconnectedState:
-            self.data.connectToHost(self.host, self.base_port + 1)
+            self.data.connectToHost(self.data_host, self.data_port)
 
     def _update_ready(self) -> None:
         if (self.control.state() == QAbstractSocket.SocketState.ConnectedState
@@ -79,20 +92,33 @@ class MercuryTncTransport(QObject):
     def _schedule_reconnect(self) -> None:
         if self._intended:
             self._set_state("disconnected")
-            self._timer.start(1000)
+            self._timer.start(self.reconnect_delay_ms)
 
     def _socket_error(self, error: QAbstractSocket.SocketError) -> None:
         if error != QAbstractSocket.SocketError.ConnectionRefusedError:
             self.error_received.emit(self.sender().errorString())
 
     def _read_control(self) -> None:
-        self._control_buffer.extend(bytes(self.control.readAll()))
+        self._read_control_bytes(bytes(self.control.readAll()))
+
+    def _read_control_bytes(self, data: bytes) -> None:
+        self._control_buffer.extend(data)
         while b"\r" in self._control_buffer:
             raw, _, remainder = self._control_buffer.partition(b"\r")
             self._control_buffer = bytearray(remainder)
+            if len(raw) > self.maximum_control_line_bytes:
+                self._reject_control_input("Mercury control line exceeded configured limit")
+                continue
             line = raw.decode("ascii", errors="replace").strip()
             if line:
                 self._handle_control_line(line)
+        if len(self._control_buffer) > self.maximum_control_line_bytes:
+            self._control_buffer.clear()
+            self._reject_control_input("Mercury control buffer exceeded configured limit")
+
+    def _reject_control_input(self, message: str) -> None:
+        self.malformed_input_count += 1
+        self.error_received.emit(message)
 
     def _handle_control_line(self, line: str) -> None:
         self.control_event.emit(line)
