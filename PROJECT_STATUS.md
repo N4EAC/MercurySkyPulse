@@ -27,9 +27,9 @@ manual testing, but it is not yet a production release.
   endpoint-profile and safety work, station setup, operational Navigator, the
   attempted macOS menu correction, GitHub Actions v7 updates, and the hardened
   Windows builder.
-- Current handoff branch and PR #5: `agent/fix-windows-builder`. It adds packaged
-  side-by-side Mercury discovery and makes `build.exe.bat` automatically locate
-  and copy Mercury into the generated Windows test package.
+- Current handoff branch and PR #6: `agent/fix-windows-builder`. The Windows
+  builder now downloads, verifies, and bundles the complete pinned Mercury 1.9.11
+  runtime with its GPL license and corresponding-source URL.
 - Interpreter-based macOS launches can still display **Python** in the global
   application menu; treat this as a known unresolved packaging issue.
 - The worktree was clean when this handoff was committed. Always recheck
@@ -97,10 +97,11 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 ### Mercury process and telemetry
 
-- Optional supervised Mercury child process using `QProcess`.
+- Supervised process-isolated Mercury engine using `QProcess`; it is bundled as a
+  required runtime component in Windows engineering packages.
 - Executable discovery via `MERCURY_EXECUTABLE`, sibling checkout, or `PATH`.
-- Frozen/package builds also discover `mercury.exe` placed beside
-  `MercurySkyPulse.exe` (`mercury` beside packaged applications on other systems).
+- Frozen/package builds prefer `mercury/mercury.exe` inside the application folder
+  and retain the legacy directly adjacent executable lookup.
 - Launch arguments include `-G -U <UI port>` and, when radio setup is enabled,
   documented `-R <model> -A <device>` options plus `-C <application INI>` for CAT
   serial speed; default UI port is 10000.
@@ -318,8 +319,9 @@ Discovery order is:
 
 1. explicit `MercuryProcessConfig.executable` (not currently exposed in UI);
 2. `MERCURY_EXECUTABLE`;
-3. sibling `../mercury/mercury` or `mercury.exe` checkout;
-4. `mercury` on `PATH`.
+3. packaged `mercury/mercury.exe`, then a legacy directly adjacent executable;
+4. sibling `../mercury/mercury` or `mercury.exe` checkout;
+5. `mercury` on `PATH`.
 
 Mercury remains authoritative for audio, CAT, PTT, modem DSP, ARQ, and RF safety.
 
@@ -426,7 +428,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 149 tests passed in 2.675 seconds.
+aggregate suite successfully: 149 tests passed in 2.721 seconds.
 
 Focused suites:
 
@@ -465,6 +467,7 @@ The ADR index is `docs/decisions/README.md`. Accepted decisions are:
 | 0017 | Typed Mercury endpoint profiles and explicit remote safety boundary |
 | 0018 | Mercury-owned Hamlib radio setup and bounded tuning |
 | 0019 | Separate station setup window and local GRID derivation |
+| 0020 | Pinned, checksum-verified Mercury runtime bundled in Windows test packages |
 
 Additional standing decisions:
 
@@ -549,9 +552,10 @@ Additional standing decisions:
 
 - `tests/integration/` is empty: no audio loopback, actual TNC/WebSocket/KISS,
   crash/reconnect, packaging, or RF-safe integration suite.
-- An unsigned PyInstaller one-directory Windows test builder exists, but there is
-  no installer, signed application bundle, update mechanism, release automation,
-  compatibility matrix, or supported OS-version policy.
+- An unsigned PyInstaller one-directory Windows test builder bundles the verified
+  Mercury 1.9.11 portable runtime. There is no installer, signed application
+  bundle, update mechanism, release automation, compatibility matrix, or supported
+  OS-version policy.
 - No project legal license has been selected; Mercury distribution/GPL obligations
   still require review.
 - New Window remains a placeholder. Navigator destinations are operational, while

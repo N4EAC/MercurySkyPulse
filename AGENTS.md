@@ -4,7 +4,12 @@ These instructions apply to the entire MercurySkyPulse repository.
 
 ## Project intent
 
-MercurySkyPulse is a separate application that integrates with Mercury as an independent transport engine. Never modify a Mercury checkout as part of work in this repository unless the user explicitly opens a separate Mercury task and requests it there.
+MercurySkyPulse integrates with Mercury as a process-isolated transport engine.
+Windows engineering packages bundle a pinned, checksum-verified official Mercury
+runtime as required by ADR 0020, while source trees and implementation boundaries
+remain separate. Never modify a Mercury checkout as part of work in this
+repository unless the user explicitly opens a separate Mercury task and requests
+it there.
 
 ## Current project stage
 
@@ -23,7 +28,8 @@ The repository contains a trusted built-in plugin kernel, PySide6 GUI, modular o
 - Keep application framing, compression, chunking, authentication, feature event names, and encryption above Mercury adapters under `src/application_protocol/` or application plugins. Mercury TNC/KISS adapters carry opaque bytes and modem facts only.
 - Never make Mercury responsible for chat, file transfer, BBS, mapping, web, logging, licensing, or other application features.
 - Communicate with Mercury only through documented interfaces. Do not use its private globals or internal data structures.
-- Preserve support for both a separately managed Mercury instance and an optional future managed sidecar process.
+- Preserve the managed bundled Mercury process as the packaged default while
+  retaining typed unmanaged-local and explicitly acknowledged remote profiles.
 - Treat the in-process plugin registry as trusted-built-in modularity only; do not dynamically import third-party code without the out-of-process broker and package trust model.
 
 ## Working rules

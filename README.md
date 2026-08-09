@@ -26,7 +26,9 @@ The Navigator dock routes Overview, Signal, and Waterfall to their dashboard
 sections, opens the Activity log, and exposes the Inspector plus Activity docks
 for diagnostics.
 
-Mercury remains an independent executable and is accessed through its documented UI WebSocket and TNC TCP interfaces.
+Mercury remains a process-isolated engine accessed through its documented UI
+WebSocket and TNC TCP interfaces. Windows test packages include a pinned official
+Mercury runtime so operators do not install or copy it separately.
 
 ### Station chat
 
@@ -202,9 +204,9 @@ in [`docs/decisions/README.md`](docs/decisions/README.md).
 
 ## Mercury dependency
 
-Mercury is an external runtime dependency, not a source dependency. During
-development it may be launched from a separately checked-out Mercury repository
-or addressed on another host. `application.endpoints` defines typed managed-local,
+Mercury is a bundled runtime dependency for Windows engineering packages, not a
+source dependency or in-process library. Source development may still launch a
+separate checkout or address another host. `application.endpoints` defines typed managed-local,
 unmanaged-local, and remote profiles for independent control, data, KISS, and
 WebSocket endpoints, executable selection, reconnect policy, and receive limits.
 The current desktop uses the backward-compatible managed-loopback default; a
@@ -246,24 +248,29 @@ The script creates/reuses `.venv`, installs the project and PyInstaller, runs th
 aggregate test suite, and creates a windowed one-directory test build at
 `dist\MercurySkyPulse\MercurySkyPulse.exe`. Copy the entire
 `dist\MercurySkyPulse` directory when testing on another computer. This is an
-unsigned engineering build, not an installer or release artifact; Mercury remains
-a separately supplied executable.
+unsigned engineering build, not an installer or release artifact. It downloads
+and includes the pinned official Mercury runtime automatically.
 
-The builder automatically locates a compatible `mercury.exe` and copies it beside
-the built application executable:
+The builder downloads Mercury 1.9.11 from its official release, verifies the
+archive SHA-256 digest, and copies the complete portable runtime into the build:
 
 ```text
 dist\MercurySkyPulse\
 ├── MercurySkyPulse.exe
-├── mercury.exe
+├── mercury\
+│   ├── mercury.exe
+│   ├── mercury-ui.exe
+│   ├── libhamlib-4.dll
+│   ├── LICENSE
+│   └── SOURCE.txt
 └── _internal\
 ```
 
-The source is selected from `MERCURY_EXECUTABLE`, a repository-root
-`mercury.exe`, common sibling `..\mercury` build locations, or `PATH`, in that
-order. The build fails rather than producing an incomplete package when Mercury
-cannot be found. The copied binary and generated `dist` directory must not be
-committed to this repository.
+The first build requires internet access; later builds reuse a checksum-verified
+cache under the Windows temporary directory. Download, integrity, extraction, or
+copy failures stop the build rather than producing an incomplete package. The
+runtime includes its GPL license and exact corresponding-source URL. Generated
+Mercury files and the `dist` directory must not be committed to this repository.
 
 The builder accepts Python 3.11 or newer through either the Windows `py` launcher
 or `python` on `PATH`. If a build fails, it reports the failed stage and pauses so
@@ -276,7 +283,8 @@ MercurySkyPulse automatically starts Mercury with UI communication enabled. It l
 
 1. the explicitly configured executable, when endpoint-profile persistence is implemented;
 2. `MERCURY_EXECUTABLE`;
-3. `mercury.exe` beside a packaged `MercurySkyPulse.exe` (`mercury` beside a packaged application on other platforms);
+3. bundled `mercury\mercury.exe` beside a packaged `MercurySkyPulse.exe`, followed
+   by the legacy directly adjacent executable location;
 4. the sibling `/Users/eduardo/development/mercury/mercury`-style checkout location; or
 5. `mercury` on `PATH`.
 

@@ -631,7 +631,9 @@ OS sandboxing targets include App Sandbox-compatible mechanisms on macOS where d
 - Build in CI from reviewed source with reproducibility goals.
 - Sign Windows executables/installers and macOS bundles; sign Linux repository/package metadata.
 - Verify application and plugin updates before installation and support rollback to the previous application version without downgrading the database in place.
-- Mercury distribution remains separately versioned and its source/license notices remain intact if a future installer bundles it.
+- Mercury remains separately versioned and process-isolated. Windows engineering
+  packages bundle the pinned official runtime under ADR 0020; its integrity,
+  corresponding-source URL, and GPL license notice must remain intact.
 
 ### 11.8 Logging and audit
 

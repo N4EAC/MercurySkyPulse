@@ -36,7 +36,9 @@ def discover_mercury_executable(configured: Path | None = None) -> Path | None:
 
     sibling_name = "mercury.exe" if os.name == "nt" else "mercury"
     if getattr(sys, "frozen", False):
-        candidates.append(Path(sys.executable).resolve().parent / sibling_name)
+        application_directory = Path(sys.executable).resolve().parent
+        candidates.append(application_directory / "mercury" / sibling_name)
+        candidates.append(application_directory / sibling_name)
 
     project_root = Path(__file__).resolve().parents[2]
     candidates.append(project_root.parent / "mercury" / sibling_name)
