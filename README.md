@@ -243,6 +243,11 @@ aggregate test suite, and creates a windowed one-directory test build at
 unsigned engineering build, not an installer or release artifact; Mercury remains
 a separately supplied executable.
 
+The builder accepts Python 3.11 or newer through either the Windows `py` launcher
+or `python` on `PATH`. If a build fails, it reports the failed stage and pauses so
+the error remains visible when the batch file was opened by double-clicking. Run
+it from an existing Command Prompt for the clearest diagnostic output.
+
 ### Mercury executable
 
 MercurySkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:
