@@ -44,6 +44,7 @@ class MercuryTelemetryClient(QObject):
         self._reconnect_initial_ms = reconnect_initial_ms
         self._reconnect_maximum_ms = reconnect_maximum_ms
         self._reconnect_multiplier = reconnect_multiplier
+        self._spectrum_processing_enabled = False
 
     @property
     def state(self) -> str:
@@ -67,6 +68,10 @@ class MercuryTelemetryClient(QObject):
         self._reconnect_timer.stop()
         self.socket.abort()
         self._open()
+
+    def set_spectrum_processing_enabled(self, enabled: bool) -> None:
+        """Skip binary spectrum parsing while all visualizations are disabled."""
+        self._spectrum_processing_enabled = bool(enabled)
 
     def _open(self) -> None:
         if not self._intended_running:
@@ -103,6 +108,8 @@ class MercuryTelemetryClient(QObject):
             self.status_received.emit(status)
 
     def _on_binary(self, payload: bytes) -> None:
+        if not self._spectrum_processing_enabled:
+            return
         spectrum = parse_spectrum_frame(bytes(payload))
         if spectrum is not None:
             self.spectrum_received.emit(spectrum)

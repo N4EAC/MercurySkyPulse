@@ -38,6 +38,8 @@ class RadioStationConfig:
 class RadioStationService(QObject):
     catalog_changed = Signal(object)
     serial_ports_changed = Signal(object)
+    audio_inputs_changed = Signal(object)
+    audio_outputs_changed = Signal(object)
     config_changed = Signal(object)
     tune_level_changed = Signal(int)
     tune_state_changed = Signal(bool, str)
@@ -66,6 +68,10 @@ class RadioStationService(QObject):
         catalog_provider.models_loaded.connect(self._set_catalog)
         catalog_provider.error_received.connect(self.error_received)
         station_devices.serial_ports_loaded.connect(self.serial_ports_changed)
+        if hasattr(station_devices, "audio_inputs_loaded"):
+            station_devices.audio_inputs_loaded.connect(self.audio_inputs_changed)
+        if hasattr(station_devices, "audio_outputs_loaded"):
+            station_devices.audio_outputs_loaded.connect(self.audio_outputs_changed)
         client.control_event.connect(self._on_control_event)
         if hasattr(client, "state_changed"):
             client.state_changed.connect(self._set_link_state)

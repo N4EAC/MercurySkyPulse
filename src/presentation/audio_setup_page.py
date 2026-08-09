@@ -14,8 +14,9 @@ class AudioSetupPage(QWidget):
         title.setObjectName("PageTitle")
         layout.addWidget(title)
         note = QLabel(
-            "Device choices are reported by the running Mercury modem. Saved IDs "
-            "remain editable when an interface is temporarily unavailable."
+            "Mercury-reported device IDs are preferred. Local operating-system "
+            "device names provide a fallback when Mercury omits a capture or "
+            "playback list; saved IDs remain editable."
         )
         note.setWordWrap(True)
         layout.addWidget(note)

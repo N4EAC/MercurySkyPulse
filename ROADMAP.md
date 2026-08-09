@@ -79,7 +79,7 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
 - PySide6 presentation, composition, status projections, and primary workflow
   pages are implemented.
 - Operational tabs are separated from the Radio/Audio/User/GPS Setup window;
-  spectrum and waterfall are independently hideable, and manual/GPS positions
+  spectrum and waterfall are independently opt-in and default off, and manual/GPS positions
   calculate a local GRID proposal without an internet dependency.
 - The Navigator routes dashboard sections and exposes Activity/Diagnostics docks.
 - Resolve the remaining macOS interpreter-launch **Python** menu label through a

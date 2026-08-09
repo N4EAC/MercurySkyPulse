@@ -457,10 +457,24 @@ class MainWindow(QMainWindow):
         if self.ping_service:
             self.telemetry.status_received.connect(self.ping_service.update_status)
         self.telemetry.spectrum_received.connect(self.dashboard.update_spectrum)
+        if hasattr(self.telemetry, "set_spectrum_processing_enabled"):
+            self.dashboard.spectrum_enabled.toggled.connect(
+                self._update_spectrum_processing
+            )
+            self.dashboard.waterfall_enabled.toggled.connect(
+                self._update_spectrum_processing
+            )
+            self._update_spectrum_processing()
         if self.setup_window:
             self.telemetry.audio_devices_received.connect(
                 self.setup_window.set_audio_devices
             )
+
+    def _update_spectrum_processing(self) -> None:
+        self.telemetry.set_spectrum_processing_enabled(
+            self.dashboard.spectrum_enabled.isChecked()
+            or self.dashboard.waterfall_enabled.isChecked()
+        )
 
     def _connect_chat_service(self) -> None:
         if not self.chat_service:

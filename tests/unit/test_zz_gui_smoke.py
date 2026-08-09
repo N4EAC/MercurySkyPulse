@@ -82,12 +82,16 @@ class GuiSmokeTests(unittest.TestCase):
         self.app.processEvents()
         self.assertFalse(inspector.isHidden())
 
-    def test_spectrum_and_waterfall_can_be_hidden_independently(self) -> None:
-        self.window.dashboard.spectrum_enabled.setChecked(False)
+    def test_spectrum_and_waterfall_default_off_and_enable_independently(self) -> None:
+        self.assertFalse(self.window.dashboard.spectrum_enabled.isChecked())
+        self.assertFalse(self.window.dashboard.waterfall_enabled.isChecked())
         self.assertTrue(self.window.dashboard.spectrum_card.isHidden())
-        self.assertFalse(self.window.dashboard.waterfall_card.isHidden())
-        self.window.dashboard.waterfall_enabled.setChecked(False)
         self.assertTrue(self.window.dashboard.waterfall_card.isHidden())
+        self.window.dashboard.spectrum_enabled.setChecked(True)
+        self.assertFalse(self.window.dashboard.spectrum_card.isHidden())
+        self.assertTrue(self.window.dashboard.waterfall_card.isHidden())
+        self.window.dashboard.waterfall_enabled.setChecked(True)
+        self.assertFalse(self.window.dashboard.waterfall_card.isHidden())
 
     def test_radio_catalog_is_scrollable_and_searchable(self) -> None:
         page = RadioPage()

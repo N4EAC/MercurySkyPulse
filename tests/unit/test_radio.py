@@ -49,6 +49,8 @@ class FakeRadioClient(QObject):
 
 class FakeStationDevices(QObject):
     serial_ports_loaded = Signal(object)
+    audio_inputs_loaded = Signal(object)
+    audio_outputs_loaded = Signal(object)
 
     def load(self) -> None:
         pass
@@ -81,6 +83,18 @@ class RadioStationTests(unittest.TestCase):
         self.assertEqual([rig.model_id for rig in self.rigs], [1, 1035, 2026])
         self.assertEqual(self.rigs[1].manufacturer, "Yaesu")
         self.assertEqual(self.rigs[1].model, "FT-991")
+
+    def test_platform_audio_fallback_is_relayed_to_setup(self) -> None:
+        inputs = [("Microphone", "Microphone")]
+        outputs = [("Speakers", "Speakers")]
+        received_inputs = []
+        received_outputs = []
+        self.service.audio_inputs_changed.connect(received_inputs.append)
+        self.service.audio_outputs_changed.connect(received_outputs.append)
+        self.station_devices.audio_inputs_loaded.emit(inputs)
+        self.station_devices.audio_outputs_loaded.emit(outputs)
+        self.assertEqual(received_inputs, [inputs])
+        self.assertEqual(received_outputs, [outputs])
 
     def test_radio_selection_is_persisted_and_applied_through_runtime(self) -> None:
         self.service.apply(
