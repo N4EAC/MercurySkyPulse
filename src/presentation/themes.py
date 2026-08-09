@@ -123,10 +123,10 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         border: 1px solid {colors['border']};
         border-radius: {radius}px;
     }}
-    QLabel#PageTitle {{ font-size: 24px; font-weight: 650; }}
-    QLabel#SectionTitle {{ font-size: 14px; font-weight: 650; }}
+    QLabel#PageTitle {{ font-size: 20px; font-weight: 650; }}
+    QLabel#SectionTitle {{ font-size: 12px; font-weight: 650; }}
     QLabel#Muted, QLabel#MetricCaption {{ color: {colors['muted']}; }}
-    QLabel#MetricValue {{ font-size: 22px; font-weight: 650; }}
+    QLabel#MetricValue {{ font-size: 18px; font-weight: 650; }}
     QLabel#StatusPill {{
         background: {colors['surface_alt']};
         color: {colors['muted']};
@@ -210,6 +210,6 @@ def apply_appearance(app: QApplication, appearance: Appearance) -> None:
     colors = DARK if dark else LIGHT
 
     font = QFont(app.font())
-    font.setPointSizeF(10.0 * appearance.scale)
+    font.setPointSizeF(9.0 * appearance.scale)
     app.setFont(font)
     app.setStyleSheet(_stylesheet(colors, appearance))

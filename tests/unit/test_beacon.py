@@ -2,7 +2,12 @@ import unittest
 
 from PySide6.QtCore import QObject, Signal
 
-from application.beacon import BeaconService, normalize_grid
+from application.beacon import (
+    DEFAULT_BEACON_CAPABILITIES,
+    BeaconService,
+    normalize_grid,
+)
+from application_protocol.beacon import encode_beacon
 from application.location import Location
 from persistence.chat_repository import ChatRepository
 from application.beacon import Beacon
@@ -73,6 +78,20 @@ class BeaconTests(unittest.TestCase):
             event.capabilities, ("chat", "file-transfer", "location")
         )
         self.assertIsNone(event.latitude)
+
+    def test_default_application_capabilities_are_wire_encodable(self) -> None:
+        beacon = Beacon(
+            "N0CALL", "FN30", "0.1.0", DEFAULT_BEACON_CAPABILITIES,
+            "2026-08-08T12:00:00+00:00",
+        )
+        self.assertTrue(encode_beacon(beacon).startswith(b"MSPB"))
+
+    def test_service_rejects_non_wire_capability_during_construction(self) -> None:
+        with self.assertRaisesRegex(ValueError, "radio-setup"):
+            BeaconService(
+                self.client, self.repository, "0.1.0", ("chat", "radio-setup"),
+                auto_timer=False,
+            )
 
     def test_gps_is_included_only_when_selected_and_available(self) -> None:
         self.service.configure("N0CALL", "FN30AS", 1, True)

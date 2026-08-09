@@ -9,6 +9,7 @@ from PySide6.QtCore import QPointF, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -173,6 +174,12 @@ class Dashboard(QWidget):
         title_box.addWidget(_label("Supervised Mercury telemetry", "Muted"))
         heading.addLayout(title_box)
         heading.addStretch(1)
+        self.spectrum_enabled = QCheckBox("Spectrum")
+        self.spectrum_enabled.setChecked(True)
+        self.waterfall_enabled = QCheckBox("Waterfall")
+        self.waterfall_enabled.setChecked(True)
+        heading.addWidget(self.spectrum_enabled)
+        heading.addWidget(self.waterfall_enabled)
         self.state_pill = _label("STARTING", "StatusPill")
         self.state_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
         heading.addWidget(self.state_pill)
@@ -191,23 +198,25 @@ class Dashboard(QWidget):
             grid.addWidget(card, index // 2, index % 2)
         outer.addLayout(grid)
 
-        spectrum_card = QFrame()
-        spectrum_card.setObjectName("Card")
-        spectrum_layout = QVBoxLayout(spectrum_card)
+        self.spectrum_card = QFrame()
+        self.spectrum_card.setObjectName("Card")
+        spectrum_layout = QVBoxLayout(self.spectrum_card)
         spectrum_layout.setContentsMargins(14, 14, 14, 14)
         spectrum_layout.addWidget(_label("Spectrum", "SectionTitle"))
         self.spectrum = SpectrumWidget()
         spectrum_layout.addWidget(self.spectrum)
-        outer.addWidget(spectrum_card)
+        outer.addWidget(self.spectrum_card)
 
-        waterfall_card = QFrame()
-        waterfall_card.setObjectName("Card")
-        waterfall_layout = QVBoxLayout(waterfall_card)
+        self.waterfall_card = QFrame()
+        self.waterfall_card.setObjectName("Card")
+        waterfall_layout = QVBoxLayout(self.waterfall_card)
         waterfall_layout.setContentsMargins(14, 14, 14, 14)
         waterfall_layout.addWidget(_label("Waterfall", "SectionTitle"))
         self.waterfall = WaterfallWidget()
         waterfall_layout.addWidget(self.waterfall)
-        outer.addWidget(waterfall_card, 1)
+        outer.addWidget(self.waterfall_card, 1)
+        self.spectrum_enabled.toggled.connect(self.spectrum_card.setVisible)
+        self.waterfall_enabled.toggled.connect(self.waterfall_card.setVisible)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -244,8 +253,10 @@ class Dashboard(QWidget):
         self.bitrate_card.set_metric(f"{status.bitrate_bps:,} bps")
 
     def update_spectrum(self, frame: SpectrumFrame) -> None:
-        self.spectrum.set_frame(frame)
-        self.waterfall.add_frame(frame)
+        if self.spectrum_enabled.isChecked():
+            self.spectrum.set_frame(frame)
+        if self.waterfall_enabled.isChecked():
+            self.waterfall.add_frame(frame)
 
 
 class ActivityPanel(QWidget):

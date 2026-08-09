@@ -17,22 +17,39 @@ def kiss_frame(payload: bytes) -> bytes:
 
 
 class KissDecoder:
-    def __init__(self) -> None:
+    def __init__(self, maximum_frame_bytes: int = 4096,
+                 maximum_buffer_bytes: int = 8192) -> None:
+        if maximum_frame_bytes < 1 or maximum_buffer_bytes < maximum_frame_bytes + 2:
+            raise ValueError("KISS buffer must hold at least one bounded frame")
+        self.maximum_frame_bytes = maximum_frame_bytes
+        self.maximum_buffer_bytes = maximum_buffer_bytes
         self.buffer = bytearray()
+        self.malformed_frame_count = 0
 
     def feed(self, data: bytes) -> list[bytes]:
         self.buffer.extend(data)
+        if len(self.buffer) > self.maximum_buffer_bytes:
+            self.buffer.clear()
+            self.malformed_frame_count += 1
+            return []
         payloads = []
         while FEND in self.buffer:
             first = self.buffer.find(FEND)
+            if first:
+                del self.buffer[:first]
+                first = 0
             second = self.buffer.find(FEND, first + 1)
             if second < 0:
-                if first:
-                    del self.buffer[:first]
+                if len(self.buffer) - 1 > self.maximum_frame_bytes:
+                    self.buffer.clear()
+                    self.malformed_frame_count += 1
                 break
             frame = bytes(self.buffer[first + 1:second])
             del self.buffer[:second + 1]
             if not frame:
+                continue
+            if len(frame) > self.maximum_frame_bytes:
+                self.malformed_frame_count += 1
                 continue
             frame = frame.replace(bytes((FESC, TFEND)), bytes((FEND,)))
             frame = frame.replace(bytes((FESC, TFESC)), bytes((FESC,)))
@@ -46,11 +63,14 @@ class MercuryBroadcastTransport(QObject):
     state_changed = Signal(str)
     error_received = Signal(str)
 
-    def __init__(self, host="127.0.0.1", port=8100, parent=None) -> None:
+    def __init__(self, host="127.0.0.1", port=8100,
+                 reconnect_delay_ms=1000, maximum_frame_bytes=4096,
+                 maximum_buffer_bytes=8192, parent=None) -> None:
         super().__init__(parent)
         self.socket = QTcpSocket(self)
         self.host, self.port = host, port
-        self.decoder = KissDecoder()
+        self.decoder = KissDecoder(maximum_frame_bytes, maximum_buffer_bytes)
+        self.reconnect_delay_ms = reconnect_delay_ms
         self.socket.readyRead.connect(self._read)
         self.socket.connected.connect(lambda: self.state_changed.emit("ready"))
         self.socket.disconnected.connect(self._reconnect)
@@ -79,8 +99,11 @@ class MercuryBroadcastTransport(QObject):
     def _reconnect(self) -> None:
         self.state_changed.emit("disconnected")
         if self.intended:
-            self.timer.start(1000)
+            self.timer.start(self.reconnect_delay_ms)
 
     def _read(self) -> None:
+        rejected_before = self.decoder.malformed_frame_count
         for payload in self.decoder.feed(bytes(self.socket.readAll())):
             self.payload_received.emit(payload)
+        if self.decoder.malformed_frame_count > rejected_before:
+            self.error_received.emit("Malformed or oversized KISS input discarded")

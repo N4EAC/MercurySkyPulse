@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -77,6 +78,53 @@ class MercurySupervisorTests(unittest.TestCase):
         self.assertEqual(supervisor.state, "missing")
         self.assertFalse(supervisor._restart_timer.isActive())
         supervisor.stop()
+
+    def test_unmanaged_profile_never_discovers_or_launches_mercury(self) -> None:
+        supervisor = MercuryProcessSupervisor(MercuryProcessConfig(managed=False))
+        with patch("platform_runtime.mercury_process.discover_mercury_executable") as discover:
+            supervisor.start()
+        discover.assert_not_called()
+        self.assertEqual(supervisor.state, "external")
+        self.assertEqual(supervisor.process.state().name, "NotRunning")
+
+    def test_radio_configuration_updates_documented_startup_options(self) -> None:
+        supervisor = MercuryProcessSupervisor(MercuryProcessConfig())
+        with patch.object(supervisor, "restart_now") as restart:
+            supervisor.configure_radio(1035, "/dev/cu.radio", 38400)
+        self.assertEqual(supervisor.config.radio_model, 1035)
+        self.assertEqual(supervisor.config.radio_address, "/dev/cu.radio")
+        self.assertEqual(supervisor.config.radio_serial_speed, 38400)
+        restart.assert_called_once_with()
+
+    def test_external_supervisor_refuses_radio_configuration(self) -> None:
+        supervisor = MercuryProcessSupervisor(MercuryProcessConfig(managed=False))
+        with self.assertRaises(RuntimeError):
+            supervisor.configure_radio(1035, "/dev/cu.radio", 38400)
+
+    def test_application_owned_config_contains_documented_cat_speed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mercury-skypulse.ini"
+            supervisor = MercuryProcessSupervisor(MercuryProcessConfig(
+                config_file=path, radio_serial_speed=115200,
+                input_device="USB Audio \\\"RX\\\"", output_device="USB Audio TX",
+            ))
+            supervisor._write_application_config()
+            self.assertEqual(
+                path.read_text(encoding="utf-8"),
+                "[main]\nradio_serial_speed = 115200\n"
+                'input_device = "USB Audio \\\\\\"RX\\\\\\""\n'
+                'output_device = "USB Audio TX"\n',
+            )
+
+    def test_station_configuration_updates_audio_and_restarts_once(self) -> None:
+        supervisor = MercuryProcessSupervisor(MercuryProcessConfig())
+        with patch.object(supervisor, "restart_now") as restart:
+            supervisor.configure_station(
+                1035, "COM4", 38400, "capture-id", "playback-id"
+            )
+        self.assertEqual(supervisor.config.input_device, "capture-id")
+        self.assertEqual(supervisor.config.output_device, "playback-id")
+        restart.assert_called_once_with()
 
 
 if __name__ == "__main__":

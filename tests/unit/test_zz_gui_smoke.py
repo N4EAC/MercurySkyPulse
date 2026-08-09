@@ -11,10 +11,16 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from PySide6.QtWidgets import QDockWidget, QTabWidget
+    from application.radio import HamlibRig
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QDockWidget, QPushButton, QTabWidget
 
     from presentation.app import create_application
     from presentation.main_window import MainWindow
+    from presentation.radio_page import RadioPage
+    from presentation.audio_setup_page import AudioSetupPage
+    from platform_runtime.station_devices import SerialPort
+    from transport.mercury.telemetry.protocol import MercuryDevice
 except ImportError:  # Allows static-only environments to run the boundary tests.
     QDockWidget = None
     create_application = None
@@ -37,6 +43,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.app.processEvents()
 
     def test_main_window_has_required_shell_components(self) -> None:
+        self.assertEqual(self.app.applicationDisplayName(), "MercurySkyPulse")
         self.assertEqual(3, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
         self.assertIsNotNone(self.window.statusBar())
@@ -46,7 +53,7 @@ class GuiSmokeTests(unittest.TestCase):
         tabs = self.window.findChild(QTabWidget)
         self.assertEqual(
             [tabs.tabText(index) for index in range(tabs.count())],
-            ["Overview", "Chat", "Location", "Beacon", "Ping", "BBS"],
+            ["Overview", "Chat", "Beacon", "Ping", "BBS"],
         )
         self.assertTrue(all(tabs.widget(index) is not None for index in range(tabs.count())))
 
@@ -55,6 +62,81 @@ class GuiSmokeTests(unittest.TestCase):
             features = dock.features()
             self.assertTrue(features & QDockWidget.DockWidgetFeature.DockWidgetMovable)
             self.assertTrue(features & QDockWidget.DockWidgetFeature.DockWidgetFloatable)
+
+    def test_spectrum_and_waterfall_can_be_hidden_independently(self) -> None:
+        self.window.dashboard.spectrum_enabled.setChecked(False)
+        self.assertTrue(self.window.dashboard.spectrum_card.isHidden())
+        self.assertFalse(self.window.dashboard.waterfall_card.isHidden())
+        self.window.dashboard.waterfall_enabled.setChecked(False)
+        self.assertTrue(self.window.dashboard.waterfall_card.isHidden())
+
+    def test_radio_catalog_is_scrollable_and_searchable(self) -> None:
+        page = RadioPage()
+        page.set_catalog((
+            HamlibRig(1035, "Yaesu", "FT-991", "1", "Stable", "RIG_MODEL_FT991"),
+            HamlibRig(2026, "Elecraft", "K3", "1", "Stable", "RIG_MODEL_K3"),
+        ))
+        self.assertEqual(page.radio_list.count(), 2)
+        self.assertGreaterEqual(page.radio_list.minimumHeight(), 200)
+        page.search.setText("FT-991")
+        self.assertFalse(page.radio_list.item(0).isHidden())
+        self.assertTrue(page.radio_list.item(1).isHidden())
+        page.deleteLater()
+
+    def test_radio_catalog_does_not_overlap_cat_fields_when_height_is_constrained(self) -> None:
+        page = RadioPage()
+        page.resize(900, 560)
+        page.show()
+        self.app.processEvents()
+        list_bottom = page.radio_list.mapTo(
+            page.content, QPoint(0, page.radio_list.height())
+        ).y()
+        device_top = page.device.mapTo(page.content, QPoint(0, 0)).y()
+        self.assertLessEqual(list_bottom, device_top)
+        self.assertTrue(page.scroll_area.verticalScrollBar().maximum() > 0)
+        page.close()
+        page.deleteLater()
+
+    def test_station_io_lists_ports_and_mercury_audio_devices(self) -> None:
+        radio_page = RadioPage()
+        audio_page = AudioSetupPage()
+        radio_page.set_serial_ports((SerialPort("COM4", "COM4 — USB UART"),))
+        audio_page.set_devices(
+            "capture_dev_list",
+            (MercuryDevice("USB Audio CODEC", "capture:usb"),),
+            "capture:usb",
+        )
+        audio_page.set_devices(
+            "playback_dev_list",
+            (MercuryDevice("USB Audio CODEC", "playback:usb"),),
+            "playback:usb",
+        )
+        self.assertEqual(radio_page.device.findData("COM4"), 1)
+        self.assertEqual(audio_page.input_device.currentData(), "capture:usb")
+        self.assertEqual(audio_page.output_device.currentData(), "playback:usb")
+        radio_page.deleteLater()
+        audio_page.deleteLater()
+
+    def test_station_io_apply_emits_native_device_ids(self) -> None:
+        page = AudioSetupPage()
+        page.set_devices(
+            "capture_dev_list",
+            (MercuryDevice("Radio Capture", "capture:native"),),
+            "capture:native",
+        )
+        page.set_devices(
+            "playback_dev_list",
+            (MercuryDevice("Radio Playback", "playback:native"),),
+            "playback:native",
+        )
+        applied = []
+        page.apply_requested.connect(lambda *values: applied.append(values))
+        page.findChild(QPushButton, "PrimaryButton").click()
+        self.assertEqual(
+            applied[0],
+            ("capture:native", "playback:native"),
+        )
+        page.deleteLater()
 
 
 if __name__ == "__main__":

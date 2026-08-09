@@ -11,12 +11,13 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 from .location import Location
 from persistence.chat_repository import ChatRepository
-from application_protocol.beacon import normalize_callsign
+from application_protocol.beacon import CAPABILITIES, normalize_callsign
 
 
 INTERVALS_MINUTES = (0, 1, 5, 10, 15, 30, 60)
 GRID = re.compile(r"^[A-R]{2}\d{2}(?:[A-X]{2}(?:\d{2})?)?$")
 CAPABILITY = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+DEFAULT_BEACON_CAPABILITIES = tuple(CAPABILITIES)
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +198,11 @@ class BeaconService(QObject):
             not CAPABILITY.fullmatch(value) for value in normalized
         ):
             raise ValueError("Invalid beacon capabilities")
+        unsupported = set(normalized).difference(CAPABILITIES)
+        if unsupported:
+            raise ValueError(
+                "Unsupported beacon capabilities: " + ", ".join(sorted(unsupported))
+            )
         return normalized
 
     @staticmethod

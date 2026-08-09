@@ -20,16 +20,18 @@ from application.file_transfer import FileTransferService
 from application.location import LocationService
 from application.beacon import BeaconService
 from application.ping import PingService
+from application.radio import RadioStationService
 from application.bbs import BbsService
 from application.web_dashboard import WebDashboardSnapshot
 from application.licensing import LicenseState, community_state
 from application.plugins import PluginRegistry
+from application.endpoints import MercuryEndpointProfile
 from platform_runtime.local_web import LocalWebServer
 from .bbs_page import BbsPage
 from .beacon_page import BeaconPage
 from .chat_page import ChatPage
-from .location_page import LocationPage
 from .ping_page import PingPage
+from .setup_window import SetupWindow
 from .panels import (
     ActivityPanel,
     Dashboard,
@@ -52,11 +54,15 @@ class MainWindow(QMainWindow):
         location_service: LocationService | None = None,
         beacon_service: BeaconService | None = None,
         ping_service: PingService | None = None,
+        radio_service: RadioStationService | None = None,
         bbs_service: BbsService | None = None,
         web_snapshot: WebDashboardSnapshot | None = None,
         web_server: LocalWebServer | None = None,
         license_state: LicenseState | None = None,
         plugin_registry: PluginRegistry | None = None,
+        endpoint_profile: MercuryEndpointProfile | None = None,
+        supervisor: MercuryProcessSupervisor | None = None,
+        telemetry: MercuryTelemetryClient | None = None,
         auto_start: bool = True,
     ) -> None:
         super().__init__()
@@ -65,13 +71,13 @@ class MainWindow(QMainWindow):
         self._docks: dict[str, QDockWidget] = {}
         self.dashboard = Dashboard()
         self.chat_page = ChatPage()
-        self.location_page = LocationPage()
         self.beacon_service = beacon_service
         self.beacon_page = BeaconPage(
             beacon_service.capabilities if beacon_service else ()
         )
         self.ping_service = ping_service
         self.ping_page = PingPage()
+        self.radio_service = radio_service
         self.bbs_service = bbs_service
         self.bbs_page = BbsPage()
         self.web_snapshot = web_snapshot
@@ -82,8 +88,19 @@ class MainWindow(QMainWindow):
         self.file_transfer_service = file_transfer_service
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
-        self.supervisor = MercuryProcessSupervisor(MercuryProcessConfig(), self)
-        self.telemetry = MercuryTelemetryClient(parent=self)
+        self.endpoint_profile = endpoint_profile or MercuryEndpointProfile.default()
+        self.supervisor = supervisor or MercuryProcessSupervisor(
+            MercuryProcessConfig(), self
+        )
+        self.telemetry = telemetry or MercuryTelemetryClient(parent=self)
+        self.setup_window = (
+            SetupWindow(radio_service, beacon_service, location_service, self)
+            if radio_service and beacon_service and location_service else None
+        )
+        if self.supervisor.parent() is None:
+            self.supervisor.setParent(self)
+        if self.telemetry.parent() is None:
+            self.telemetry.setParent(self)
 
         self.setObjectName("MercurySkyPulseMainWindow")
         self.setWindowTitle("MercurySkyPulse")
@@ -98,7 +115,6 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.addTab(self.dashboard, "Overview")
         self.tabs.addTab(self.chat_page, "Chat")
-        self.tabs.addTab(self.location_page, "Location")
         self.tabs.addTab(self.beacon_page, "Beacon")
         self.tabs.addTab(self.ping_page, "Ping")
         self.tabs.addTab(self.bbs_page, "BBS")
@@ -110,9 +126,16 @@ class MainWindow(QMainWindow):
         self._create_menus()
         self._connect_mercury_services()
         self._connect_chat_service()
-        self._connect_location_service()
         self._connect_beacon_service()
         self._connect_ping_service()
+        if self.radio_service:
+            self.radio_service.error_received.connect(
+                lambda error: self.activity_panel.append_log(f"Radio error: {error}")
+            )
+        if self.location_service:
+            self.location_service.error_received.connect(
+                lambda error: self.activity_panel.append_log(f"Location error: {error}")
+            )
         self._connect_bbs_service()
         self._connect_web_snapshot()
         self._reset_layout()
@@ -212,9 +235,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         edit_menu = self.menuBar().addMenu("&Edit")
-        preferences = QAction("Preferences…", self)
+        preferences = QAction("Setup…", self)
         preferences.setShortcut(QKeySequence.StandardKey.Preferences)
-        preferences.setEnabled(False)
+        preferences.setEnabled(self.setup_window is not None)
+        preferences.triggered.connect(self._show_setup)
         edit_menu.addAction(preferences)
 
         view_menu = self.menuBar().addMenu("&View")
@@ -388,6 +412,13 @@ class MainWindow(QMainWindow):
             "Built-in plugins\n\n" + ("\n".join(lines) if lines else "Plugin registry unavailable"),
         )
 
+    def _show_setup(self) -> None:
+        if self.setup_window is None:
+            return
+        self.setup_window.show()
+        self.setup_window.raise_()
+        self.setup_window.activateWindow()
+
     def _connect_mercury_services(self) -> None:
         self.supervisor.state_changed.connect(self._on_engine_state)
         self.supervisor.output_received.connect(self.activity_panel.append_log)
@@ -407,6 +438,10 @@ class MainWindow(QMainWindow):
         if self.ping_service:
             self.telemetry.status_received.connect(self.ping_service.update_status)
         self.telemetry.spectrum_received.connect(self.dashboard.update_spectrum)
+        if self.setup_window:
+            self.telemetry.audio_devices_received.connect(
+                self.setup_window.set_audio_devices
+            )
 
     def _connect_chat_service(self) -> None:
         if not self.chat_service:
@@ -445,7 +480,9 @@ class MainWindow(QMainWindow):
             )
 
     def _start_mercury(self) -> None:
-        self.activity_panel.append_log("Starting supervised Mercury process")
+        self.activity_panel.append_log(
+            f"Starting Mercury profile: {self.endpoint_profile.mode.value}"
+        )
         self.supervisor.start()
         self.telemetry.start()
         if self.chat_service:
@@ -456,36 +493,19 @@ class MainWindow(QMainWindow):
             self.beacon_service.start()
         if self.bbs_service:
             self.bbs_service.start()
-
-    def _connect_location_service(self) -> None:
-        if not self.location_service:
-            self.location_page.setEnabled(False)
-            return
-        service = self.location_service
-        self.location_page.manual_requested.connect(service.set_manual)
-        self.location_page.aprs_requested.connect(service.set_manual_aprs)
-        self.location_page.gps_start_requested.connect(service.start_gps)
-        self.location_page.gps_stop_requested.connect(service.stop_gps)
-        self.location_page.share_requested.connect(service.share)
-        self.location_page.retention_requested.connect(service.set_retention)
-        self.location_page.export_requested.connect(service.export_history)
-        service.current_changed.connect(self.location_page.set_current)
-        service.shared_received.connect(self.location_page.set_received)
-        service.gps_state_changed.connect(self.location_page.set_gps_state)
-        service.retention_changed.connect(self.location_page.set_retention)
-        service.history_changed.connect(self.location_page.set_history_count)
-        service.export_completed.connect(self.location_page.show_export_completed)
-        service.error_received.connect(self.location_page.show_error)
-        service.error_received.connect(
-            lambda error: self.activity_panel.append_log(f"Location error: {error}")
-        )
+        if self.radio_service:
+            self.radio_service.start()
 
     def _connect_beacon_service(self) -> None:
         if not self.beacon_service:
             self.beacon_page.setEnabled(False)
             return
         service = self.beacon_service
-        self.beacon_page.configure_requested.connect(service.configure)
+        self.beacon_page.configure_requested.connect(
+            lambda interval, include_gps: service.configure(
+                service.config.callsign, service.config.grid, interval, include_gps
+            )
+        )
         self.beacon_page.send_requested.connect(service.send_now)
         self.beacon_page.disable_requested.connect(service.disable)
         service.config_changed.connect(self.beacon_page.set_config)
@@ -625,6 +645,8 @@ class MainWindow(QMainWindow):
             self.plugin_registry.stop_all()
         if self.ping_service:
             self.ping_service.stop()
+        if self.radio_service:
+            self.radio_service.stop()
         if self.beacon_service:
             self.beacon_service.stop()
         if self.location_service:

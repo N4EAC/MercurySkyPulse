@@ -41,6 +41,25 @@ def validate_coordinates(latitude: float, longitude: float) -> tuple[float, floa
     return latitude, longitude
 
 
+def to_maidenhead(latitude: float, longitude: float, precision: int = 6) -> str:
+    """Convert decimal coordinates to a 4, 6, or 8 character Maidenhead grid."""
+    latitude, longitude = validate_coordinates(latitude, longitude)
+    if precision not in {4, 6, 8}:
+        raise ValueError("Maidenhead precision must be 4, 6, or 8")
+    lon = min(longitude + 180.0, math.nextafter(360.0, 0.0))
+    lat = min(latitude + 90.0, math.nextafter(180.0, 0.0))
+    grid = chr(65 + int(lon // 20)) + chr(65 + int(lat // 10))
+    lon %= 20; lat %= 10
+    grid += str(int(lon // 2)) + str(int(lat))
+    if precision >= 6:
+        lon %= 2; lat %= 1
+        grid += chr(65 + min(23, int(lon * 12))) + chr(65 + min(23, int(lat * 24)))
+    if precision == 8:
+        grid += str(min(9, int((lon * 12) % 1 * 10)))
+        grid += str(min(9, int((lat * 24) % 1 * 10)))
+    return grid
+
+
 def to_aprs(latitude: float, longitude: float) -> str:
     latitude, longitude = validate_coordinates(latitude, longitude)
     lat_total = round(abs(latitude) * 60 * 100)
@@ -107,8 +126,21 @@ class LocationService(QObject):
 
     def set_manual(self, latitude_text: str, longitude_text: str) -> None:
         try:
+            latitude_value = str(latitude_text).strip()
+            longitude_value = str(longitude_text).strip()
+            if not latitude_value or not longitude_value:
+                raise ValueError(
+                    "Enter both latitude and longitude before saving a manual position"
+                )
+            try:
+                latitude_number = float(latitude_value)
+                longitude_number = float(longitude_value)
+            except ValueError as error:
+                raise ValueError(
+                    "Enter latitude and longitude as decimal numbers"
+                ) from error
             latitude, longitude = validate_coordinates(
-                float(latitude_text), float(longitude_text)
+                latitude_number, longitude_number
             )
             self._set_current(Location(latitude, longitude, "manual", self._now()))
             self.repository.set_setting(

@@ -18,12 +18,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 SUITES = {
     "modem": (
         "tests.unit.test_mercury_supervisor",
+        "tests.unit.test_radio",
         "tests.contract.test_mercury_telemetry",
     ),
     "protocol": (
         "tests.contract.test_application_protocol_client",
         "tests.contract.test_chat_protocol",
         "tests.contract.test_beacon_broadcast",
+        "tests.contract.test_transport_bounds",
     ),
     "transfer": (
         "tests.unit.test_file_transfer",

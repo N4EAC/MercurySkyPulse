@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 from PySide6.QtCore import QObject, Signal
 
-from application.location import LocationService, from_aprs, to_aprs
+from application.location import LocationService, from_aprs, to_aprs, to_maidenhead
 from persistence.chat_repository import ChatRepository
 from application_protocol.messaging import ChatEnvelope
 from platform_runtime.location_exporter import LocationExporter
@@ -38,6 +38,11 @@ class FakeLocationClient(QObject):
 
 
 class LocationTests(unittest.TestCase):
+    def test_decimal_coordinates_convert_to_maidenhead_grid(self) -> None:
+        self.assertEqual(to_maidenhead(40.7128, -74.0060), "FN20XR")
+        self.assertEqual(to_maidenhead(51.5074, -0.1278), "IO91WM")
+        self.assertEqual(to_maidenhead(-33.8688, 151.2093), "QF56OD")
+
     def setUp(self) -> None:
         self.repository = ChatRepository(":memory:")
         self.receiver = FakeGpsReceiver()
@@ -63,6 +68,15 @@ class LocationTests(unittest.TestCase):
             self.client, self.repository, FakeGpsReceiver()
         )
         self.assertAlmostEqual(restored.current.latitude, 40.7128)
+
+    def test_blank_manual_position_has_operator_friendly_error(self) -> None:
+        errors = []
+        self.service.error_received.connect(errors.append)
+        self.service.set_manual("", "")
+        self.assertEqual(
+            errors,
+            ["Enter both latitude and longitude before saving a manual position"],
+        )
 
     def test_gps_receiver_fix_becomes_current_without_auto_sharing(self) -> None:
         self.service.start_gps("/dev/example")

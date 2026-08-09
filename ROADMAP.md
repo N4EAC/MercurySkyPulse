@@ -28,8 +28,8 @@ prohibit changes to Mercury from this repository. **Met.**
 Exit criteria: accepted ADRs define a minimal, reproducible toolchain without introducing product features.
 
 The language/UI, process, protocol, transfer, location, beacon, ping, BBS, web,
-licensing, plugin, test, and opaque-transport decisions are recorded in ADRs
-0001–0016. Packaging targets, configuration conventions, supported platforms,
+licensing, plugin, test, opaque-transport, and setup/privacy decisions are recorded
+in ADRs 0001–0019. Packaging targets, persisted configuration conventions, supported platforms,
 Mercury compatibility, and the project legal license remain open.
 
 ## Phase 2 — Mercury contract layer (prototype complete; hardening remains)
@@ -59,8 +59,9 @@ Exit criteria: the application layer can use transport ports without knowing pro
 Text messaging, verified file transfer, application acknowledgements, location,
 ping, BBS events, and compact capability beacons are implemented above opaque
 Mercury transports. Remaining work includes explicit input bounds, stronger
-timeout/backpressure/error behavior, broader command coverage, endpoint profiles,
-and real-Mercury integration tests.
+timeout/backpressure/error behavior, broader command coverage, a persisted
+profile UI/loader, and real-Mercury integration tests. TNC control and KISS input
+bounds and acknowledgement disconnect-race handling are implemented.
 
 ## Phase 4 — Mercury runtime management (managed-local prototype complete)
 
@@ -77,6 +78,9 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
 - Initial operator journeys and application services are implemented.
 - PySide6 presentation, composition, status projections, and primary workflow
   pages are implemented.
+- Operational tabs are separated from the Radio/Audio/User/GPS Setup window;
+  spectrum and waterfall are independently hideable, and manual/GPS positions
+  calculate a local GRID proposal without an internet dependency.
 - Continue moving process/connection lifecycle out of `MainWindow` and expose
   endpoint configuration and actionable connection errors.
 
@@ -85,7 +89,8 @@ Exit criteria: a minimal application can connect to Mercury and display verified
 ## Phase 6 — Product capabilities (vertical slice complete; release work remains)
 
 - Implemented slices include chat, file/image transfer, location/GPS export,
-  beacon, ping, BBS, local web, offline licensing, and built-in plugins.
+  beacon, ping, BBS, radio/Hamlib setup, bounded tuning, local web, offline
+  licensing, and built-in plugins.
 - Add persistence/retention controls, observability, diagnostics, accessibility,
   packaging, backup/recovery, and upgrade policy.
 - Establish release automation and Mercury/OS compatibility matrices.
@@ -110,15 +115,13 @@ process.
 
 Work should proceed in this order:
 
-1. Define a typed endpoint profile and ADR for managed local, unmanaged local,
-   and remote Mercury while preserving current loopback defaults.
-2. Move process and connection construction out of `MainWindow` behind stable
-   application ports and plugin factories.
-3. Bound TNC control lines and KISS frames/buffers, handle disconnect races, and
-   add adversarial contract tests before enabling remote endpoints.
-4. Pin a compatible Mercury revision and add RF-safe TNC, WebSocket, KISS,
+1. Add persisted profile loading and preferences for the implemented managed
+   local, unmanaged local, and explicitly acknowledged remote modes.
+2. Finish moving process and connection lifecycle out of `MainWindow` behind
+   stable application ports and plugin factories.
+3. Pin a compatible Mercury revision and add RF-safe TNC, WebSocket, KISS,
    crash/reconnect, and shutdown integration tests.
-5. Complete built-in plugin migration without enabling third-party in-process
+4. Complete built-in plugin migration without enabling third-party in-process
    discovery.
-6. Decide packaging, supported platforms, compatibility policy, and legal/source
+5. Decide packaging, supported platforms, compatibility policy, and legal/source
    licensing obligations.

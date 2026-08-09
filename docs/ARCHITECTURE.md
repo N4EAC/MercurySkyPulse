@@ -845,6 +845,28 @@ connectionless broadcast interface and remain independent of an ARQ session.
 Optional GPS accepts only a GPS-source fix and carries its own timestamp.
 ADR 0008 records disclosure and transport scope.
 
+`src/application/radio.py` owns persisted station configuration and the 12-second
+tune safety policy. `src/platform_runtime/hamlib_catalog.py` runs the selected
+managed Mercury executable with documented `-K` and parses the exact compiled
+Hamlib catalog. Managed configuration reaches Mercury only through documented
+`-R/-A/-C` startup inputs; Mercury alone owns Hamlib CAT and PTT. The
+application-protocol client emits bounded `TUNE <dBFS>` and `TUNE OFF` commands,
+with Mercury retaining its independent 60-second failsafe. ADR 0018 records the
+single-owner and real-radio safety boundary.
+
+Station I/O consumes Mercury's documented WebSocket capture/playback device lists
+so saved audio IDs match Mercury's backend. Qt enumerates local COM/USB serial
+ports, with editable manual values for network CAT and unreported devices. CAT and
+audio settings are written together to the application-owned Mercury INI and
+trigger one managed-process restart; external Mercury hosts remain externally
+managed.
+
+The main window exposes operational tabs only. A reusable Setup window owns Radio,
+Audio, User, and GPS configuration, with Radio first and room for future tabs.
+Manual and GPS coordinates calculate a proposed Maidenhead grid locally; the
+operator reviews and saves station identity, and no internet geolocation provider
+is used. ADR 0019 records this UI boundary.
+
 `src/application/ping.py` correlates one in-flight ARQ ping, freezes the local
 telemetry snapshot, calculates RTT with a monotonic clock, validates the remote
 snapshot, and enforces a 15-second timeout. `ping_request` and `ping_response` are

@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -20,7 +19,7 @@ from application.beacon import INTERVALS_MINUTES
 
 
 class BeaconPage(QWidget):
-    configure_requested = Signal(str, str, int, bool)
+    configure_requested = Signal(int, bool)
     send_requested = Signal()
     disable_requested = Signal()
 
@@ -39,19 +38,11 @@ class BeaconPage(QWidget):
         card = QFrame()
         card.setObjectName("Card")
         form = QFormLayout(card)
-        self.callsign = QLineEdit()
-        self.callsign.setPlaceholderText("N0CALL")
-        self.callsign.setMaxLength(15)
-        self.grid = QLineEdit()
-        self.grid.setPlaceholderText("FN30AS")
-        self.grid.setMaxLength(8)
         self.interval = QComboBox()
         for minutes in INTERVALS_MINUTES:
             label = "Off" if minutes == 0 else f"Every {minutes} minute{'s' if minutes != 1 else ''}"
             self.interval.addItem(label, minutes)
         self.include_gps = QCheckBox("Include latest GPS fix when available")
-        form.addRow("Callsign", self.callsign)
-        form.addRow("Maidenhead grid", self.grid)
         form.addRow("Interval", self.interval)
         form.addRow("Optional GPS", self.include_gps)
         form.addRow("Capabilities", QLabel(", ".join(capabilities)))
@@ -83,8 +74,6 @@ class BeaconPage(QWidget):
         stop.clicked.connect(self.disable_requested)
 
     def set_config(self, config) -> None:
-        self.callsign.setText(config.callsign)
-        self.grid.setText(config.grid)
         index = self.interval.findData(config.interval_minutes)
         self.interval.setCurrentIndex(max(index, 0))
         self.include_gps.setChecked(config.include_gps)
@@ -107,8 +96,6 @@ class BeaconPage(QWidget):
 
     def _configure(self) -> None:
         self.configure_requested.emit(
-            self.callsign.text(),
-            self.grid.text(),
             int(self.interval.currentData()),
             self.include_gps.isChecked(),
         )
