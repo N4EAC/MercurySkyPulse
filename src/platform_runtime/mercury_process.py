@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 import os
 from pathlib import Path
 import shutil
+import sys
 
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer, Signal
 
@@ -33,8 +34,11 @@ def discover_mercury_executable(configured: Path | None = None) -> Path | None:
     if env_path := os.environ.get("MERCURY_EXECUTABLE"):
         candidates.append(Path(env_path).expanduser())
 
-    project_root = Path(__file__).resolve().parents[2]
     sibling_name = "mercury.exe" if os.name == "nt" else "mercury"
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / sibling_name)
+
+    project_root = Path(__file__).resolve().parents[2]
     candidates.append(project_root.parent / "mercury" / sibling_name)
 
     if path_match := shutil.which("mercury"):

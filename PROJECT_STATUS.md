@@ -1,6 +1,6 @@
 # MercurySkyPulse Project Status and Handoff
 
-Last reviewed: 2026-08-08
+Last reviewed: 2026-08-09
 
 This is the primary handoff for a new Codex session with no conversation history.
 Read this file, then `AGENTS.md`, before changing code. The repository described
@@ -23,14 +23,14 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Pull request #1 is merged into `main` at merge commit `0e23ac3`; it contains the
-  endpoint-profile/safety, radio/tuning, setup-window, and Ubuntu Qt CI work.
-- Current handoff branch: `agent/fix-macos-menu-name`, containing the operational
-  Navigator and an attempted native macOS application-menu correction. Manual
-  testing still shows **Python**; treat this as a known unresolved issue.
-- The separate branch `agent/update-github-actions` is pushed at `81a23d6` and
-  updates `actions/checkout` and `actions/setup-python` to v7. It still requires a
-  pull request and merge into `main`.
+- Pull requests #1–#4 are merged into `main` at `1434b48`. They contain the
+  endpoint-profile and safety work, station setup, operational Navigator, the
+  attempted macOS menu correction, GitHub Actions v7 updates, and the hardened
+  Windows builder.
+- Current handoff branch and PR #5: `agent/fix-windows-builder`. Its remaining
+  change adds packaged side-by-side Mercury executable discovery.
+- Interpreter-based macOS launches can still display **Python** in the global
+  application menu; treat this as a known unresolved packaging issue.
 - The worktree was clean when this handoff was committed. Always recheck
   `git status`, remote branches, and recent history before editing.
 
@@ -98,6 +98,8 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Optional supervised Mercury child process using `QProcess`.
 - Executable discovery via `MERCURY_EXECUTABLE`, sibling checkout, or `PATH`.
+- Frozen/package builds also discover `mercury.exe` placed beside
+  `MercurySkyPulse.exe` (`mercury` beside packaged applications on other systems).
 - Launch arguments include `-G -U <UI port>` and, when radio setup is enabled,
   documented `-R <model> -A <device>` options plus `-C <application INI>` for CAT
   serial speed; default UI port is 10000.
@@ -228,7 +230,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 147 tests passing.
+- Current aggregate result at this review: 148 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -422,8 +424,8 @@ python -m compileall -q src tests tools
 python tools/run_tests.py all
 ```
 
-Last handoff verification on 2026-08-08 completed source compilation and the
-aggregate suite successfully: 147 tests passed in 2.723 seconds.
+Last handoff verification on 2026-08-09 completed source compilation and the
+aggregate suite successfully: 148 tests passed in 2.670 seconds.
 
 Focused suites:
 
