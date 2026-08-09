@@ -27,8 +27,9 @@ manual testing, but it is not yet a production release.
   endpoint-profile and safety work, station setup, operational Navigator, the
   attempted macOS menu correction, GitHub Actions v7 updates, and the hardened
   Windows builder.
-- Current handoff branch and PR #5: `agent/fix-windows-builder`. Its remaining
-  change adds packaged side-by-side Mercury executable discovery.
+- Current handoff branch and PR #5: `agent/fix-windows-builder`. It adds packaged
+  side-by-side Mercury discovery and makes `build.exe.bat` automatically locate
+  and copy Mercury into the generated Windows test package.
 - Interpreter-based macOS launches can still display **Python** in the global
   application menu; treat this as a known unresolved packaging issue.
 - The worktree was clean when this handoff was committed. Always recheck
@@ -230,7 +231,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 148 tests passing.
+- Current aggregate result at this review: 149 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -425,7 +426,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 148 tests passed in 2.670 seconds.
+aggregate suite successfully: 149 tests passed in 2.675 seconds.
 
 Focused suites:
 

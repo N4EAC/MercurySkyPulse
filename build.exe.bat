@@ -32,6 +32,16 @@ if errorlevel 1 (
 )
 
 "%MSP_PYTHON%" --version
+
+call :find_mercury
+if errorlevel 1 (
+    echo ERROR: A Windows Mercury executable could not be found.
+    echo Set MERCURY_EXECUTABLE, put mercury.exe in this repository root,
+    echo build Mercury in ..\mercury, or add mercury.exe to PATH.
+    goto failed
+)
+echo Mercury executable: %MSP_MERCURY%
+
 echo Updating pip...
 "%MSP_PYTHON%" -m pip install --upgrade pip
 if errorlevel 1 (
@@ -67,8 +77,16 @@ if errorlevel 1 (
     goto failed
 )
 
+echo Adding Mercury to the test package...
+copy /Y "%MSP_MERCURY%" "dist\MercurySkyPulse\mercury.exe" >nul
+if errorlevel 1 (
+    echo ERROR: Mercury could not be copied into the test package.
+    goto failed
+)
+
 echo.
 echo Build complete: dist\MercurySkyPulse\MercurySkyPulse.exe
+echo Mercury included: dist\MercurySkyPulse\mercury.exe
 echo Copy the entire dist\MercurySkyPulse directory when testing another PC.
 exit /b 0
 
@@ -88,6 +106,30 @@ if not errorlevel 1 (
         set "MSP_BOOTSTRAP=python"
         exit /b 0
     )
+)
+exit /b 1
+
+:find_mercury
+if defined MERCURY_EXECUTABLE (
+    if exist "%MERCURY_EXECUTABLE%" (
+        set "MSP_MERCURY=%MERCURY_EXECUTABLE%"
+        exit /b 0
+    )
+)
+for %%F in (
+    "%CD%\mercury.exe"
+    "%CD%\..\mercury\mercury.exe"
+    "%CD%\..\mercury\build\mercury.exe"
+    "%CD%\..\mercury\build\Release\mercury.exe"
+) do (
+    if exist "%%~fF" (
+        set "MSP_MERCURY=%%~fF"
+        exit /b 0
+    )
+)
+for /f "delims=" %%F in ('where mercury.exe 2^>nul') do (
+    set "MSP_MERCURY=%%~fF"
+    exit /b 0
 )
 exit /b 1
 

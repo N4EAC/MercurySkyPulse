@@ -249,8 +249,8 @@ aggregate test suite, and creates a windowed one-directory test build at
 unsigned engineering build, not an installer or release artifact; Mercury remains
 a separately supplied executable.
 
-For a self-contained test folder, copy a compatible `mercury.exe` beside the
-built application executable:
+The builder automatically locates a compatible `mercury.exe` and copies it beside
+the built application executable:
 
 ```text
 dist\MercurySkyPulse\
@@ -259,8 +259,11 @@ dist\MercurySkyPulse\
 └── _internal\
 ```
 
-MercurySkyPulse discovers that side-by-side executable automatically. It is not
-copied by the builder and must not be committed to this repository.
+The source is selected from `MERCURY_EXECUTABLE`, a repository-root
+`mercury.exe`, common sibling `..\mercury` build locations, or `PATH`, in that
+order. The build fails rather than producing an incomplete package when Mercury
+cannot be found. The copied binary and generated `dist` directory must not be
+committed to this repository.
 
 The builder accepts Python 3.11 or newer through either the Windows `py` launcher
 or `python` on `PATH`. If a build fails, it reports the failed stage and pauses so
