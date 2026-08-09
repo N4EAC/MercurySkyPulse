@@ -23,13 +23,12 @@ manual testing, but it is not yet a production release.
 
 ### Repository state at handoff
 
-- Pull requests #1–#4 are merged into `main` at `1434b48`. They contain the
+- Pull requests #1–#7 are merged into `main` at `f533e6c`. They contain the
   endpoint-profile and safety work, station setup, operational Navigator, the
   attempted macOS menu correction, GitHub Actions v7 updates, and the hardened
-  Windows builder.
-- Current handoff branch and PR #6: `agent/fix-windows-builder`. The Windows
-  builder now downloads, verifies, and bundles the complete pinned Mercury 1.9.11
-  runtime with its GPL license and corresponding-source URL.
+  Windows builder with bundled Mercury 1.9.11 runtime.
+- Current handoff branch: `agent/fix-windows-gps`. It adds the editable GPS
+  serial/COM selector and accepts coordinate fixes whose accuracy is unavailable.
 - Interpreter-based macOS launches can still display **Python** in the global
   application menu; treat this as a known unresolved packaging issue.
 - The worktree was clean when this handoff was committed. Always recheck
@@ -93,6 +92,8 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
   recommended next resolution path; do not claim this issue is fixed yet.
 - Live modem status cards, SNR, bitrate, spectrum, and rolling waterfall; spectrum
   and waterfall can be hidden independently and stop updating while hidden.
+- GPS setup lists discovered serial/COM ports in an editable selector. Valid fixes
+  remain usable when the receiver reports missing or invalid horizontal accuracy.
 - Offscreen GUI construction tests for headless CI.
 
 ### Mercury process and telemetry
@@ -232,7 +233,7 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 149 tests passing.
+- Current aggregate result at this review: 151 tests passing.
 - GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
@@ -294,7 +295,7 @@ Most important implementation files:
 | `src/application/endpoints.py` | Typed Mercury modes, endpoints, reconnect and safety policy |
 | `src/application/radio.py` | Persisted radio selection and bounded tuning workflow |
 | `src/platform_runtime/hamlib_catalog.py` | Mercury `-K` Hamlib catalog adapter |
-| `src/platform_runtime/station_devices.py` | Cross-platform COM/USB serial-port discovery |
+| `src/platform_runtime/station_devices.py` | Cross-platform CAT/GPS COM and serial-port discovery |
 | `src/platform_runtime/macos_application.py` | Native macOS process metadata and Cocoa application-menu labeling |
 | `src/presentation/__init__.py` | Qt-free launcher bootstrap for native process metadata |
 | `src/presentation/setup_window.py` | Radio/Audio/User/GPS configuration window |
@@ -428,7 +429,7 @@ python tools/run_tests.py all
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 149 tests passed in 2.721 seconds.
+aggregate suite successfully: 151 tests passed in 2.694 seconds.
 
 Focused suites:
 

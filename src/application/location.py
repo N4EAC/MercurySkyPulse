@@ -214,11 +214,14 @@ class LocationService(QObject):
     def _on_gps_position(self, latitude: float, longitude: float, accuracy) -> None:
         try:
             latitude, longitude = validate_coordinates(latitude, longitude)
-            accuracy_value = None if accuracy is None else float(accuracy)
+            try:
+                accuracy_value = None if accuracy is None else float(accuracy)
+            except (TypeError, ValueError):
+                accuracy_value = None
             if accuracy_value is not None and (
                 not math.isfinite(accuracy_value) or accuracy_value < 0
             ):
-                raise ValueError("Accuracy must be a non-negative finite value")
+                accuracy_value = None
             location = Location(
                 latitude, longitude, "gps", self._now(), accuracy_value
             )

@@ -86,6 +86,17 @@ class LocationTests(unittest.TestCase):
         self.assertEqual(self.client.sent, [])
         self.assertEqual(self.repository.gps_location_count(), 0)
 
+    def test_gps_fix_keeps_position_when_accuracy_is_unavailable(self) -> None:
+        errors = []
+        self.service.error_received.connect(errors.append)
+        for unavailable_accuracy in (float("nan"), float("inf"), -1.0, "unknown"):
+            self.receiver.position_received.emit(
+                28.538336, -81.379234, unavailable_accuracy
+            )
+            self.assertAlmostEqual(self.service.current.latitude, 28.538336)
+            self.assertIsNone(self.service.current.accuracy_m)
+        self.assertEqual(errors, [])
+
     def test_gps_retention_is_opt_in_and_persisted(self) -> None:
         self.receiver.position_received.emit(10.0, 20.0, 3.0)
         self.assertEqual(self.repository.gps_location_count(), 0)

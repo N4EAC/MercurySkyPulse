@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from PySide6.QtCore import QIODevice, QObject, Signal
 from PySide6.QtPositioning import (
     QGeoPositionInfo,
@@ -80,6 +82,10 @@ class GpsReceiver(QObject):
             return
         attribute = QGeoPositionInfo.Attribute.HorizontalAccuracy
         accuracy = info.attribute(attribute) if info.hasAttribute(attribute) else None
+        if accuracy is not None and (
+            not math.isfinite(float(accuracy)) or float(accuracy) < 0
+        ):
+            accuracy = None
         self.position_received.emit(
             coordinate.latitude(), coordinate.longitude(), accuracy
         )
