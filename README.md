@@ -22,6 +22,10 @@ a loopback-only read-only web interface, offline signed licensing, and a trusted
 built-in plugin kernel. It is suitable for continued development and controlled
 manual testing, but is not yet a production release.
 
+The Navigator dock routes Overview, Signal, and Waterfall to their dashboard
+sections, opens the Activity log, and exposes the Inspector plus Activity docks
+for diagnostics.
+
 Mercury remains an independent executable and is accessed through its documented UI WebSocket and TNC TCP interfaces.
 
 ### Station chat
@@ -223,9 +227,11 @@ mercury-skypulse
 
 Alternatively, after installation, run `python -m presentation`.
 
-On macOS, interpreter-based development launches set both Qt metadata and the
-native Cocoa process name so the system application menu displays
-**MercurySkyPulse** rather than **Python**.
+On macOS, interpreter-based development launches set Qt metadata and the native
+Cocoa process name before Qt loads, then explicitly label the native application
+menu after Qt creates it. Completely quit older running instances before verifying
+that the system application menu displays **MercurySkyPulse** rather than
+**Python**.
 
 ### Windows test executable
 

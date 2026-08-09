@@ -1,6 +1,5 @@
-from .app import main
+from . import main
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -81,6 +81,8 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
 - Operational tabs are separated from the Radio/Audio/User/GPS Setup window;
   spectrum and waterfall are independently hideable, and manual/GPS positions
   calculate a local GRID proposal without an internet dependency.
+- The Navigator routes dashboard sections and exposes Activity/Diagnostics docks;
+  interpreter-based macOS launches explicitly label the native application menu.
 - Continue moving process/connection lifecycle out of `MainWindow` and expose
   endpoint configuration and actionable connection errors.
 

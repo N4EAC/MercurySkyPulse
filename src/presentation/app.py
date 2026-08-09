@@ -37,7 +37,10 @@ from transport.mercury.telemetry import MercuryTelemetryClient
 from platform_runtime import MercuryProcessConfig, MercuryProcessSupervisor
 from platform_runtime.station_devices import StationDeviceCatalog
 from platform_runtime.hamlib_catalog import MercuryHamlibCatalog
-from platform_runtime.macos_application import set_macos_program_name
+from platform_runtime.macos_application import (
+    set_macos_application_menu_name,
+    set_macos_program_name,
+)
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
@@ -193,4 +196,8 @@ def main() -> int:
         telemetry=mercury_telemetry,
     )
     window.show()
+    set_macos_application_menu_name("MercurySkyPulse")
+    QTimer.singleShot(
+        0, lambda: set_macos_application_menu_name("MercurySkyPulse")
+    )
     return app.exec()

@@ -165,10 +165,14 @@ class MainWindow(QMainWindow):
         return dock
 
     def _create_docks(self) -> None:
+        self.navigation_panel = create_navigation_panel()
+        self.navigation_panel.destination_requested.connect(
+            self._navigate_workspace
+        )
         self._make_dock(
             "navigation",
             "Navigator",
-            create_navigation_panel(),
+            self.navigation_panel,
             Qt.DockWidgetArea.LeftDockWidgetArea,
             190,
         )
@@ -187,6 +191,21 @@ class MainWindow(QMainWindow):
             300,
         )
         activity.setMinimumHeight(140)
+
+    def _navigate_workspace(self, destination: str) -> None:
+        key = destination.casefold()
+        if key in {"overview", "signal", "waterfall"}:
+            self.tabs.setCurrentWidget(self.dashboard)
+            QTimer.singleShot(0, lambda: self.dashboard.show_section(key))
+        elif key == "activity":
+            self._docks["activity"].show()
+            self._docks["activity"].raise_()
+            self.activity_panel.output.setFocus()
+        elif key == "diagnostics":
+            for dock_key in ("inspector", "activity"):
+                self._docks[dock_key].show()
+                self._docks[dock_key].raise_()
+            self.statusBar().showMessage("Diagnostics panels shown", 2500)
 
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Main", self)
