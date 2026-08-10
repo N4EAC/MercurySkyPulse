@@ -46,7 +46,8 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "MercurySkyPulse")
-        self.assertEqual(3, len(self.window.findChildren(QDockWidget)))
+        self.assertFalse(self.app.windowIcon().isNull())
+        self.assertEqual(2, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
         self.assertIsNotNone(self.window.statusBar())
         self.assertIsNotNone(self.window.centralWidget())
@@ -77,11 +78,10 @@ class GuiSmokeTests(unittest.TestCase):
         self.app.processEvents()
         self.assertFalse(activity.isHidden())
 
-        inspector = self.window._docks["inspector"]
-        inspector.hide()
+        activity.hide()
         self.window.navigation_panel.navigation.setCurrentRow(4)
         self.app.processEvents()
-        self.assertFalse(inspector.isHidden())
+        self.assertFalse(activity.isHidden())
 
     def test_spectrum_and_waterfall_default_off_and_enable_independently(self) -> None:
         self.assertFalse(self.window.dashboard.spectrum_enabled.isChecked())

@@ -23,8 +23,8 @@ built-in plugin kernel. It is suitable for continued development and controlled
 manual testing, but is not yet a production release.
 
 The Navigator dock routes Overview, Signal, and Waterfall to their dashboard
-sections, opens the Activity log, and exposes the Inspector plus Activity docks
-for diagnostics.
+sections and opens the Activity log for diagnostics. The unused static Inspector
+dock has been removed to preserve working space.
 
 Mercury remains a process-isolated engine accessed through its documented UI
 WebSocket and TNC TCP interfaces. Windows test packages include a pinned official
@@ -179,6 +179,7 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 ```text
 MercurySkyPulse/
 ├── .github/workflows/           # Cross-platform automated tests
+├── assets/icons/                # ICNS, ICO, and multi-resolution PNG artwork
 ├── apps/
 │   └── desktop/                 # Alternate installed-package launcher
 ├── src/
@@ -251,7 +252,26 @@ open dist/MercurySkyPulse.app
 
 The script creates an isolated build environment, runs the aggregate tests, and
 produces an unsigned engineering `.app` with MercurySkyPulse bundle metadata.
+The bundle uses the project MSP radar icon rather than the Python host icon.
+It also copies the runnable Mercury binary and license from the sibling Mercury
+checkout into the app automatically. Set `MERCURY_EXECUTABLE` only when building
+from a different local Mercury location; operators do not copy it after building.
 Generated `build/`, `dist/`, and `.venv-build-macos/` content is ignored by Git.
+
+### Application icon
+
+The shared MSP radar artwork lives at `assets/icons/mercuryskypulse.png`.
+Platform packaging uses `mercuryskypulse.icns` on macOS,
+`mercuryskypulse.ico` on Windows, and the size-specific PNG files under
+`assets/icons/linux/` on Linux. Qt also loads the packaged PNG at runtime so
+development launches and application windows do not fall back to the Python icon.
+
+To regenerate derived formats after intentionally replacing the master PNG,
+install Pillow in a tooling environment and run:
+
+```bash
+python tools/generate_icons.py
+```
 
 ### Windows test executable
 
@@ -267,7 +287,8 @@ aggregate test suite, and creates a windowed one-directory test build at
 `dist\MercurySkyPulse\MercurySkyPulse.exe`. Copy the entire
 `dist\MercurySkyPulse` directory when testing on another computer. This is an
 unsigned engineering build, not an installer or release artifact. It downloads
-and includes the pinned official Mercury runtime automatically.
+and includes the pinned official Mercury runtime automatically. The Windows
+executable and taskbar use the same MSP radar artwork as macOS and Linux.
 
 The builder downloads Mercury 1.9.11 from its official release, verifies the
 archive SHA-256 digest, and copies the complete portable runtime into the build:
@@ -301,8 +322,9 @@ MercurySkyPulse automatically starts Mercury with UI communication enabled. It l
 
 1. the explicitly configured executable, when endpoint-profile persistence is implemented;
 2. `MERCURY_EXECUTABLE`;
-3. bundled `mercury\mercury.exe` beside a packaged `MercurySkyPulse.exe`, followed
-   by the legacy directly adjacent executable location;
+3. the bundled `mercury/mercury` runtime inside a macOS app or
+   `mercury\mercury.exe` beside a packaged Windows executable, followed by the
+   legacy directly adjacent executable location;
 4. the sibling `/Users/eduardo/development/mercury/mercury`-style checkout location; or
 5. `mercury` on `PATH`.
 
@@ -389,8 +411,17 @@ and bounded restart behavior without radio hardware. Protocol tests cover framed
 ARQ messages, BBS authentication events, location/ping events, and KISS beacons.
 Transfer tests cover progress, pause/resume, checksums, duplicates, backpressure,
 and unsafe input. GUI smoke tests construct all primary pages and dock panels with
-Qt's offscreen platform. `.github/workflows/tests.yml` runs the aggregate suite on
-Linux, macOS, and Windows using supported Python versions.
+Qt's offscreen platform. GitHub-hosted workflows are intentionally disabled; the
+Apple Silicon Mac quality gate is authoritative:
+
+```bash
+scripts/check_local.sh
+```
+
+That script validates dependencies, compiles sources, runs the aggregate suite,
+builds the macOS app, and verifies its identity, signature, icon, licenses, and
+bundled Mercury runtime. Launching the managed-local package remains a manual,
+RF-safe operator check because saved CAT/PTT settings may address real hardware.
 
 Before release, the project still needs a persisted endpoint-profile UI,
 real-Mercury integration tests, further plugin migration, packaging, and

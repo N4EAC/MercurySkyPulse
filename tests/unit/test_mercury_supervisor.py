@@ -46,6 +46,24 @@ class MercurySupervisorTests(unittest.TestCase):
                 found = discover_mercury_executable()
             self.assertEqual(mercury.resolve(), found)
 
+    def test_frozen_application_discovers_pyinstaller_bundled_mercury(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            bundle_root = Path(directory) / "Contents" / "Frameworks"
+            mercury_name = "mercury.exe" if os.name == "nt" else "mercury"
+            mercury = bundle_root / "mercury" / mercury_name
+            mercury.parent.mkdir(parents=True)
+            mercury.touch()
+            mercury.chmod(0o755)
+            application = Path(directory) / "Contents" / "MacOS" / "MercurySkyPulse"
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(sys, "frozen", True, create=True),
+                patch.object(sys, "_MEIPASS", str(bundle_root), create=True),
+                patch.object(sys, "executable", str(application)),
+            ):
+                found = discover_mercury_executable()
+            self.assertEqual(mercury.resolve(), found)
+
     @unittest.skipIf(os.name == "nt", "fake Mercury uses Unix executable semantics")
     def test_unexpected_exit_schedules_restart(self) -> None:
         config = MercuryProcessConfig(

@@ -80,6 +80,8 @@ echo Building MercurySkyPulse.exe...
     --windowed ^
     --onedir ^
     --name MercurySkyPulse ^
+    --icon assets\icons\mercuryskypulse.ico ^
+    --add-data "assets\icons\mercuryskypulse.png;assets\icons" ^
     --paths src ^
     apps\desktop\main.py
 if errorlevel 1 (
