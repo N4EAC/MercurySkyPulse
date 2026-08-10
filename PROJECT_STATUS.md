@@ -29,8 +29,9 @@ manual testing, but it is not yet a production release.
   Windows builder with bundled Mercury 1.9.11 runtime plus Windows GPS fixes.
 - Current handoff branch: `agent/fix-windows-audio-theme`. It adds OS audio-device
   fallback, complete dark surface styling, and opt-in spectrum/waterfall defaults.
-- Interpreter-based macOS launches can still display **Python** in the global
-  application menu; treat this as a known unresolved packaging issue.
+- Interpreter-based macOS launches can still display **Python** because macOS
+  identifies the Python host bundle. `build.app.sh` now creates a named,
+  unsigned `MercurySkyPulse.app` engineering bundle for correct menu identity.
 - The worktree was clean when this handoff was committed. Always recheck
   `git status`, remote branches, and recent history before editing.
 
@@ -81,12 +82,14 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 - PySide6 main window with operational Overview, Chat, Beacon, Ping, and BBS tabs.
 - Separate Edit → Setup window prepared for additional configuration categories;
   its initial tabs are Radio, Audio, User, and GPS in that order.
-- Movable, floatable, closable docks for navigation, inspector, and activity. The
-  Navigator routes Overview/Signal/Waterfall dashboard sections, opens Activity,
-  and exposes the Inspector plus Activity docks for diagnostics.
+- Movable, floatable, closable docks for navigation and activity. The Navigator
+  routes Overview/Signal/Waterfall dashboard sections and opens Activity for
+  diagnostics. The unused static Inspector was removed to preserve working space.
 - Menu, toolbar, status bar, scalable fonts, high-DPI behavior, and system/light/
   dark themes with system/macOS/Windows style presets. Explicit palette and tab,
   input, header, pane, and viewport styling prevent native white gaps in dark mode.
+- A shared green MSP radar icon is installed at runtime and packaged as native
+  macOS ICNS, Windows ICO, and multi-resolution Linux PNG assets.
 - Interpreter launchers set the process name before importing Qt and a Cocoa
   adapter attempts to label the native application-menu item. Manual testing still
   shows **Python**. A packaged `.app` with MercurySkyPulse bundle metadata is the
@@ -239,17 +242,20 @@ opaque-byte/modem-fact boundary rather than absorbing application features.
 
 - Standard-library `unittest` runner with `modem`, `protocol`, `transfer`, `gui`,
   and `all` groups.
-- Current aggregate result at this review: 155 tests passing.
-- GitHub Actions matrix for Linux, macOS, and Windows with Python 3.11 and 3.13.
+- Current aggregate result at this review: 159 tests passing.
+- GitHub-hosted workflows are intentionally disabled. `scripts/check_local.sh`
+  is the authoritative Apple Silicon Mac compilation, test, dependency, and
+  packaging quality gate.
 - Tests require no display, real callsign traffic, Mercury process, radio, or RF.
 
 ## 4. Directory structure and important files
 
 ```text
 MercurySkyPulse/
-├── .github/workflows/tests.yml       Cross-platform automated test workflow
 ├── apps/desktop/main.py              Alternate installed-package launcher
+├── assets/icons/                     Cross-platform MSP radar icon assets
 ├── build.exe.bat                     Windows 10/11 PyInstaller test builder
+├── build.app.sh                      macOS PyInstaller application-bundle builder
 ├── docs/
 │   ├── ARCHITECTURE.md               Full design specification
 │   ├── LICENSE_FORMAT.md             Signed license envelope and canonical signing
@@ -267,6 +273,7 @@ MercurySkyPulse/
 │   ├── unit/                         Services, persistence, security, UI, boundaries
 │   └── integration/                  Placeholder; no real-Mercury tests yet
 ├── tools/run_tests.py                Canonical test runner
+├── scripts/check_local.sh            Canonical Mac-local pre-commit quality gate
 ├── AGENTS.md                         Mandatory agent constraints
 ├── CONTRIBUTING.md                   Contributor and test-safety guidance
 ├── PROJECT_STATUS.md                 This handoff
@@ -326,7 +333,8 @@ Discovery order is:
 
 1. explicit `MercuryProcessConfig.executable` (not currently exposed in UI);
 2. `MERCURY_EXECUTABLE`;
-3. packaged `mercury/mercury.exe`, then a legacy directly adjacent executable;
+3. packaged macOS internal `mercury/mercury` or Windows
+   `mercury/mercury.exe`, then a legacy directly adjacent executable;
 4. sibling `../mercury/mercury` or `mercury.exe` checkout;
 5. `mercury` on `PATH`.
 
@@ -427,15 +435,14 @@ MERCURYSKYPULSE_LICENSE_KEYS=/path/license-public-keys.json \
 mercury-skypulse
 ```
 
-Canonical verification before handoff:
+Canonical verification before handoff or commit:
 
 ```bash
-python -m compileall -q src tests tools
-python tools/run_tests.py all
+scripts/check_local.sh
 ```
 
 Last handoff verification on 2026-08-09 completed source compilation and the
-aggregate suite successfully: 155 tests passed in 2.706 seconds.
+aggregate suite successfully: 159 tests passed.
 
 Focused suites:
 
@@ -565,12 +572,11 @@ Additional standing decisions:
   OS-version policy.
 - No project legal license has been selected; Mercury distribution/GPL obligations
   still require review.
-- New Window remains a placeholder. Navigator destinations are operational, while
-  the Inspector remains read-only shell telemetry; Edit → Setup is implemented.
-- The macOS global application menu still identifies interpreter launches as
-  **Python** despite Qt/process/Cocoa naming attempts. Resolve and verify this in a
-  real MercurySkyPulse `.app` bundle rather than adding more unverified runtime
-  renaming claims.
+- New Window remains a placeholder. Navigator destinations and Edit → Setup are
+  implemented.
+- Interpreter launches may still show **Python** in the macOS menu bar. The named
+  `MercurySkyPulse.app` builder is implemented, but the unsigned bundle still
+  needs manual validation and eventual signing/notarization for release.
 - Local web is intentionally read-only, loopback-only, and manually refreshed. It
   has no authentication and must not be exposed beyond loopback without a new ADR.
 - APRS support is coordinate-format compatibility only, not APRS packet or APRS-IS
@@ -659,8 +665,7 @@ At the start of the next Codex session:
 6. Keep application features above opaque Mercury transports.
 7. Preserve unrelated workspace changes and use `apply_patch` for edits.
 8. Add/update ADRs for cross-cutting decisions and tests for behavior changes.
-9. Run `python -m compileall -q src tests tools` and
-   `python tools/run_tests.py all` before handoff.
+9. Run `scripts/check_local.sh` before handoff or commit.
 10. Keep automated tests radio-safe: mocks and protocol fakes must not discover,
     launch, key, or tune an installed Mercury/radio accidentally.
 11. Report assumptions, limitations, test results, and any remaining manual steps.

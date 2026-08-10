@@ -49,7 +49,12 @@ Mercury as an independent engine and keeping module boundaries explicit.
 
 - Discuss or document architectural changes before implementation.
 - Add tests proportionate to every implementation change.
-- Run `python tools/run_tests.py all` before submitting. During development, use the `modem`, `protocol`, `transfer`, or `gui` argument for a focused suite.
+- Run `scripts/check_local.sh` on an Apple Silicon Mac before committing. During
+  development, use `python tools/run_tests.py modem`, `protocol`, `transfer`, or
+  `gui` for a focused suite, but do not substitute focused checks for the local
+  aggregate and packaging gate.
+- GitHub Actions are intentionally disabled. Do not add or enable a hosted
+  workflow without the repository owner's explicit request.
 - Update documentation when module ownership, configuration, or Mercury compatibility changes.
 - Avoid generated artifacts, credentials, local Mercury binaries, logs, captures, and build outputs in commits.
 

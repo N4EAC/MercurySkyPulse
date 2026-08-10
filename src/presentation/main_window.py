@@ -35,7 +35,6 @@ from .setup_window import SetupWindow
 from .panels import (
     ActivityPanel,
     Dashboard,
-    create_inspector_panel,
     create_navigation_panel,
 )
 from .themes import Appearance, PlatformPreset, Theme, apply_appearance
@@ -176,13 +175,6 @@ class MainWindow(QMainWindow):
             Qt.DockWidgetArea.LeftDockWidgetArea,
             190,
         )
-        self._make_dock(
-            "inspector",
-            "Inspector",
-            create_inspector_panel(),
-            Qt.DockWidgetArea.RightDockWidgetArea,
-            230,
-        )
         activity = self._make_dock(
             "activity",
             "Activity",
@@ -202,10 +194,10 @@ class MainWindow(QMainWindow):
             self._docks["activity"].raise_()
             self.activity_panel.output.setFocus()
         elif key == "diagnostics":
-            for dock_key in ("inspector", "activity"):
-                self._docks[dock_key].show()
-                self._docks[dock_key].raise_()
-            self.statusBar().showMessage("Diagnostics panels shown", 2500)
+            self._docks["activity"].show()
+            self._docks["activity"].raise_()
+            self.activity_panel.output.setFocus()
+            self.statusBar().showMessage("Activity diagnostics shown", 2500)
 
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Main", self)
@@ -224,7 +216,7 @@ class MainWindow(QMainWindow):
         toolbar.addAction(connect_action)
         toolbar.addSeparator()
 
-        for key in ("navigation", "inspector", "activity"):
+        for key in ("navigation", "activity"):
             toolbar.addAction(self._docks[key].toggleViewAction())
         self._toolbar = toolbar
 
@@ -382,11 +374,10 @@ class MainWindow(QMainWindow):
             dock.setFloating(False)
             dock.show()
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._docks["navigation"])
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._docks["inspector"])
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._docks["activity"])
         self.resizeDocks(
-            [self._docks["navigation"], self._docks["inspector"]],
-            [220, 270],
+            [self._docks["navigation"]],
+            [220],
             Qt.Orientation.Horizontal,
         )
         self.resizeDocks(

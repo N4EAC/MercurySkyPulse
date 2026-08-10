@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 from PySide6.QtCore import QCoreApplication, QStandardPaths, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 from PySide6.QtWidgets import QApplication
 
 from .main_window import MainWindow
@@ -55,16 +55,33 @@ def create_application(argv: list[str] | None = None) -> QApplication:
     existing = QApplication.instance()
     if existing is not None:
         existing.setApplicationDisplayName("MercurySkyPulse")
+        _set_application_icon(existing)
         return existing
 
     app = QApplication(argv if argv is not None else sys.argv)
     app.setApplicationDisplayName("MercurySkyPulse")
+    _set_application_icon(app)
 
     font = QFont(app.font())
     font.setPointSizeF(max(font.pointSizeF(), 9.0))
     app.setFont(font)
     apply_appearance(app, Appearance.system())
     return app
+
+
+def _set_application_icon(app: QApplication) -> None:
+    candidates = [
+        Path(__file__).resolve().parent / "resources" / "mercuryskypulse.png",
+    ]
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if bundle_root:
+        candidates.append(
+            Path(bundle_root) / "assets" / "icons" / "mercuryskypulse.png"
+        )
+    for candidate in candidates:
+        if candidate.is_file():
+            app.setWindowIcon(QIcon(str(candidate)))
+            return
 
 
 def main() -> int:

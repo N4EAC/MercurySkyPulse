@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QScrollArea,
     QSizePolicy,
-    QSpacerItem,
     QVBoxLayout,
     QWidget,
 )
@@ -309,21 +308,3 @@ class NavigationPanel(QWidget):
 
 def create_navigation_panel() -> NavigationPanel:
     return NavigationPanel()
-
-
-def create_inspector_panel() -> QWidget:
-    panel = QWidget()
-    layout = QVBoxLayout(panel)
-    layout.setContentsMargins(12, 12, 12, 12)
-    layout.setSpacing(12)
-    layout.addWidget(_label("Mercury integration", "SectionTitle"))
-    layout.addWidget(_label("Read-only telemetry", "MetricValue"))
-    layout.addWidget(
-        _label(
-            "The child process is supervised and restarts automatically after crashes. "
-            "Messaging and data transport are not enabled.",
-            "Muted",
-        )
-    )
-    layout.addItem(QSpacerItem(0, 0, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
-    return panel

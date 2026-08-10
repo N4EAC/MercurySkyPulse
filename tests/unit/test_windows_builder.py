@@ -18,6 +18,8 @@ class WindowsBuilderContractTests(unittest.TestCase):
             script,
         )
         self.assertIn("mercury\\source.txt", script)
+        self.assertIn("--icon assets\\icons\\mercuryskypulse.ico", script)
+        self.assertIn("mercuryskypulse.png;assets\\icons", script)
         self.assertIn("goto failed", script)
 
 
