@@ -1,5 +1,11 @@
 # MercurySkyPulse
 
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg)
+![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000.svg)
+![Linux planned](https://img.shields.io/badge/Linux-Fedora%20%7C%20Ubuntu%20planned-FCC624.svg)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)
+
 MercurySkyPulse is a cross-platform, local-first station application built around
 the independent [Mercury](https://github.com/Rhizomatica/mercury) HF modem
 transport engine.
@@ -29,8 +35,22 @@ The Navigator dock routes Overview and Signal to their dashboard sections and
 opens Activity for diagnostics.
 
 Mercury remains a process-isolated engine accessed through its documented UI
-WebSocket and TNC TCP interfaces. Windows test packages include a pinned official
-MSP-compatible Mercury runtime so operators do not install or copy it separately.
+WebSocket and TNC TCP interfaces. Windows test packages include a pinned
+MSP-compatible Mercury fork runtime so operators do not install or copy it
+separately.
+
+### Platform support
+
+| Platform | Current status |
+|---|---|
+| Windows 10/11 x86-64 | Supported for engineering builds and live-radio testing through `build.exe.bat` |
+| macOS Apple Silicon | Supported for engineering builds and live-radio testing through `build.app.sh` |
+| Fedora Linux | Binary packaging planned after current RF validation |
+| Ubuntu Linux | Binary packaging planned after current RF validation |
+
+Linux remains a source-level architectural target, but no Linux binary package is
+currently published. Intel macOS is not part of the presently validated build
+matrix.
 
 ### Station chat
 
@@ -486,4 +506,14 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before mak
 
 ## License
 
-No project license has been selected yet. Mercury is GPL-3.0-or-later; contributors must evaluate distribution and integration obligations before choosing MercurySkyPulse's license and packaging model.
+MercurySkyPulse is free software licensed under the
+[GNU General Public License, version 3 or later](LICENSE). You may use, study,
+copy, modify, redistribute, and sell it under those terms. A distributor must
+preserve the license and provide the corresponding source and the same freedoms
+to recipients.
+
+Copyright © 2026 Eduardo A. de Carvalho and MercurySkyPulse contributors.
+
+Mercury is a separately maintained process and is distributed under its own
+GPL-3.0-or-later terms. Packaged MSP builds retain Mercury's license and exact
+corresponding-source information alongside its runtime.

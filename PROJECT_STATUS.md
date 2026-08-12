@@ -12,6 +12,10 @@ repository. Mercury remains a separate process and implementation boundary.
 Packaged engineering builds include the compatible Mercury runtime required by
 the application.
 
+MSP is licensed under GPL-3.0-or-later. Windows 10/11 x86-64 and Apple Silicon
+macOS are the current engineering-test platforms. Fedora and Ubuntu binary
+packages are planned after current RF validation; they are not yet published.
+
 ## Architecture
 
 ```text
