@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QSize, QTimer, QUrl
+from pathlib import Path
+from PySide6.QtCore import Qt, QSize, QSettings, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -35,6 +36,7 @@ from .setup_window import SetupWindow
 from .panels import (
     ActivityPanel,
     Dashboard,
+    FrequencyPanel,
     create_navigation_panel,
 )
 from .themes import Appearance, PlatformPreset, Theme, apply_appearance
@@ -54,6 +56,8 @@ class MainWindow(QMainWindow):
         beacon_service: BeaconService | None = None,
         ping_service: PingService | None = None,
         radio_service: RadioStationService | None = None,
+        tx_level_service=None,
+        psk_reporter_service=None,
         bbs_service: BbsService | None = None,
         web_snapshot: WebDashboardSnapshot | None = None,
         web_server: LocalWebServer | None = None,
@@ -62,11 +66,14 @@ class MainWindow(QMainWindow):
         endpoint_profile: MercuryEndpointProfile | None = None,
         supervisor: MercuryProcessSupervisor | None = None,
         telemetry: MercuryTelemetryClient | None = None,
+        diagnostic_log_path: Path | None = None,
         auto_start: bool = True,
     ) -> None:
         super().__init__()
         self._app = app
-        self._appearance = Appearance.system()
+        self._settings = QSettings()
+        self._appearance = self._load_appearance()
+        apply_appearance(self._app, self._appearance)
         self._docks: dict[str, QDockWidget] = {}
         self.dashboard = Dashboard()
         self.chat_page = ChatPage()
@@ -77,6 +84,8 @@ class MainWindow(QMainWindow):
         self.ping_service = ping_service
         self.ping_page = PingPage()
         self.radio_service = radio_service
+        self.tx_level_service = tx_level_service
+        self.psk_reporter_service = psk_reporter_service
         self.bbs_service = bbs_service
         self.bbs_page = BbsPage()
         self.web_snapshot = web_snapshot
@@ -87,13 +96,19 @@ class MainWindow(QMainWindow):
         self.file_transfer_service = file_transfer_service
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
+        self.frequency_panel = FrequencyPanel()
         self.endpoint_profile = endpoint_profile or MercuryEndpointProfile.default()
         self.supervisor = supervisor or MercuryProcessSupervisor(
             MercuryProcessConfig(), self
         )
         self.telemetry = telemetry or MercuryTelemetryClient(parent=self)
+        self.diagnostic_log_path = diagnostic_log_path
+        self._transfer_diagnostics: dict[str, tuple] = {}
         self.setup_window = (
-            SetupWindow(radio_service, beacon_service, location_service, self)
+            SetupWindow(
+                radio_service, beacon_service, location_service,
+                tx_level_service, psk_reporter_service, self,
+            )
             if radio_service and beacon_service and location_service else None
         )
         if self.supervisor.parent() is None:
@@ -112,11 +127,13 @@ class MainWindow(QMainWindow):
             | QMainWindow.DockOption.GroupedDragging
         )
         self.tabs = QTabWidget()
+        self.tabs.setMovable(True)
         self.tabs.addTab(self.dashboard, "Overview")
         self.tabs.addTab(self.chat_page, "Chat")
         self.tabs.addTab(self.beacon_page, "Beacon")
         self.tabs.addTab(self.ping_page, "Ping")
         self.tabs.addTab(self.bbs_page, "BBS")
+        self._restore_tab_order()
         self.setCentralWidget(self.tabs)
 
         self._create_docks()
@@ -137,7 +154,10 @@ class MainWindow(QMainWindow):
             )
         self._connect_bbs_service()
         self._connect_web_snapshot()
-        self._reset_layout()
+        if not self.restoreGeometry(self._settings.value("main/geometry", b"")):
+            self.resize(1280, 820)
+        if not self.restoreState(self._settings.value("main/state", b""), 1):
+            self._reset_layout(clear_saved=False)
         if auto_start:
             QTimer.singleShot(0, self._start_mercury)
 
@@ -183,10 +203,18 @@ class MainWindow(QMainWindow):
             300,
         )
         activity.setMinimumHeight(140)
+        frequency = self._make_dock(
+            "frequency",
+            "Radio Frequency",
+            self.frequency_panel,
+            Qt.DockWidgetArea.RightDockWidgetArea,
+            220,
+        )
+        frequency.setMinimumHeight(150)
 
     def _navigate_workspace(self, destination: str) -> None:
         key = destination.casefold()
-        if key in {"overview", "signal", "waterfall"}:
+        if key in {"overview", "signal"}:
             self.tabs.setCurrentWidget(self.dashboard)
             QTimer.singleShot(0, lambda: self.dashboard.show_section(key))
         elif key == "activity":
@@ -216,7 +244,7 @@ class MainWindow(QMainWindow):
         toolbar.addAction(connect_action)
         toolbar.addSeparator()
 
-        for key in ("navigation", "activity"):
+        for key in ("navigation", "frequency", "activity"):
             toolbar.addAction(self._docks[key].toggleViewAction())
         self._toolbar = toolbar
 
@@ -300,6 +328,15 @@ class MainWindow(QMainWindow):
                 lambda: QDesktopServices.openUrl(QUrl(self.web_server.url or ""))
             )
             mercury_menu.addAction(web)
+        if self.diagnostic_log_path:
+            mercury_menu.addSeparator()
+            diagnostics = QAction("Open Diagnostic Log Folder", self)
+            diagnostics.triggered.connect(
+                lambda: QDesktopServices.openUrl(
+                    QUrl.fromLocalFile(str(self.diagnostic_log_path.parent))
+                )
+            )
+            mercury_menu.addAction(diagnostics)
 
     def _add_theme_menu(self, parent_menu) -> None:
         menu = parent_menu.addMenu("Theme")
@@ -311,7 +348,7 @@ class MainWindow(QMainWindow):
             ("Dark", Theme.DARK),
         ):
             action = QAction(label, self, checkable=True)
-            action.setChecked(theme is Theme.SYSTEM)
+            action.setChecked(theme is self._appearance.theme)
             action.triggered.connect(lambda checked=False, value=theme: self._set_theme(value))
             group.addAction(action)
             menu.addAction(action)
@@ -326,7 +363,7 @@ class MainWindow(QMainWindow):
             ("Windows", PlatformPreset.WINDOWS),
         ):
             action = QAction(label, self, checkable=True)
-            action.setChecked(preset is PlatformPreset.SYSTEM)
+            action.setChecked(preset is self._appearance.platform)
             action.triggered.connect(
                 lambda checked=False, value=preset: self._set_platform(value)
             )
@@ -339,7 +376,7 @@ class MainWindow(QMainWindow):
         group.setExclusive(True)
         for label, scale in (("90%", 0.9), ("100%", 1.0), ("110%", 1.1), ("125%", 1.25), ("150%", 1.5)):
             action = QAction(label, self, checkable=True)
-            action.setChecked(scale == 1.0)
+            action.setChecked(scale == self._appearance.scale)
             action.triggered.connect(lambda checked=False, value=scale: self._set_scale(value))
             group.addAction(action)
             menu.addAction(action)
@@ -358,23 +395,33 @@ class MainWindow(QMainWindow):
         self._appearance = self._appearance.with_theme(theme)
         apply_appearance(self._app, self._appearance)
         self.statusBar().showMessage(f"Theme: {theme.value}", 2500)
+        self._save_appearance()
 
     def _set_platform(self, preset: PlatformPreset) -> None:
         self._appearance = self._appearance.with_platform(preset)
         apply_appearance(self._app, self._appearance)
         self.statusBar().showMessage(f"Platform style: {preset.value}", 2500)
+        self._save_appearance()
 
     def _set_scale(self, scale: float) -> None:
         self._appearance = self._appearance.with_scale(scale)
         apply_appearance(self._app, self._appearance)
         self.statusBar().showMessage(f"UI scale: {self._appearance.scale:.0%}", 2500)
+        self._save_appearance()
 
-    def _reset_layout(self) -> None:
+    def _reset_layout(self, checked: bool = False, clear_saved: bool = True) -> None:
+        del checked
         for dock in self._docks.values():
             dock.setFloating(False)
             dock.show()
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._docks["navigation"])
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._docks["frequency"])
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._docks["activity"])
+        self.resizeDocks(
+            [self._docks["frequency"]],
+            [240],
+            Qt.Orientation.Horizontal,
+        )
         self.resizeDocks(
             [self._docks["navigation"]],
             [220],
@@ -386,6 +433,9 @@ class MainWindow(QMainWindow):
             Qt.Orientation.Vertical,
         )
         self.statusBar().showMessage("Panel layout reset", 2500)
+        if clear_saved:
+            self._settings.remove("main/geometry")
+            self._settings.remove("main/state")
 
     def _show_about(self) -> None:
         QMessageBox.about(
@@ -393,7 +443,7 @@ class MainWindow(QMainWindow):
             "About MercurySkyPulse",
             "<b>MercurySkyPulse</b><br>"
             "Supervised Mercury telemetry shell<br><br>"
-            "Displays modem status, SNR, bitrate, spectrum, and waterfall, "
+            "Displays modem status, SNR, bitrate, and station workflows, "
             "with station-to-station text chat.",
         )
 
@@ -445,26 +495,33 @@ class MainWindow(QMainWindow):
             lambda error: self.activity_panel.append_log(f"Telemetry error: {error}")
         )
         self.telemetry.status_received.connect(self.dashboard.update_status)
+        self.telemetry.status_received.connect(self.frequency_panel.update_status)
         if self.ping_service:
             self.telemetry.status_received.connect(self.ping_service.update_status)
-        self.telemetry.spectrum_received.connect(self.dashboard.update_spectrum)
         if hasattr(self.telemetry, "set_spectrum_processing_enabled"):
-            self.dashboard.spectrum_enabled.toggled.connect(
-                self._update_spectrum_processing
-            )
-            self.dashboard.waterfall_enabled.toggled.connect(
-                self._update_spectrum_processing
-            )
             self._update_spectrum_processing()
         if self.setup_window:
             self.telemetry.audio_devices_received.connect(
                 self.setup_window.set_audio_devices
             )
+            self.telemetry.spectrum_received.connect(
+                self.setup_window.audio_page.update_spectrum
+            )
+            self.telemetry.status_received.connect(
+                self.setup_window.audio_page.update_status
+            )
+            self.setup_window.audio_diagnostics_changed.connect(
+                lambda _active: self._update_spectrum_processing()
+            )
 
     def _update_spectrum_processing(self) -> None:
+        audio_diagnostics = bool(
+            self.setup_window
+            and self.setup_window.isVisible()
+            and self.setup_window.tabs.currentWidget() is self.setup_window.audio_page
+        )
         self.telemetry.set_spectrum_processing_enabled(
-            self.dashboard.spectrum_enabled.isChecked()
-            or self.dashboard.waterfall_enabled.isChecked()
+            audio_diagnostics
         )
 
     def _connect_chat_service(self) -> None:
@@ -478,6 +535,9 @@ class MainWindow(QMainWindow):
         self.chat_page.send_requested.connect(service.send_text)
         self.chat_page.conversation_selected.connect(service.select_conversation)
         service.state_changed.connect(self.chat_page.set_state)
+        service.state_changed.connect(
+            lambda state: self.activity_panel.append_log(f"ARQ state: {state}")
+        )
         service.conversations_changed.connect(self.chat_page.set_conversations)
         service.messages_changed.connect(self.chat_page.set_messages)
         service.active_conversation_changed.connect(
@@ -490,12 +550,52 @@ class MainWindow(QMainWindow):
         service.client.control_event.connect(
             lambda event: self.activity_panel.append_log(f"TNC: {event}")
         )
+        service.client.session_connected.connect(
+            lambda source, destination, bandwidth: self.activity_panel.append_log(
+                f"ARQ session connected source={source} destination={destination} "
+                f"bandwidth_hz={bandwidth}"
+            )
+        )
+        service.client.session_connected.connect(self.chat_page.set_connected_peer)
+        service.client.session_disconnected.connect(
+            lambda: self.activity_panel.append_log("ARQ session disconnected")
+        )
+        service.client.session_disconnected.connect(self.chat_page.set_disconnected)
+        service.client.message_sent.connect(
+            lambda message_id: self.activity_panel.append_log(
+                f"Chat message queued id={message_id}"
+            )
+        )
+        service.client.message_delivered.connect(
+            lambda message_id: self.activity_panel.append_log(
+                f"Chat message acknowledged id={message_id}"
+            )
+        )
+        service.client.message_received.connect(
+            lambda envelope: self.activity_panel.append_log(
+                f"Chat message received id={envelope.message_id}"
+            )
+        )
+        service.client.ping_event_received.connect(
+            lambda envelope: self.activity_panel.append_log(
+                f"Ping event kind={envelope.kind} id={envelope.message_id}"
+            )
+        )
+        service.client.bbs_event_received.connect(
+            lambda envelope: self.activity_panel.append_log(
+                f"BBS event kind={envelope.kind} id={envelope.message_id}"
+            )
+        )
         if self.file_transfer_service:
             transfers = self.file_transfer_service
             self.chat_page.file_requested.connect(transfers.send_file)
             self.chat_page.transfer_pause_requested.connect(transfers.pause)
             self.chat_page.transfer_resume_requested.connect(transfers.resume)
+            self.chat_page.transfer_folder_requested.connect(self._open_transfer_folder)
             transfers.transfers_changed.connect(self.chat_page.set_transfers)
+            transfers.transfers_changed.connect(self._log_transfers)
+            transfers.incoming_offer.connect(self._confirm_incoming_file)
+            transfers.transfer_completed.connect(self._transfer_completed)
             transfers.error_received.connect(self.chat_page.show_error)
             transfers.error_received.connect(
                 lambda error: self.activity_panel.append_log(
@@ -512,6 +612,7 @@ class MainWindow(QMainWindow):
         if self.chat_service:
             self.chat_service.start()
         if self.location_service:
+            self.location_service.start()
             self.location_service.publish_current()
         if self.beacon_service:
             self.beacon_service.start()
@@ -519,6 +620,8 @@ class MainWindow(QMainWindow):
             self.bbs_service.start()
         if self.radio_service:
             self.radio_service.start()
+        if self.psk_reporter_service:
+            self.psk_reporter_service.start()
 
     def _connect_beacon_service(self) -> None:
         if not self.beacon_service:
@@ -535,6 +638,9 @@ class MainWindow(QMainWindow):
         service.config_changed.connect(self.beacon_page.set_config)
         service.config_changed.connect(self._apply_station_callsign_defaults)
         service.state_changed.connect(self.beacon_page.set_state)
+        service.state_changed.connect(
+            lambda state: self.activity_panel.append_log(f"Beacon state: {state}")
+        )
         service.beacon_received.connect(self.beacon_page.set_received)
         service.error_received.connect(self.beacon_page.show_error)
         service.error_received.connect(
@@ -558,6 +664,9 @@ class MainWindow(QMainWindow):
         self.ping_page.ping_requested.connect(service.ping)
         service.result_received.connect(self.ping_page.set_result)
         service.state_changed.connect(self.ping_page.set_state)
+        service.state_changed.connect(
+            lambda state: self.activity_panel.append_log(f"Ping state: {state}")
+        )
         service.error_received.connect(self.ping_page.show_error)
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Ping error: {error}")
@@ -665,18 +774,81 @@ class MainWindow(QMainWindow):
         self.dashboard.set_engine_state(state)
         self._engine_status.setText(f"Mercury: {state}")
         self.statusBar().showMessage(f"Mercury process: {state}", 3000)
+        self.activity_panel.append_log(f"Mercury process state: {state}")
 
     def _on_telemetry_state(self, state: str) -> None:
         self.dashboard.set_telemetry_state(state)
         self._telemetry_status.setText(f"Telemetry: {state}")
+        self.activity_panel.append_log(f"Telemetry state: {state}")
+
+    def _log_transfers(self, transfers) -> None:
+        for transfer in transfers:
+            state = (
+                transfer.direction, transfer.status, transfer.transferred, transfer.size
+            )
+            if self._transfer_diagnostics.get(transfer.id) == state:
+                continue
+            self._transfer_diagnostics[transfer.id] = state
+            self.activity_panel.append_log(
+                "File transfer "
+                f"id={transfer.id} direction={transfer.direction} "
+                f"status={transfer.status} bytes={transfer.transferred}/{transfer.size} "
+                f"checksum={transfer.checksum[:12]}"
+            )
+
+    def _confirm_incoming_file(self, transfer) -> None:
+        size = f"{transfer.size:,} bytes"
+        answer = QMessageBox.question(
+            self,
+            "Incoming File",
+            f"Accept {transfer.name} ({size}) from the connected station?\n\n"
+            f"SHA-256: {transfer.checksum}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.file_transfer_service.accept(transfer.id)
+            self.activity_panel.append_log(f"Incoming file accepted id={transfer.id}")
+        else:
+            self.file_transfer_service.reject(transfer.id)
+            self.activity_panel.append_log(f"Incoming file rejected id={transfer.id}")
+
+    def _transfer_completed(self, transfer) -> None:
+        outcome = (
+            "already exists and was checksum verified"
+            if transfer.status == "duplicate" else "was checksum verified"
+        )
+        self.statusBar().showMessage(f"File {transfer.name} {outcome}", 10_000)
+        self.activity_panel.append_log(
+            f"File transfer complete id={transfer.id} status={transfer.status} path={transfer.path}"
+        )
+
+    @staticmethod
+    def _open_transfer_folder(path_value: str) -> None:
+        path = Path(path_value)
+        folder = path if path.is_dir() else path.parent
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
+        self._settings.setValue("main/geometry", self.saveGeometry())
+        self._settings.setValue("main/state", self.saveState(1))
+        self._settings.setValue(
+            "main/tab_order",
+            [self.tabs.tabText(index) for index in range(self.tabs.count())],
+        )
+        if self.setup_window:
+            self._settings.setValue("setup/geometry", self.setup_window.saveGeometry())
+        self._settings.sync()
         if self.web_server:
             self.web_server.stop()
         if self.plugin_registry:
             self.plugin_registry.stop_all()
         if self.ping_service:
             self.ping_service.stop()
+        if self.tx_level_service:
+            self.tx_level_service.stop()
+        if self.psk_reporter_service:
+            self.psk_reporter_service.stop()
         if self.radio_service:
             self.radio_service.stop()
         if self.beacon_service:
@@ -690,3 +862,30 @@ class MainWindow(QMainWindow):
         self.telemetry.stop()
         self.supervisor.shutdown_blocking()
         event.accept()
+
+    def _load_appearance(self) -> Appearance:
+        try:
+            theme = Theme(str(self._settings.value("appearance/theme", "system")))
+            platform = PlatformPreset(
+                str(self._settings.value("appearance/platform", "system"))
+            )
+            scale = float(self._settings.value("appearance/scale", 1.0))
+            return Appearance(theme, platform, max(0.9, min(1.5, scale)))
+        except (TypeError, ValueError):
+            return Appearance.system()
+
+    def _save_appearance(self) -> None:
+        self._settings.setValue("appearance/theme", self._appearance.theme.value)
+        self._settings.setValue("appearance/platform", self._appearance.platform.value)
+        self._settings.setValue("appearance/scale", self._appearance.scale)
+        self._settings.sync()
+
+    def _restore_tab_order(self) -> None:
+        saved = self._settings.value("main/tab_order", [])
+        if isinstance(saved, str):
+            saved = [saved]
+        for target, label in enumerate(saved or []):
+            for current in range(target, self.tabs.count()):
+                if self.tabs.tabText(current) == label:
+                    self.tabs.tabBar().moveTab(current, target)
+                    break

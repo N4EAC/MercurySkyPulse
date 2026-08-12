@@ -36,8 +36,8 @@ Mercury compatibility, and the project legal license remain open.
 
 - TNC commands, notifications, application framing, and connection lifecycle used
   by the current slice have executable contracts.
-- WebSocket JSON status and binary-spectrum schemas used by MercurySkyPulse have
-  bounded parsers and contract tests.
+- WebSocket JSON status, cached read-only CAT frequency, and binary-spectrum
+  schemas used by MercurySkyPulse have bounded parsers and contract tests.
 - Protocol parser/serializer unit tests use generated, non-sensitive fixtures.
 - Add compatibility checks against a separately built Mercury executable.
 - Define capability negotiation and behavior for unsupported Mercury versions.
@@ -79,9 +79,12 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
 - PySide6 presentation, composition, status projections, and primary workflow
   pages are implemented.
 - Operational tabs are separated from the Radio/Audio/User/GPS Setup window;
-  spectrum and waterfall are independently opt-in and default off, and manual/GPS positions
+  the main workspace stays focused on operating views, and manual/GPS positions
   calculate a local GRID proposal without an internet dependency.
 - The Navigator routes dashboard sections and exposes Activity/Diagnostics docks.
+- Navigator/Activity docks and the command toolbar are movable/resizable, workflow
+  tabs are reorderable, and their per-user layout plus appearance and Setup geometry
+  are restored across launches.
 - Validate the new named macOS `.app` bundle and replace the interpreter-launch **Python** menu label through a
   packaged MercurySkyPulse application bundle with verified bundle metadata.
 - Continue moving process/connection lifecycle out of `MainWindow` and expose
@@ -92,9 +95,13 @@ Exit criteria: a minimal application can connect to Mercury and display verified
 ## Phase 6 — Product capabilities (vertical slice complete; release work remains)
 
 - Implemented slices include chat, file/image transfer, location/GPS export,
-  beacon, ping, BBS, radio/Hamlib setup, bounded tuning, local web, offline
-  licensing, and built-in plugins.
-- Add persistence/retention controls, observability, diagnostics, accessibility,
+  beacon, ping, BBS, radio/Hamlib setup, bounded TX level testing, optional PSK
+  Reporter reception uploads, local web, offline licensing, and built-in plugins.
+- Incoming transfer consent, truthful RF-delivery state, persistent bounded field
+  diagnostics, and slow-link ping/BBS timing are implemented from paired RF tests.
+- Public-telemetry audio diagnostics expose selected native endpoint IDs, inferred
+  capture energy, decoded SNR, and actionable no-energy warnings without RF output.
+- Add remaining history retention controls, accessibility,
   packaging, backup/recovery, and upgrade policy.
 - Establish release automation and Mercury/OS compatibility matrices.
 - The Windows engineering builder bundles a pinned, checksum-verified official

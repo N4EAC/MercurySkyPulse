@@ -22,7 +22,7 @@ SCRYPT_N = 1 << 14
 SCRYPT_R = 8
 SCRYPT_P = 1
 KEY_BYTES = 32
-CHALLENGE_SECONDS = 60
+CHALLENGE_SECONDS = 300
 ROLE_RANK = {"user": 1, "operator": 2, "commander": 3}
 EVENT_PERMISSION = {
     "bbs_private": "user",

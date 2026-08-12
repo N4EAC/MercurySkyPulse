@@ -94,16 +94,6 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertEqual(delivered, ["sent"])
         self.assertEqual(self.transport.controls, [])
 
-    def test_tune_uses_documented_mercury_control_commands(self) -> None:
-        self.client.start_tune(-15)
-        self.client.set_tune_level(-10)
-        self.client.stop_tune()
-        self.assertEqual(
-            self.transport.controls, ["TUNE -15", "TUNE -10", "TUNE OFF"]
-        )
-        with self.assertRaises(ValueError):
-            self.client.start_tune(1)
-
 
 if __name__ == "__main__":
     unittest.main()

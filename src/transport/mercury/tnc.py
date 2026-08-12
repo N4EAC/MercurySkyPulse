@@ -13,6 +13,7 @@ class MercuryTncTransport(QObject):
     session_disconnected = Signal()
     data_received = Signal(bytes)
     error_received = Signal(str)
+    queued_bytes_changed = Signal(int)
 
     def __init__(
         self,
@@ -134,6 +135,13 @@ class MercuryTncTransport(QObject):
         elif line == "DISCONNECTED":
             self._set_state("ready")
             self.session_disconnected.emit()
+        elif line.startswith("BUFFER "):
+            try:
+                queued = int(line.split()[1])
+            except (IndexError, ValueError):
+                return
+            if queued >= 0:
+                self.queued_bytes_changed.emit(queued)
 
     def _set_state(self, state: str) -> None:
         if state != self._state:

@@ -1,6 +1,8 @@
-"""Read-only Mercury UI WebSocket client."""
+"""Mercury UI WebSocket telemetry and bounded documented controls."""
 
 from __future__ import annotations
+
+import json
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtNetwork import QAbstractSocket
@@ -72,6 +74,19 @@ class MercuryTelemetryClient(QObject):
     def set_spectrum_processing_enabled(self, enabled: bool) -> None:
         """Skip binary spectrum parsing while all visualizations are disabled."""
         self._spectrum_processing_enabled = bool(enabled)
+
+    def set_tx_gain_db(self, level_db: float) -> None:
+        level = float(level_db)
+        if not -20.0 <= level <= 20.0:
+            raise ValueError("Mercury TX gain must be between -20 and +20 dB")
+        if self.socket.state() != QAbstractSocket.SocketState.ConnectedState:
+            raise RuntimeError("Mercury telemetry socket is not connected")
+        payload = json.dumps(
+            {"command": "set_tx_gain", "value": f"{level:.2f}"},
+            separators=(",", ":"),
+        )
+        if self.socket.sendTextMessage(payload) <= 0:
+            raise RuntimeError("Mercury rejected the TX gain command")
 
     def _open(self) -> None:
         if not self._intended_running:

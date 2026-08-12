@@ -132,6 +132,10 @@ class BeaconService(QObject):
         except (RuntimeError, ValueError) as error:
             self.error_received.emit(str(error))
 
+    def transmit_test_beacon(self) -> None:
+        """Transmit one normal, real-identity beacon or raise to the test owner."""
+        self._transmit()
+
     def _timer_fired(self) -> None:
         try:
             self._transmit()

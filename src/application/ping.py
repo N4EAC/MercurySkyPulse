@@ -31,7 +31,7 @@ class PingService(QObject):
     def __init__(
         self,
         client,
-        timeout_ms: int = 15000,
+        timeout_ms: int = 180_000,
         clock=time.monotonic,
         auto_timeout: bool = True,
         parent=None,
@@ -49,6 +49,8 @@ class PingService(QObject):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._timeout)
         client.ping_event_received.connect(self._on_event)
+        if hasattr(client, "queued_bytes_changed"):
+            client.queued_bytes_changed.connect(self._on_queue_activity)
 
     def update_status(self, status: ModemStatus) -> None:
         self.latest_status = status
@@ -131,6 +133,10 @@ class PingService(QObject):
         self._pending_id = None
         self.state_changed.emit("timeout")
         self.error_received.emit("Ping timed out")
+
+    def _on_queue_activity(self, queued_bytes: int) -> None:
+        if self._pending_id and self.auto_timeout and queued_bytes >= 0:
+            self._timer.start(self.timeout_ms)
 
     @staticmethod
     def _now() -> str:

@@ -12,7 +12,11 @@ MercurySkyPulse is a cross-platform desktop application built around the indepen
 
 This specification defines the intended software boundaries before an implementation language, UI toolkit, or package system is selected. It does not authorize application logic yet. Technology selections and material changes to this design require architecture decision records (ADRs) in `docs/decisions/`.
 
-The primary integration boundary is a process boundary. MercurySkyPulse does not vendor, fork, patch, or link Mercury internals. It communicates through Mercury's documented TCP and WebSocket interfaces. This permits independent upgrades, remote operation, fault isolation, and clear ownership of radio hardware.
+The primary integration boundary is a process boundary. MercurySkyPulse does not
+vendor or link Mercury internals. Its separately maintained public compatibility
+fork adds only bounded read-only telemetry required by MSP and preserves the
+documented TCP and WebSocket boundary. This permits independent upgrades, remote
+operation, fault isolation, and clear ownership of radio hardware.
 
 The runtime layering is mandatory:
 
@@ -84,7 +88,7 @@ Target architectural qualities:
 | Attribute | Design response |
 | --- | --- |
 | Reliability | Explicit state machines, idempotent reconciliation, bounded retries, durable settings, crash-safe database writes. |
-| Safety | Mercury remains PTT owner; dangerous actions require clear state and confirmation; tuning limits remain enforced by Mercury. |
+| Safety | Mercury remains PTT owner; RF actions require clear state, confirmation, and bounded duration. |
 | Testability | Ports/adapters, protocol codecs separated from sockets, deterministic clocks, contract fixtures. |
 | Portability | Platform services behind interfaces; paths and endpoints are configuration; no domain-level OS assumptions. |
 | Extensibility | Versioned application and plugin contracts; feature discovery; inward dependency direction. |
@@ -375,7 +379,8 @@ The UI is operator-centered, state-explicit, calm under failure, and progressive
 - **No modal error storms:** persistent problems appear in a health area with one current diagnosis, recovery action, and expandable detail.
 - **Local-first operation:** all essential workflows remain available without internet or cloud accounts.
 - **Accessible by design:** full keyboard navigation, meaningful focus order, screen-reader labels, scalable text, reduced-motion support, and no color-only status.
-- **Stable visual cadence:** status is coalesced; spectrum/waterfall rendering is bounded and may drop stale frames rather than freeze controls.
+- **Stable visual cadence:** status is coalesced; transient spectrum diagnostics
+  are bounded and may drop stale frames rather than freeze controls.
 - **Honest uncertainty:** stale or unavailable values display as unknown/stale, never as zero or healthy.
 
 ### 7.2 Information architecture
@@ -384,7 +389,8 @@ The initial shell should support these conceptual areas, subject to product vali
 
 1. **Connection:** endpoint profile, connect/disconnect, engine health, version/capabilities.
 2. **Session:** callsigns, listen/call state, peer, ARQ link state, buffer and transfer activity.
-3. **Signal:** SNR, bitrate, sync, PTT/RX direction, optional spectrum/waterfall.
+3. **Signal:** SNR, bitrate, sync, and PTT/RX direction. Audio setup may show a
+   bounded inferred energy diagnostic; there is no general signal plot.
 4. **Messages/transfers:** future application workflows built above the Mercury byte stream.
 5. **Diagnostics:** channel health, reconnect history, sanitized logs, export bundle.
 6. **Settings:** Mercury endpoint/lifecycle, security/trust, retention, plugins, accessibility.
@@ -605,9 +611,9 @@ Inputs from Mercury, plugins, imported files, database recovery, command-line ar
 
 ### 11.4 Command authorization and radio safety
 
-Application commands are gated by endpoint readiness, capabilities, current normalized state, and caller (UI/plugin) authority. Plugins never receive unrestricted control commands. High-impact operations—starting a tuning carrier, changing radio/audio configuration, terminating an active session, or stopping a managed engine—require an explicit user action and clear consequences.
+Application commands are gated by endpoint readiness, capabilities, current normalized state, and caller (UI/plugin) authority. Plugins never receive unrestricted control commands. High-impact operations—starting an RF level test, changing radio/audio configuration, terminating an active session, or stopping a managed engine—require an explicit user action and clear consequences.
 
-Mercury remains the final PTT and tune safety authority. The UI treats PTT telemetry as authoritative observation and never fabricates an unkeyed state. On uncertainty, the UI shows unknown/degraded and offers a documented recovery procedure.
+Mercury remains the final PTT safety authority. The UI treats PTT telemetry as authoritative observation and never fabricates an unkeyed state. On uncertainty, the UI shows unknown/degraded and offers a documented recovery procedure.
 
 ### 11.5 Secrets and data protection
 
@@ -632,7 +638,7 @@ OS sandboxing targets include App Sandbox-compatible mechanisms on macOS where d
 - Sign Windows executables/installers and macOS bundles; sign Linux repository/package metadata.
 - Verify application and plugin updates before installation and support rollback to the previous application version without downgrading the database in place.
 - Mercury remains separately versioned and process-isolated. Windows engineering
-  packages bundle the pinned official runtime under ADR 0020; its integrity,
+  packages bundle the pinned MSP-compatible runtime under ADR 0020; its integrity,
   corresponding-source URL, and GPL license notice must remain intact.
 
 ### 11.8 Logging and audit
@@ -687,6 +693,10 @@ Exact budgets require prototype measurement, but the design sets these constrain
 - Spectrum rendering drops stale frames and uses bounded CPU/GPU work.
 - All queues and caches have documented limits.
 - Idle/disconnected mode performs no high-frequency polling beyond necessary liveness.
+- Read-only CAT frequency telemetry reuses Mercury's Hamlib session, is cached,
+  polled at a conservative interval, and is suppressed during ARQ and transmit.
+- Opt-in PSK Reporter aggregation is bounded, rate-limited, and refuses stale or
+  unavailable frequency telemetry; the Qt UDP/DNS adapter remains platform-facing.
 - Database writes batch disposable telemetry summaries and never persist raw spectrum.
 - A slow plugin cannot block transport, application state, or UI threads.
 - Diagnostic logging cannot exhaust disk due to rotation/retention limits.
@@ -737,9 +747,12 @@ Mercury executable discovery is explicit-first:
 
 Discovery never searches or executes arbitrary writable directories silently. Remote Mercury operation must work even when no local Mercury executable exists.
 
-### 16.6 CI matrix
+### 16.6 Local validation
 
-CI should build and run unit/contract tests on all target OS/architectures where hosted runners allow. Integration tests use a separately built, pinned Mercury version with null/FIFO/simulation audio and no radio keying. Packaging smoke tests verify install, launch, per-user paths, upgrade, uninstall preservation policy, and signatures.
+The Apple Silicon Mac-local quality gate builds and runs unit/contract tests,
+validates dependencies, packages the application, and checks the bundled Mercury
+runtime. Platform-specific Windows packaging and live RF behavior are validated
+on controlled test stations. Routine GitHub-hosted workflows remain disabled.
 
 ## 17. Testing strategy
 
@@ -847,14 +860,14 @@ connectionless broadcast interface and remain independent of an ARQ session.
 Optional GPS accepts only a GPS-source fix and carries its own timestamp.
 ADR 0008 records disclosure and transport scope.
 
-`src/application/radio.py` owns persisted station configuration and the 12-second
-tune safety policy. `src/platform_runtime/hamlib_catalog.py` runs the selected
+`src/application/radio.py` owns persisted station configuration.
+`src/platform_runtime/hamlib_catalog.py` runs the selected
 managed Mercury executable with documented `-K` and parses the exact compiled
 Hamlib catalog. Managed configuration reaches Mercury only through documented
-`-R/-A/-C` startup inputs; Mercury alone owns Hamlib CAT and PTT. The
-application-protocol client emits bounded `TUNE <dBFS>` and `TUNE OFF` commands,
-with Mercury retaining its independent 60-second failsafe. ADR 0018 records the
-single-owner and real-radio safety boundary.
+`-R/-A/-C` startup inputs; Mercury alone owns Hamlib CAT and PTT. The bounded TX
+Level Test uses documented WebSocket TX gain plus real-call application beacons
+and never opens CAT or generates modem samples itself. ADRs 0018, 0024, and 0025
+record the single-owner and calibration boundary.
 
 Station I/O consumes Mercury's documented WebSocket capture/playback device lists
 so saved audio IDs match Mercury's backend. Qt enumerates local COM/USB serial
@@ -862,6 +875,13 @@ ports, with editable manual values for network CAT and unreported devices. CAT a
 audio settings are written together to the application-owned Mercury INI and
 trigger one managed-process restart; external Mercury hosts remain externally
 managed.
+
+The Audio Setup page may keep bounded spectrum parsing active while it is visible
+to infer whether Mercury's RX capture stream contains energy. It presents selected
+native IDs and the spectrum frame format, but does not claim a PCM peak, playback
+level, host API, or negotiated hardware format that Mercury does not publish.
+This read-only diagnostic path never invokes CAT, PTT, or transmission. ADR
+0021 records the capability and labeling boundary.
 
 The main window exposes operational tabs only. A reusable Setup window owns Radio,
 Audio, User, and GPS configuration, with Radio first and room for future tabs.
@@ -871,7 +891,8 @@ is used. ADR 0019 records this UI boundary.
 
 `src/application/ping.py` correlates one in-flight ARQ ping, freezes the local
 telemetry snapshot, calculates RTT with a monotonic clock, validates the remote
-snapshot, and enforces a 15-second timeout. `ping_request` and `ping_response` are
+snapshot, and enforces a queue-activity-aware three-minute timeout. `ping_request`
+and `ping_response` are
 bounded events in the existing messaging frame. The presentation receives only a
 typed result. Exact Mercury modulation names are used when the public telemetry
 contract supplies them; otherwise the adapter reports `ARQ` or `idle`. ADR 0009

@@ -7,6 +7,8 @@ import math
 import struct
 import unittest
 
+from PySide6.QtNetwork import QAbstractSocket
+
 from transport.mercury.telemetry.protocol import (
     SPECTRUM_MAGIC,
     parse_device_list_message,
@@ -17,6 +19,29 @@ from transport.mercury.telemetry.client import MercuryTelemetryClient
 
 
 class MercuryTelemetryContractTests(unittest.TestCase):
+    def test_documented_tx_gain_command_is_bounded_json(self) -> None:
+        class FakeSocket:
+            def __init__(self):
+                self.sent = []
+
+            def state(self):
+                return QAbstractSocket.SocketState.ConnectedState
+
+            def sendTextMessage(self, payload):
+                self.sent.append(payload)
+                return len(payload)
+
+        client = MercuryTelemetryClient()
+        fake = FakeSocket()
+        client.socket = fake
+        client.set_tx_gain_db(-12.5)
+        self.assertEqual(
+            json.loads(fake.sent[0]),
+            {"command": "set_tx_gain", "value": "-12.50"},
+        )
+        with self.assertRaises(ValueError):
+            client.set_tx_gain_db(20.1)
+
     def test_parses_status_snapshot(self) -> None:
         payload = json.dumps(
             {
@@ -32,6 +57,10 @@ class MercuryTelemetryContractTests(unittest.TestCase):
                 "bytes_received": 900,
                 "waterfall": True,
                 "modem_mode": "DATAC3",
+                "tx_gain_db": -8.5,
+                "tx_peak_dbfs": -2.25,
+                "radio_frequency_hz": 14_105_000,
+                "radio_frequency_age_ms": 750,
             }
         )
         status = parse_status_message(payload)
@@ -41,6 +70,10 @@ class MercuryTelemetryContractTests(unittest.TestCase):
         self.assertEqual("DATAC3", status.modem_mode)
         self.assertTrue(status.sync)
         self.assertEqual("tx", status.direction)
+        self.assertEqual(-8.5, status.tx_gain_db)
+        self.assertEqual(-2.25, status.tx_peak_dbfs)
+        self.assertEqual(14_105_000, status.radio_frequency_hz)
+        self.assertEqual(750, status.radio_frequency_age_ms)
 
     def test_parses_little_endian_spectrum(self) -> None:
         bins = (-100.0, -75.5, -30.0, 1.25)
@@ -98,6 +131,8 @@ class MercuryTelemetryContractTests(unittest.TestCase):
             "direction": "sideways", "bytes_transmitted": -1,
             "bytes_received": "invalid", "user_callsign": "X" * 100,
             "dest_callsign": "Y" * 100, "mode": "M" * 100,
+            "tx_gain_db": 999, "tx_peak_dbfs": "nan",
+            "radio_frequency_hz": -1, "radio_frequency_age_ms": -1,
         }))
         self.assertEqual(status.bitrate_bps, 0)
         self.assertEqual(status.snr_db, 0.0)
@@ -107,6 +142,10 @@ class MercuryTelemetryContractTests(unittest.TestCase):
         self.assertEqual(len(status.user_callsign), 16)
         self.assertEqual(len(status.destination_callsign), 16)
         self.assertEqual(len(status.modem_mode), 32)
+        self.assertEqual(status.tx_gain_db, 20.0)
+        self.assertEqual(status.tx_peak_dbfs, -120.0)
+        self.assertIsNone(status.radio_frequency_hz)
+        self.assertIsNone(status.radio_frequency_age_ms)
 
     def test_spectrum_contract_rejects_length_and_fft_limit_violations(self) -> None:
         truncated = struct.pack("<IHHf", SPECTRUM_MAGIC, 2, 8000, -50.0)

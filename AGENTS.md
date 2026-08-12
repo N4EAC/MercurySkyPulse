@@ -5,9 +5,9 @@ These instructions apply to the entire MercurySkyPulse repository.
 ## Project intent
 
 MercurySkyPulse integrates with Mercury as a process-isolated transport engine.
-Windows engineering packages bundle a pinned, checksum-verified official Mercury
-runtime as required by ADR 0020, while source trees and implementation boundaries
-remain separate. Never modify a Mercury checkout as part of work in this
+Windows engineering packages bundle a pinned, checksum-verified MSP-compatible
+Mercury runtime from the public `N4EAC/mercury` fork as required by ADR 0020,
+while source trees and implementation boundaries remain separate. Never modify a Mercury checkout as part of work in this
 repository unless the user explicitly opens a separate Mercury task and requests
 it there.
 

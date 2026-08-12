@@ -1,7 +1,22 @@
-"""Mercury-native capture and playback device configuration."""
+"""Mercury-native audio configuration and read-only path diagnostics."""
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QComboBox, QFormLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+import math
+
+from PySide6.QtCore import QElapsedTimer, Qt, QTimer, Signal
+from PySide6.QtWidgets import (
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QProgressBar,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+
+NO_ENERGY_DBFS = -100.0
+NO_ENERGY_WARNING_MS = 5_000
 
 
 class AudioSetupPage(QWidget):
@@ -24,7 +39,15 @@ class AudioSetupPage(QWidget):
         self.input_device = self._combo("Mercury default input or device ID")
         self.output_device = self._combo("Mercury default output or device ID")
         form.addRow("Audio input (capture)", self.input_device)
+        self.capture_id = QLabel("Native capture ID: Mercury default")
+        self.capture_id.setWordWrap(True)
+        self.capture_id.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form.addRow("Selected capture endpoint", self.capture_id)
         form.addRow("Audio output (playback)", self.output_device)
+        self.playback_id = QLabel("Native playback ID: Mercury default")
+        self.playback_id.setWordWrap(True)
+        self.playback_id.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        form.addRow("Selected playback endpoint", self.playback_id)
         layout.addLayout(form)
         save = QPushButton("Save Audio and Restart Mercury")
         save.setObjectName("PrimaryButton")
@@ -34,11 +57,51 @@ class AudioSetupPage(QWidget):
             )
         )
         layout.addWidget(save)
+
+        diagnostics = QGroupBox("Live Audio Diagnostics")
+        diagnostic_form = QFormLayout(diagnostics)
+        self.capture_meter = QProgressBar()
+        self.capture_meter.setRange(0, 120)
+        self.capture_meter.setValue(0)
+        self.capture_meter.setFormat("Waiting for Mercury spectrum…")
+        diagnostic_form.addRow("Capture energy", self.capture_meter)
+        self.snr_meter = QProgressBar()
+        self.snr_meter.setRange(0, 50)
+        self.snr_meter.setValue(0)
+        self.snr_meter.setFormat("Decoded SNR unavailable")
+        diagnostic_form.addRow("Decoded signal SNR", self.snr_meter)
+        self.capture_state = QLabel("Open this Audio tab to test the RX capture path")
+        self.capture_state.setWordWrap(True)
+        diagnostic_form.addRow("RX audio test", self.capture_state)
+        self.spectrum_format = QLabel("RX spectrum format: waiting for telemetry")
+        self.spectrum_format.setWordWrap(True)
+        diagnostic_form.addRow("Telemetry format", self.spectrum_format)
+        unavailable = QLabel(
+            "Mercury does not currently publish PCM channel peaks, playback level, "
+            "Windows host API, or negotiated capture channel format. The capture "
+            "meter is inferred from the public RX spectrum and never transmits."
+        )
+        unavailable.setWordWrap(True)
+        unavailable.setObjectName("Muted")
+        diagnostic_form.addRow("Public-interface limit", unavailable)
+        layout.addWidget(diagnostics)
         layout.addStretch(1)
+
+        self.input_device.currentIndexChanged.connect(self._update_identifiers)
+        self.input_device.currentTextChanged.connect(self._update_identifiers)
+        self.output_device.currentIndexChanged.connect(self._update_identifiers)
+        self.output_device.currentTextChanged.connect(self._update_identifiers)
+        self._diagnostic_timer = QTimer(self)
+        self._diagnostic_timer.setInterval(1_000)
+        self._diagnostic_timer.timeout.connect(self._check_capture_energy)
+        self._energy_clock = QElapsedTimer()
+        self._diagnostics_active = False
+        self._frames_seen = False
 
     def set_config(self, config) -> None:
         self.input_device.setCurrentText(config.input_device)
         self.output_device.setCurrentText(config.output_device)
+        self._update_identifiers()
 
     def set_devices(self, kind: str, devices, selected: str = "") -> None:
         combo = self.input_device if kind == "capture_dev_list" else self.output_device
@@ -49,6 +112,67 @@ class AudioSetupPage(QWidget):
             combo.addItem(device.name, device.identifier)
         index = combo.findData(current)
         combo.setCurrentIndex(index) if index >= 0 else combo.setCurrentText(current)
+        self._update_identifiers()
+
+    def set_diagnostics_active(self, active: bool) -> None:
+        self._diagnostics_active = bool(active)
+        self._frames_seen = False
+        self._energy_clock.start()
+        if active:
+            self.capture_state.setText("Listening for Mercury RX spectrum telemetry…")
+            self._diagnostic_timer.start()
+        else:
+            self._diagnostic_timer.stop()
+
+    def update_spectrum(self, frame) -> None:
+        if not self._diagnostics_active or not frame.bins_db:
+            return
+        finite = [value for value in frame.bins_db if math.isfinite(value)]
+        if not finite:
+            return
+        peak_dbfs = max(-120.0, min(0.0, max(finite)))
+        self._frames_seen = True
+        self.capture_meter.setValue(round(peak_dbfs + 120.0))
+        self.capture_meter.setFormat(f"{peak_dbfs:.1f} dBFS inferred peak")
+        self.spectrum_format.setText(
+            f"RX spectrum: {frame.sample_rate_hz:,} Hz · {len(frame.bins_db):,} bins"
+        )
+        if peak_dbfs > NO_ENERGY_DBFS:
+            self._energy_clock.restart()
+            self.capture_state.setText(
+                "Capture energy detected — Mercury is receiving non-silent samples"
+            )
+        else:
+            self._check_capture_energy()
+
+    def update_status(self, status) -> None:
+        snr = max(-20.0, min(30.0, float(status.snr_db)))
+        self.snr_meter.setValue(round(snr + 20.0))
+        self.snr_meter.setFormat(f"{status.snr_db:.1f} dB · {status.direction.upper()}")
+
+    def _check_capture_energy(self) -> None:
+        if not self._diagnostics_active or self._energy_clock.elapsed() < NO_ENERGY_WARNING_MS:
+            return
+        if not self._frames_seen:
+            self.capture_state.setText(
+                "No RX spectrum telemetry. Verify Mercury is running and telemetry is connected."
+            )
+        else:
+            self.capture_state.setText(
+                "No capture energy above -100 dBFS for 5 seconds. Verify the Windows "
+                "recording endpoint, Virtual Cable direction, mute/privacy settings, "
+                "and 48 kHz shared-mode format."
+            )
+
+    def _update_identifiers(self, *_args) -> None:
+        self.capture_id.setText(
+            f"{self.input_device.currentText() or 'Mercury default'}\n"
+            f"Native ID: {self._value(self.input_device) or 'Mercury default'}"
+        )
+        self.playback_id.setText(
+            f"{self.output_device.currentText() or 'Mercury default'}\n"
+            f"Native ID: {self._value(self.output_device) or 'Mercury default'}"
+        )
 
     @staticmethod
     def _combo(placeholder: str) -> QComboBox:

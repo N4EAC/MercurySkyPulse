@@ -13,6 +13,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from application.radio import HamlibRig
+    from application.modem import ModemStatus, SpectrumFrame
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QDockWidget, QPushButton, QTabWidget
 
@@ -21,6 +22,7 @@ try:
     from presentation.radio_page import RadioPage
     from presentation.audio_setup_page import AudioSetupPage
     from presentation.location_page import LocationPage
+    from presentation.reporting_setup_page import ReportingSetupPage
     from platform_runtime.station_devices import SerialPort
     from transport.mercury.telemetry.protocol import MercuryDevice
 except ImportError:  # Allows static-only environments to run the boundary tests.
@@ -47,7 +49,7 @@ class GuiSmokeTests(unittest.TestCase):
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "MercurySkyPulse")
         self.assertFalse(self.app.windowIcon().isNull())
-        self.assertEqual(2, len(self.window.findChildren(QDockWidget)))
+        self.assertEqual(3, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
         self.assertIsNotNone(self.window.statusBar())
         self.assertIsNotNone(self.window.centralWidget())
@@ -61,6 +63,8 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertTrue(all(tabs.widget(index) is not None for index in range(tabs.count())))
 
     def test_docks_are_resizable_movable_and_floatable(self) -> None:
+        self.assertTrue(self.window.tabs.isMovable())
+        self.assertTrue(self.window._toolbar.isMovable())
         for dock in self.window.findChildren(QDockWidget):
             features = dock.features()
             self.assertTrue(features & QDockWidget.DockWidgetFeature.DockWidgetMovable)
@@ -74,25 +78,19 @@ class GuiSmokeTests(unittest.TestCase):
 
         activity = self.window._docks["activity"]
         activity.hide()
-        self.window.navigation_panel.navigation.setCurrentRow(3)
+        self.window.navigation_panel.navigation.setCurrentRow(2)
         self.app.processEvents()
         self.assertFalse(activity.isHidden())
 
         activity.hide()
-        self.window.navigation_panel.navigation.setCurrentRow(4)
+        self.window.navigation_panel.navigation.setCurrentRow(3)
         self.app.processEvents()
         self.assertFalse(activity.isHidden())
 
-    def test_spectrum_and_waterfall_default_off_and_enable_independently(self) -> None:
-        self.assertFalse(self.window.dashboard.spectrum_enabled.isChecked())
-        self.assertFalse(self.window.dashboard.waterfall_enabled.isChecked())
-        self.assertTrue(self.window.dashboard.spectrum_card.isHidden())
-        self.assertTrue(self.window.dashboard.waterfall_card.isHidden())
-        self.window.dashboard.spectrum_enabled.setChecked(True)
-        self.assertFalse(self.window.dashboard.spectrum_card.isHidden())
-        self.assertTrue(self.window.dashboard.waterfall_card.isHidden())
-        self.window.dashboard.waterfall_enabled.setChecked(True)
-        self.assertFalse(self.window.dashboard.waterfall_card.isHidden())
+    def test_signal_plot_presentations_are_removed(self) -> None:
+        self.assertNotIn("spectrum", self.window._docks)
+        self.assertFalse(hasattr(self.window, "spectrum_panel"))
+        self.assertFalse(hasattr(self.window.dashboard, "waterfall"))
 
     def test_radio_catalog_is_scrollable_and_searchable(self) -> None:
         page = RadioPage()
@@ -117,7 +115,8 @@ class GuiSmokeTests(unittest.TestCase):
         ).y()
         device_top = page.device.mapTo(page.content, QPoint(0, 0)).y()
         self.assertLessEqual(list_bottom, device_top)
-        self.assertTrue(page.scroll_area.verticalScrollBar().maximum() > 0)
+        self.assertFalse(hasattr(page, "tune_button"))
+        self.assertEqual(page.tx_test_button.text(), "Start TX Level Test")
         page.close()
         page.deleteLater()
 
@@ -173,6 +172,48 @@ class GuiSmokeTests(unittest.TestCase):
             applied[0],
             ("capture:native", "playback:native"),
         )
+        page.deleteLater()
+
+    def test_psk_reporter_setup_is_opt_in_with_mercury_frequency(self) -> None:
+        page = ReportingSetupPage()
+        self.assertFalse(page.enabled.isChecked())
+        self.assertEqual(page.frequency.text(), "Unavailable")
+        page.set_state("frequency-14105000-500")
+        self.assertIn("14.105000 MHz", page.frequency.text())
+        page.append_activity("REPORT sender_callsign=K1ABC frequency_hz=14105000")
+        self.assertIn("sender_callsign=K1ABC", page.activity.toPlainText())
+        page.deleteLater()
+
+    def test_frequency_dock_is_read_only_and_updates_from_mercury(self) -> None:
+        dock = self.window._docks["frequency"]
+        self.assertEqual(dock.widget(), self.window.frequency_panel)
+        self.window.frequency_panel.update_status(ModemStatus(
+            radio_frequency_hz=14_105_000, radio_frequency_age_ms=500,
+        ))
+        self.assertEqual(self.window.frequency_panel.frequency.text(), "14.105000 MHz")
+        self.assertIn("Read only", self.window.frequency_panel.detail.text())
+
+    def test_audio_diagnostics_show_native_ids_capture_energy_and_snr(self) -> None:
+        page = AudioSetupPage()
+        page.set_devices(
+            "capture_dev_list",
+            (MercuryDevice("CABLE Output (VB-Audio)", "{capture-guid}"),),
+            "{capture-guid}",
+        )
+        page.set_devices(
+            "playback_dev_list",
+            (MercuryDevice("CABLE Input (VB-Audio)", "{playback-guid}"),),
+            "{playback-guid}",
+        )
+        page.set_diagnostics_active(True)
+        page.update_spectrum(SpectrumFrame(8000, (-115.0, -72.5, -91.0)))
+        page.update_status(ModemStatus(snr_db=8.25, direction="rx"))
+        self.assertIn("{capture-guid}", page.capture_id.text())
+        self.assertIn("{playback-guid}", page.playback_id.text())
+        self.assertIn("-72.5 dBFS", page.capture_meter.format())
+        self.assertIn("8.2 dB", page.snr_meter.format())
+        self.assertIn("8,000 Hz", page.spectrum_format.text())
+        self.assertIn("energy detected", page.capture_state.text().lower())
         page.deleteLater()
 
     def test_station_callsign_populates_chat_and_bbs_once(self) -> None:

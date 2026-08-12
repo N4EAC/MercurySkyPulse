@@ -4,13 +4,16 @@ MercurySkyPulse is a cross-platform, local-first station application built aroun
 the independent [Mercury](https://github.com/Rhizomatica/mercury) HF modem
 transport engine.
 
-This repository intentionally does **not** vendor, fork, or modify Mercury. Mercury runs as its own transport engine; MercurySkyPulse communicates with it through Mercury's documented interfaces:
+Mercury runs as its own process-isolated transport engine; MercurySkyPulse
+communicates with it through documented interfaces. A small public
+[MSP compatibility fork](https://github.com/N4EAC/mercury) adds conservative,
+read-only Hamlib frequency telemetry while preserving this boundary:
 
 - VARA-style ARQ TNC control TCP port (default `8300`);
 - ARQ data TCP port (default `8301`);
 - KISS broadcast TCP port (default `8100`) for capability beacons; and
-- read-only WebSocket status/spectrum endpoint (default `/websocket` on port
-  `10000`) for UI telemetry.
+- WebSocket status/spectrum endpoint and documented bounded controls (default
+  `/websocket` on port `10000`).
 
 ## Status
 
@@ -18,17 +21,16 @@ The repository contains a feature-complete vertical-slice prototype with a
 PySide6 desktop application and optional supervised Mercury child process. It
 includes dockable operator UI, modem telemetry, ARQ chat and file transfer,
 location and GPS workflows, capability beacons, station ping, a persistent BBS,
-a loopback-only read-only web interface, offline signed licensing, and a trusted
-built-in plugin kernel. It is suitable for continued development and controlled
+a loopback-only read-only web interface, optional PSK Reporter reception uploads,
+offline signed licensing, and a trusted built-in plugin kernel. It is suitable for continued development and controlled
 manual testing, but is not yet a production release.
 
-The Navigator dock routes Overview, Signal, and Waterfall to their dashboard
-sections and opens the Activity log for diagnostics. The unused static Inspector
-dock has been removed to preserve working space.
+The Navigator dock routes Overview and Signal to their dashboard sections and
+opens Activity for diagnostics.
 
 Mercury remains a process-isolated engine accessed through its documented UI
 WebSocket and TNC TCP interfaces. Windows test packages include a pinned official
-Mercury runtime so operators do not install or copy it separately.
+MSP-compatible Mercury runtime so operators do not install or copy it separately.
 
 ### Station chat
 
@@ -40,10 +42,13 @@ an acknowledgement; it is not a read receipt.
 
 Conversation history is stored locally in the platform application-data directory.
 The same connected station can receive files through **Send File…**. Transfers
-show progress and may be paused or resumed. Received content is stored under the
+may be paused or resumed. Every new incoming file requires operator acceptance.
+Received content is stored under the
 platform Downloads directory in `MercurySkyPulse`, after SHA-256 verification.
 Previously received identical content is detected by checksum and not written a
-second time. The initial file-size limit is 100 MiB.
+second time. **Open Folder** reveals completed content. Outgoing progress remains
+indeterminate while bytes are queued through Mercury and reaches 100% only after
+the peer reports a verified checksum result. The initial file-size limit is 100 MiB.
 
 Supported images are prepared automatically before transfer: orientation is
 corrected, the longest edge is resized to at most 1920 pixels, opaque images are
@@ -59,6 +64,11 @@ in an editable selector, so an unlisted port can still be entered manually.
 Missing, non-finite, or negative receiver accuracy is treated as unknown without
 discarding an otherwise valid coordinate fix. Manual position is retained locally;
 GPS fixes are not stored as history.
+
+After the operator starts GPS, MSP remembers that choice and automatically starts
+the saved serial or system location source on later launches. If that source is
+not present, GPS remains unavailable and reports the condition without selecting
+or opening an unrelated COM port. Choosing **Stop GPS** disables automatic start.
 
 **Share Location** sends the current validated position to the connected station.
 Location is never transmitted automatically. Received locations are range-checked
@@ -96,10 +106,10 @@ Mercury's current telemetry does not expose its exact FreeDV modulation name, so
 the mode is reported as `ARQ` or `idle` unless Mercury supplies a future `mode` or
 `modem_mode` status field.
 
-### Station setup, radio, and tuning
+### Station setup and radio
 
-Edit → **Setup…** opens a separate window with **Radio**, **Audio**, **User**, and
-**GPS** tabs. The main window remains focused on operating views. Radio configures
+Edit → **Setup…** opens a separate window with **Radio**, **Audio**, **User**,
+**GPS**, and **Reporting** tabs. The main window remains focused on operating views. Radio configures
 CAT and PTT without making MercurySkyPulse a second
 radio controller. For a managed local engine, it asks the selected Mercury
 executable for its complete compiled Hamlib catalog with `mercury -K`; the list is
@@ -113,12 +123,19 @@ audio device IDs in the application-owned Mercury configuration and restart the
 managed modem once. Mercury remains the only process that opens audio, Hamlib,
 and PTT. External Mercury profiles must be configured at their host.
 
-The Tune control sends Mercury's documented 1000 Hz `TUNE` carrier at the absolute
-slider level from -60 through 0 dBFS. The last slider position is remembered.
-MercurySkyPulse sends `TUNE OFF` after 12 seconds or when the operator stops,
-disconnects, or closes the application; Mercury retains its independent 60-second
-hard failsafe. Tuning is refused while an ARQ link is active. Always begin into a
-dummy load at low drive and verify that PTT unkeys.
+While **Setup → Audio** is visible, MSP displays read-only live audio-path
+diagnostics without keying the radio: selected friendly names and complete
+Mercury-native endpoint IDs, inferred RX capture energy from Mercury's public
+spectrum, decoded SNR, and spectrum sample rate/bin count. After five seconds it
+distinguishes missing telemetry from telemetry with no energy above -100 dBFS and
+suggests Windows Virtual Cable capture checks. Mercury does not currently publish
+PCM channel peaks, playback level, Windows host API, or negotiated capture format;
+MSP labels those limits rather than inventing values. ADR 0021 records this policy.
+
+**TX Level Test** sends the station's normal real-call beacon every three seconds
+for at most 12 seconds while allowing live modem TX-gain adjustment from -20
+through 0 dB. Mercury's reported TX peak is displayed. The operator must
+acknowledge that the test transmits RF, and an active ARQ link blocks or stops it.
 
 Audio prefers capture/playback IDs reported by Mercury and falls back to editable
 local device names when a Mercury list is unavailable. User stores the station
@@ -129,9 +146,27 @@ recalculates the proposed User-tab GRID, replacing stale placeholder text. Blank
 manual coordinates produce a direct prompt to enter latitude and longitude. GRID
 calculation is local and does not use an internet geolocation provider.
 
-The Overview page has independent **Spectrum** and **Waterfall** checkboxes. Both
-are disabled by default for lower CPU use and may be enabled independently.
-Binary spectrum frames are not parsed while both views are disabled.
+While Setup → Audio is visible, bounded spectrum telemetry supplies the labelled
+inferred capture-energy diagnostic. MSP has no general signal-plot display.
+
+### Reception reporting
+
+Setup → **Reporting** provides optional, disabled-by-default PSK Reporter uploads.
+When enabled, successfully decoded MSP beacons are reported with the station
+callsign/GRID, antenna description, decoded station identity, Mercury's current
+read-only CAT frequency, and ADIF mode `OFDM`. Mercury polls its existing Hamlib
+session conservatively and suppresses polling during ARQ and transmit activity;
+MSP does not open another CAT connection. Stale or unavailable frequency data
+prevents a report. No message, BBS, file, credential, or precise GPS content is
+uploaded.
+
+The Reporting page includes a bounded, read-only activity log showing queued
+receptions, receiver and sender fields, frequency, mode, timestamps, IPFIX packet
+metadata, resolved destination, byte counts, and upload outcomes.
+
+The main window also provides a movable, resizable **Radio Frequency** dock. It
+displays Mercury's cached Hamlib reading and its age. It is deliberately read-only;
+frequency and mode remain under direct operator control at the radio.
 
 ### BBS mailbox
 
@@ -287,18 +322,19 @@ aggregate test suite, and creates a windowed one-directory test build at
 `dist\MercurySkyPulse\MercurySkyPulse.exe`. Copy the entire
 `dist\MercurySkyPulse` directory when testing on another computer. This is an
 unsigned engineering build, not an installer or release artifact. It downloads
-and includes the pinned official Mercury runtime automatically. The Windows
+and includes the pinned MSP-compatible Mercury runtime automatically. The Windows
 executable and taskbar use the same MSP radar artwork as macOS and Linux.
 
-The builder downloads Mercury 1.9.11 from its official release, verifies the
-archive SHA-256 digest, and copies the complete portable runtime into the build:
+The builder downloads the Mercury 1.9.11 MSP compatibility build from the
+public `N4EAC/mercury` fork, verifies its pinned archive SHA-256 digest, and
+copies the complete portable runtime into the build. The exact corresponding
+source commit is recorded in the package:
 
 ```text
 dist\MercurySkyPulse\
 ├── MercurySkyPulse.exe
 ├── mercury\
 │   ├── mercury.exe
-│   ├── mercury-ui.exe
 │   ├── libhamlib-4.dll
 │   ├── LICENSE
 │   └── SOURCE.txt
@@ -308,7 +344,7 @@ dist\MercurySkyPulse\
 The first build requires internet access; later builds reuse a checksum-verified
 cache under the Windows temporary directory. Download, integrity, extraction, or
 copy failures stop the build rather than producing an incomplete package. The
-runtime includes its GPL license and exact corresponding-source URL. Generated
+runtime includes its GPL license and exact corresponding-source commit URL. Generated
 Mercury files and the `dist` directory must not be committed to this repository.
 
 The builder accepts Python 3.11 or newer through either the Windows `py` launcher
@@ -335,6 +371,25 @@ MERCURY_EXECUTABLE=/path/to/mercury .venv/bin/mercury-skypulse
 ```
 
 Unexpected Mercury exits are detected and restarted automatically with bounded backoff. Use **Mercury → Restart Mercury** for a manual restart. Child-process output and restart events appear in the Activity panel.
+
+The command toolbar plus Navigator and Activity docks can be moved, floated, and
+resized. Workflow tabs can be reordered. Main-window geometry, dock/toolbar
+placement and sizes, workflow-tab order, setup-window geometry, appearance/theme,
+UI scale, and the selected GPS port are restored for the current OS user. Use
+**Window → Reset Panel Layout** to restore the default dock arrangement.
+
+### Field-test diagnostic log
+
+MercurySkyPulse writes a persistent UTF-8 diagnostic log in the per-user
+application-data directory under `logs/mercuryskypulse.log`. It records session
+and platform details, Mercury output, TNC control events, ARQ and telemetry state
+changes, errors, and file-transfer byte/status transitions. It intentionally
+excludes chat/BBS message bodies, file contents, passwords, authentication proofs,
+and tokens; suspected secret fields are redacted before writing.
+
+Use **Mercury → Open Diagnostic Log Folder** to locate it. Logs rotate at 10 MiB
+with ten retained backups. For radio-to-radio fault reports, collect logs from
+both stations; timestamps are UTC so the two sides can be correlated.
 
 Mercury itself owns audio and radio configuration. MercurySkyPulse consumes its telemetry and uses its documented ARQ TNC interface for text chat.
 

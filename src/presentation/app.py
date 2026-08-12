@@ -22,11 +22,13 @@ from application.bbs import BbsService
 from application.web_dashboard import WebDashboardSnapshot
 from application.licensing import LicenseStatus
 from application.endpoints import MercuryEndpointProfile, MercuryRunMode
-from application.radio import RadioStationService
+from application.radio import RadioStationService, TxLevelTestService
+from application.psk_reporter import PskReporterService
 from persistence.chat_repository import ChatRepository
 from platform_runtime.image_processor import ImageProcessor
 from platform_runtime.gps_receiver import GpsReceiver
 from platform_runtime.location_exporter import LocationExporter
+from platform_runtime.diagnostic_log import DiagnosticLog
 from platform_runtime.local_web import LocalWebServer
 from platform_runtime.licensing import LicenseDeployment
 from application_protocol import ApplicationMessagingClient
@@ -41,6 +43,7 @@ from platform_runtime.macos_application import (
     set_macos_application_menu_name,
     set_macos_program_name,
 )
+from platform_runtime.psk_reporter import PskReporterUploader
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
@@ -90,6 +93,9 @@ def main() -> int:
     data_directory = Path(
         QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
     )
+    diagnostic_log = DiagnosticLog(data_directory / "logs" / "mercuryskypulse.log")
+    diagnostic_log.start_session(QCoreApplication.applicationVersion())
+    diagnostic_log.install_exception_hooks()
     repository = ChatRepository(data_directory / "chat-history.sqlite3")
     try:
         saved_radio_model = int(repository.get_setting("radio.model_id") or "")
@@ -120,7 +126,7 @@ def main() -> int:
         )
     ) / "MercurySkyPulse"
     file_transfer_service = FileTransferService(
-        client, repository, downloads, image_processor=ImageProcessor()
+        client, repository, downloads, image_processor=ImageProcessor(), auto_accept=False
     )
     location_service = LocationService(
         client, repository, GpsReceiver(), exporter=LocationExporter()
@@ -164,6 +170,13 @@ def main() -> int:
         QCoreApplication.applicationVersion(),
         capabilities,
     )
+    tx_level_service = TxLevelTestService(
+        beacon_service, mercury_telemetry, client
+    )
+    psk_reporter_service = PskReporterService(
+        beacon_service, mercury_telemetry, repository, PskReporterUploader(),
+        QCoreApplication.applicationVersion(),
+    )
     ping_service = PingService(client)
     bbs_service = BbsService(
         client, repository, file_transfer_service, data_directory / "bbs-files"
@@ -203,6 +216,8 @@ def main() -> int:
         beacon_service=beacon_service,
         ping_service=ping_service,
         radio_service=radio_service,
+        tx_level_service=tx_level_service,
+        psk_reporter_service=psk_reporter_service,
         bbs_service=bbs_service,
         web_snapshot=web_snapshot,
         web_server=web_server,
@@ -211,7 +226,11 @@ def main() -> int:
         endpoint_profile=endpoint_profile,
         supervisor=mercury_supervisor,
         telemetry=mercury_telemetry,
+        diagnostic_log_path=diagnostic_log.path,
     )
+    window.activity_panel.log_added.connect(diagnostic_log.write_activity)
+    window.activity_panel.append_log(f"Persistent diagnostic log: {diagnostic_log.path}")
+    app.aboutToQuit.connect(diagnostic_log.close)
     window.show()
     set_macos_application_menu_name("MercurySkyPulse")
     QTimer.singleShot(

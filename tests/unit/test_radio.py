@@ -1,4 +1,4 @@
-"""Radio setup persistence, catalog parsing, and tune safety tests."""
+"""Radio setup persistence and catalog parsing tests."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from unittest.mock import Mock
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
-from application.radio import HamlibRig, RadioStationService
+from application.modem import ModemStatus
+from application.radio import HamlibRig, RadioStationService, TxLevelTestService
 from persistence.chat_repository import ChatRepository
 from platform_runtime.hamlib_catalog import parse_hamlib_catalog
 
@@ -42,9 +43,6 @@ class FakeRadioClient(QObject):
         super().__init__()
         self.commands = []
 
-    def start_tune(self, level): self.commands.append(("start", level))
-    def set_tune_level(self, level): self.commands.append(("level", level))
-    def stop_tune(self): self.commands.append(("stop",))
 
 
 class FakeStationDevices(QObject):
@@ -54,6 +52,27 @@ class FakeStationDevices(QObject):
 
     def load(self) -> None:
         pass
+
+
+class FakeTelemetry(QObject):
+    status_received = Signal(object)
+    state_changed = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.levels = []
+
+    def set_tx_gain_db(self, level) -> None:
+        self.levels.append(float(level))
+
+
+class FakeBeaconService:
+    def __init__(self, callsign="N0CALL", grid="FN30") -> None:
+        self.config = type("Config", (), {"callsign": callsign, "grid": grid})()
+        self.sent = 0
+
+    def transmit_test_beacon(self) -> None:
+        self.sent += 1
 
 
 class RadioStationTests(unittest.TestCase):
@@ -127,41 +146,59 @@ class RadioStationTests(unittest.TestCase):
         self.runtime.configure_station.assert_not_called()
         external.stop()
 
-    def test_tune_level_persists_and_timeout_sends_off(self) -> None:
+    def test_tx_level_test_sends_bounded_real_beacons_and_uses_modem_gain(self) -> None:
+        telemetry = FakeTelemetry()
+        beacon = FakeBeaconService()
+        service = TxLevelTestService(beacon, telemetry, self.client)
         states = []
-        self.service.tune_state_changed.connect(lambda active, text: states.append((active, text)))
-        self.service.set_tune_level(-15)
-        self.service.start_tune()
-        self.assertEqual(self.service._tune_timer.interval(), 12_000)
-        self.assertEqual(self.client.commands, [("start", -15)])
-        self.assertTrue(self.service._tune_timer.isActive())
-        self.service._tune_timeout()
-        self.assertEqual(self.client.commands[-1], ("stop",))
-        self.assertFalse(states[-1][0])
-        self.assertEqual(self.repository.get_setting("radio.tune_dbfs"), "-15")
+        service.state_changed.connect(lambda active, text: states.append((active, text)))
+        service.set_level(-12)
+        service.start()
+        self.assertTrue(service.active)
+        self.assertEqual(telemetry.levels, [-12.0, -12.0])
+        self.assertEqual(beacon.sent, 1)
+        self.assertEqual(service._deadline.interval(), 12_000)
+        self.assertEqual(service._pulse_timer.interval(), 3_000)
+        service._send_beacon()
+        self.assertEqual(beacon.sent, 2)
+        service._timeout()
+        self.assertFalse(service.active)
+        self.assertIn("12-second", states[-1][1])
 
-    def test_live_slider_change_does_not_extend_twelve_second_timer(self) -> None:
-        self.service.start_tune()
-        remaining = self.service._tune_timer.remainingTime()
-        self.service.set_tune_level(-10)
-        self.assertEqual(self.client.commands[-1], ("level", -10))
-        self.assertLessEqual(self.service._tune_timer.remainingTime(), remaining)
-
-    def test_active_link_prevents_tuning(self) -> None:
+    def test_tx_level_test_requires_identity_and_stops_for_active_link(self) -> None:
+        telemetry = FakeTelemetry()
+        service = TxLevelTestService(FakeBeaconService("", ""), telemetry, self.client)
         errors = []
-        self.service.error_received.connect(errors.append)
+        service.error_received.connect(errors.append)
+        service.start()
+        self.assertFalse(service.active)
+        self.assertIn("callsign and GRID", errors[-1])
+
+        service = TxLevelTestService(FakeBeaconService(), telemetry, self.client)
+        service.error_received.connect(errors.append)
         self.client.state_changed.emit("connected")
-        self.service.start_tune()
-        self.assertEqual(self.client.commands, [])
-        self.assertIn("Disconnect", errors[0])
+        service.start()
+        self.assertFalse(service.active)
+        self.assertIn("Disconnect", errors[-1])
 
-    def test_control_disconnect_warns_operator_about_mercury_failsafe(self) -> None:
-        errors = []
-        self.service.error_received.connect(errors.append)
-        self.service.start_tune()
-        self.client.state_changed.emit("disconnected")
-        self.assertFalse(self.service._tune_timer.isActive())
-        self.assertIn("verify the transmitter unkeyed", errors[-1])
+    def test_tx_level_test_reports_peak_and_does_not_overwrite_active_setting(self) -> None:
+        telemetry = FakeTelemetry()
+        service = TxLevelTestService(FakeBeaconService(), telemetry, self.client)
+        levels, peaks = [], []
+        service.level_changed.connect(levels.append)
+        service.peak_changed.connect(peaks.append)
+        telemetry.status_received.emit(
+            ModemStatus(tx_gain_db=-7.0, tx_peak_dbfs=-3.5)
+        )
+        self.assertEqual(levels[-1], -7.0)
+        self.assertEqual(peaks[-1], -3.5)
+        service.start()
+        telemetry.status_received.emit(
+            ModemStatus(tx_gain_db=-2.0, tx_peak_dbfs=-1.0)
+        )
+        self.assertEqual(levels[-1], -7.0)
+        self.assertEqual(peaks[-1], -1.0)
+        service.stop()
 
 
 if __name__ == "__main__":
