@@ -1,5 +1,7 @@
 # MercurySkyPulse
 
+![MercurySkyPulse amateur-radio OFDM field communications banner](assets/banners/mercuryskypulse-field-ofdm-banner-v1.png)
+
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000.svg)
