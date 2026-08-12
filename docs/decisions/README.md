@@ -37,3 +37,4 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0024 — MSP transmission-level workflow](0024-remove-independent-tuning-carrier.md)
 - [0025 — Bounded real-beacon TX level test](0025-bounded-beacon-tx-level-test.md)
 - [0026 — Optional PSK Reporter reception uploads](0026-psk-reporter.md)
+- [0027 — GPL-3.0-or-later project license](0027-gpl-project-license.md)

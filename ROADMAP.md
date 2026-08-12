@@ -22,7 +22,7 @@ prohibit changes to Mercury from this repository. **Met.**
 - Define complete endpoint configuration and secret-handling conventions.
 - Formalize the already-selected managed-local, unmanaged-local, and remote
   Mercury modes as typed endpoint profiles.
-- Select a project license after reviewing Mercury's GPL integration implications.
+- Maintain the selected GPL-3.0-or-later project license and distribution notices.
 - Record decisions as ADRs in `docs/decisions/`.
 
 Exit criteria: accepted ADRs define a minimal, reproducible toolchain without introducing product features.
@@ -30,7 +30,8 @@ Exit criteria: accepted ADRs define a minimal, reproducible toolchain without in
 The language/UI, process, protocol, transfer, location, beacon, ping, BBS, web,
 licensing, plugin, test, opaque-transport, and setup/privacy decisions are recorded
 in ADRs 0001–0020. Packaging targets, persisted configuration conventions, supported platforms,
-Mercury compatibility, and the project legal license remain open.
+Mercury compatibility and final release packaging remain open. The project legal
+license is established by ADR 0027.
 
 ## Phase 2 — Mercury contract layer (prototype complete; hardening remains)
 

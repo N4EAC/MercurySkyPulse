@@ -5,6 +5,11 @@ persistence, platform, and Mercury-adapter implementations. Contributions should
 harden or extend the existing application without redesigning it, while preserving
 Mercury as an independent engine and keeping module boundaries explicit.
 
+Contributions are accepted under the repository's
+[`GPL-3.0-or-later`](LICENSE) license. By submitting a contribution, you agree
+that it may be distributed under those terms and that you have the right to
+submit it.
+
 ## Before contributing
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `ROADMAP.md`, and `AGENTS.md`.
