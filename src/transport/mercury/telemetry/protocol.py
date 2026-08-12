@@ -37,6 +37,21 @@ def _safe_int(value: object, default: int = 0) -> int:
         return default
 
 
+def _optional_nonnegative_int(value: object) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if number >= 0 else None
+
+
+def _optional_positive_int(value: object) -> int | None:
+    number = _optional_nonnegative_int(value)
+    return number if number is not None and number > 0 else None
+
+
 def parse_status_message(payload: str | bytes) -> ModemStatus | None:
     try:
         raw = json.loads(payload)
@@ -61,6 +76,12 @@ def parse_status_message(payload: str | bytes) -> ModemStatus | None:
         modem_mode=str(
             raw.get("modem_mode", raw.get("mode", "ARQ" if raw.get("sync") else "idle"))
         )[:32],
+        tx_gain_db=max(-20.0, min(20.0, _finite_float(raw.get("tx_gain_db")))),
+        tx_peak_dbfs=max(-120.0, min(20.0, _finite_float(raw.get("tx_peak_dbfs"), -120.0))),
+        radio_frequency_hz=_optional_positive_int(raw.get("radio_frequency_hz")),
+        radio_frequency_age_ms=_optional_nonnegative_int(
+            raw.get("radio_frequency_age_ms")
+        ),
     )
 
 

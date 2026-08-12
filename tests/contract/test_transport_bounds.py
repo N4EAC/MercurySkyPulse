@@ -32,6 +32,13 @@ class TransportInputBoundTests(unittest.TestCase):
         self.assertEqual(transport.malformed_input_count, 1)
         self.assertEqual(events, ["DISCONNECTED"])
 
+    def test_buffer_reports_expose_nonnegative_queue_activity(self) -> None:
+        transport = MercuryTncTransport()
+        queued = []
+        transport.queued_bytes_changed.connect(queued.append)
+        transport._read_control_bytes(b"BUFFER 2530\rBUFFER 0\rBUFFER invalid\r")
+        self.assertEqual(queued, [2530, 0])
+
     def test_kiss_decoder_bounds_unterminated_input_and_recovers(self) -> None:
         decoder = KissDecoder(maximum_frame_bytes=16, maximum_buffer_bytes=20)
         self.assertEqual(decoder.feed(bytes((0xC0,)) + b"X" * 20), [])

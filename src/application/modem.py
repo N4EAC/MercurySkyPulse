@@ -18,6 +18,10 @@ class ModemStatus:
     bytes_received: int = 0
     waterfall_enabled: bool = False
     modem_mode: str = "idle"
+    tx_gain_db: float = 0.0
+    tx_peak_dbfs: float = -120.0
+    radio_frequency_hz: int | None = None
+    radio_frequency_age_ms: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,4 +1,4 @@
-"""Searchable Hamlib radio setup and bounded tune controls."""
+"""Searchable Mercury-owned Hamlib radio setup controls."""
 
 from __future__ import annotations
 
@@ -21,16 +21,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from application.radio import TUNE_MAX_DBFS, TUNE_MIN_DBFS
-
-
 class RadioPage(QWidget):
     apply_requested = Signal(object, str, int)
     refresh_devices_requested = Signal()
     layout_changed = Signal()
-    tune_level_requested = Signal(int)
-    tune_start_requested = Signal()
-    tune_stop_requested = Signal()
+    tx_level_requested = Signal(float)
+    tx_test_start_requested = Signal()
+    tx_test_stop_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -76,30 +73,37 @@ class RadioPage(QWidget):
         self.refresh_devices.clicked.connect(self.refresh_devices_requested)
         setup_layout.addWidget(self.refresh_devices)
 
-        tune = QGroupBox("Antenna Tuning Carrier")
-        tune_layout = QVBoxLayout(tune)
-        warning = QLabel(
-            "Keys PTT and sends Mercury's 1000 Hz carrier. The application sends "
-            "TUNE OFF after 12 seconds; Mercury retains its independent 60-second failsafe."
-        )
-        warning.setWordWrap(True)
-        tune_layout.addWidget(warning)
-        slider_row = QHBoxLayout()
-        slider_row.addWidget(QLabel("Tune level"))
-        self.tune_slider = QSlider(Qt.Orientation.Horizontal)
-        self.tune_slider.setRange(TUNE_MIN_DBFS, TUNE_MAX_DBFS)
-        self.tune_slider.setTickInterval(10)
-        self.tune_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.tune_slider.valueChanged.connect(self._tune_value_changed)
-        slider_row.addWidget(self.tune_slider, 1)
-        self.tune_value = QLabel("-20 dBFS")
-        self.tune_value.setMinimumWidth(70)
-        slider_row.addWidget(self.tune_value)
-        tune_layout.addLayout(slider_row)
-        self.tune_button = QPushButton("Tune")
-        self.tune_button.setCheckable(True)
-        self.tune_button.toggled.connect(self._toggle_tune)
-        tune_layout.addWidget(self.tune_button)
+        tx_test = QGroupBox("TX Level Test")
+        tx_layout = QVBoxLayout(tx_test)
+        tx_row = QHBoxLayout()
+        tx_row.addWidget(QLabel("Modem TX gain"))
+        self.tx_gain = QSlider(Qt.Orientation.Horizontal)
+        self.tx_gain.setRange(-20, 0)
+        self.tx_gain.setValue(-20)
+        self.tx_gain.setTickInterval(5)
+        self.tx_gain.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.tx_gain.valueChanged.connect(self._tx_gain_changed)
+        tx_row.addWidget(self.tx_gain, 1)
+        self.tx_gain_value = QLabel("-20 dB")
+        self.tx_gain_value.setMinimumWidth(58)
+        tx_row.addWidget(self.tx_gain_value)
+        tx_layout.addLayout(tx_row)
+
+        peak_row = QHBoxLayout()
+        peak_row.addWidget(QLabel("Mercury TX peak"))
+        self.tx_peak = QLabel("— dBFS")
+        peak_row.addWidget(self.tx_peak)
+        peak_row.addStretch(1)
+        tx_layout.addLayout(peak_row)
+
+        self.tx_acknowledgement = QCheckBox("I understand this test transmits RF")
+        self.tx_acknowledgement.toggled.connect(self._update_tx_test_enabled)
+        tx_layout.addWidget(self.tx_acknowledgement)
+        self.tx_test_button = QPushButton("Start TX Level Test")
+        self.tx_test_button.setCheckable(True)
+        self.tx_test_button.setEnabled(False)
+        self.tx_test_button.toggled.connect(self._toggle_tx_test)
+        tx_layout.addWidget(self.tx_test_button)
 
         self.status = QLabel("Radio catalog has not been loaded")
         self.status.setWordWrap(True)
@@ -111,7 +115,7 @@ class RadioPage(QWidget):
         content_layout.addWidget(title)
         content_layout.addWidget(setup, 1)
         content_layout.addWidget(self.apply_button)
-        content_layout.addWidget(tune)
+        content_layout.addWidget(tx_test)
         content_layout.addWidget(self.status)
 
         self.scroll_area = QScrollArea()
@@ -154,22 +158,34 @@ class RadioPage(QWidget):
         self.device.blockSignals(False)
         self._refresh_layout()
 
-    def set_tune_level(self, level: int) -> None:
-        self.tune_slider.blockSignals(True)
-        self.tune_slider.setValue(level)
-        self.tune_slider.blockSignals(False)
-        self.tune_value.setText(f"{level} dBFS")
-
-    def set_tune_state(self, active: bool, message: str) -> None:
-        self.tune_button.blockSignals(True)
-        self.tune_button.setChecked(active)
-        self.tune_button.setText("Stop Tune" if active else "Tune")
-        self.tune_button.blockSignals(False)
-        self.status.setText(message)
-
     def set_status(self, message: str) -> None:
         self.status.setText(message)
         self.status.setStyleSheet("color: palette(mid);")
+
+    def set_tx_gain(self, level_db: float) -> None:
+        if self.tx_gain.isSliderDown():
+            return
+        level = max(-20, min(0, round(float(level_db))))
+        self.tx_gain.blockSignals(True)
+        self.tx_gain.setValue(level)
+        self.tx_gain.blockSignals(False)
+        self.tx_gain_value.setText(f"{level} dB")
+
+    def set_tx_peak(self, peak_dbfs: float) -> None:
+        peak = float(peak_dbfs)
+        self.tx_peak.setText("— dBFS" if peak <= -119.9 else f"{peak:.1f} dBFS")
+
+    def set_tx_test_state(self, active: bool, message: str) -> None:
+        self.tx_test_button.blockSignals(True)
+        self.tx_test_button.setChecked(active)
+        self.tx_test_button.setText(
+            "Stop TX Level Test" if active else "Start TX Level Test"
+        )
+        self.tx_test_button.blockSignals(False)
+        self.tx_gain.setEnabled(active or not self.tx_test_button.isChecked())
+        self.status.setText(message)
+        if not active:
+            self.tx_acknowledgement.setChecked(False)
 
     def show_error(self, message: str) -> None:
         self.status.setText(message)
@@ -180,6 +196,23 @@ class RadioPage(QWidget):
         self.radio_list.setEnabled(enabled)
         self.device.setEnabled(enabled)
         self.serial_speed.setEnabled(enabled)
+
+    def _update_tx_test_enabled(self, acknowledged: bool) -> None:
+        if not self.tx_test_button.isChecked():
+            self.tx_test_button.setEnabled(acknowledged)
+
+    def _tx_gain_changed(self, value: int) -> None:
+        self.tx_gain_value.setText(f"{value} dB")
+        self.tx_level_requested.emit(float(value))
+
+    def _toggle_tx_test(self, active: bool) -> None:
+        self.tx_test_button.setText(
+            "Stop TX Level Test" if active else "Start TX Level Test"
+        )
+        if active:
+            self.tx_test_start_requested.emit()
+        else:
+            self.tx_test_stop_requested.emit()
 
     @staticmethod
     def _editable_device_combo(placeholder: str) -> QComboBox:
@@ -241,14 +274,3 @@ class RadioPage(QWidget):
             model_id, self._combo_value(self.device),
             int(self.serial_speed.currentData()),
         )
-
-    def _tune_value_changed(self, value: int) -> None:
-        self.tune_value.setText(f"{value} dBFS")
-        self.tune_level_requested.emit(value)
-
-    def _toggle_tune(self, active: bool) -> None:
-        self.tune_button.setText("Stop Tune" if active else "Tune")
-        if active:
-            self.tune_start_requested.emit()
-        else:
-            self.tune_stop_requested.emit()

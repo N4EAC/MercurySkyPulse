@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from collections import deque
-import math
-
-from PySide6.QtCore import QPointF, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -23,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from application.modem import ModemStatus, SpectrumFrame
+from application.modem import ModemStatus
 
 
 def _label(text: str, object_name: str | None = None) -> QLabel:
@@ -55,107 +50,6 @@ class MetricCard(QFrame):
             self.caption_label.setText(caption)
 
 
-class SpectrumWidget(QWidget):
-    """Lightweight live spectrum plot; stores only the latest frame."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._frame: SpectrumFrame | None = None
-        self.setMinimumHeight(150)
-
-    def set_frame(self, frame: SpectrumFrame) -> None:
-        self._frame = frame
-        self.update()
-
-    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
-        del event
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = self.rect().adjusted(8, 8, -8, -8)
-        painter.fillRect(rect, QColor(18, 24, 32, 150))
-
-        grid_pen = QPen(QColor(110, 125, 145, 55), 1)
-        painter.setPen(grid_pen)
-        for division in range(1, 5):
-            y = rect.top() + rect.height() * division / 5
-            painter.drawLine(rect.left(), int(y), rect.right(), int(y))
-        for division in range(1, 8):
-            x = rect.left() + rect.width() * division / 8
-            painter.drawLine(int(x), rect.top(), int(x), rect.bottom())
-
-        if not self._frame or len(self._frame.bins_db) < 2:
-            painter.setPen(QColor(150, 160, 175))
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "Waiting for spectrum")
-            return
-
-        bins = self._frame.bins_db
-        floor_db, ceiling_db = -120.0, 10.0
-        path = QPainterPath()
-        for index, value in enumerate(bins):
-            normalized = max(0.0, min(1.0, (value - floor_db) / (ceiling_db - floor_db)))
-            x = rect.left() + rect.width() * index / (len(bins) - 1)
-            y = rect.bottom() - rect.height() * normalized
-            point = QPointF(x, y)
-            if index == 0:
-                path.moveTo(point)
-            else:
-                path.lineTo(point)
-        painter.setPen(QPen(QColor("#64a0ff"), 1.6))
-        painter.drawPath(path)
-
-
-def _heat_color(value: float) -> QColor:
-    normalized = max(0.0, min(1.0, (value + 120.0) / 110.0))
-    if normalized < 0.33:
-        t = normalized / 0.33
-        return QColor(int(8 + 20 * t), int(12 + 55 * t), int(28 + 105 * t))
-    if normalized < 0.66:
-        t = (normalized - 0.33) / 0.33
-        return QColor(int(28 + 205 * t), int(67 + 80 * t), int(133 - 70 * t))
-    t = (normalized - 0.66) / 0.34
-    return QColor(233, int(147 + 100 * t), int(63 + 175 * t))
-
-
-class WaterfallWidget(QWidget):
-    """Bounded rolling spectrum history rendered as a waterfall."""
-
-    def __init__(self, max_rows: int = 180) -> None:
-        super().__init__()
-        self._rows: deque[tuple[float, ...]] = deque(maxlen=max_rows)
-        self.setMinimumHeight(180)
-
-    def add_frame(self, frame: SpectrumFrame) -> None:
-        if frame.bins_db:
-            self._rows.append(frame.bins_db)
-            self.update()
-
-    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
-        del event
-        painter = QPainter(self)
-        rect = self.rect().adjusted(8, 8, -8, -8)
-        painter.fillRect(rect, QColor(12, 17, 24))
-        if not self._rows:
-            painter.setPen(QColor(150, 160, 175))
-            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "Waiting for waterfall data")
-            return
-
-        rows = tuple(self._rows)
-        row_height = max(1.0, rect.height() / len(rows))
-        for row_index, bins in enumerate(reversed(rows)):
-            y = rect.top() + row_index * row_height
-            step = max(1, math.ceil(len(bins) / max(1, rect.width())))
-            sampled = bins[::step]
-            cell_width = rect.width() / max(1, len(sampled))
-            for index, value in enumerate(sampled):
-                painter.fillRect(
-                    int(rect.left() + index * cell_width),
-                    int(y),
-                    max(1, math.ceil(cell_width)),
-                    max(1, math.ceil(row_height)),
-                    _heat_color(value),
-                )
-
-
 class Dashboard(QWidget):
     """Central modem telemetry dashboard."""
 
@@ -173,12 +67,6 @@ class Dashboard(QWidget):
         title_box.addWidget(_label("Supervised Mercury telemetry", "Muted"))
         heading.addLayout(title_box)
         heading.addStretch(1)
-        self.spectrum_enabled = QCheckBox("Spectrum")
-        self.spectrum_enabled.setChecked(False)
-        self.waterfall_enabled = QCheckBox("Waterfall")
-        self.waterfall_enabled.setChecked(False)
-        heading.addWidget(self.spectrum_enabled)
-        heading.addWidget(self.waterfall_enabled)
         self.state_pill = _label("STARTING", "StatusPill")
         self.state_pill.setAlignment(Qt.AlignmentFlag.AlignCenter)
         heading.addWidget(self.state_pill)
@@ -191,33 +79,13 @@ class Dashboard(QWidget):
         self.modem_card = MetricCard("Modem", "Offline", "Waiting for status")
         self.snr_card = MetricCard("SNR", "— dB", "Signal-to-noise ratio")
         self.bitrate_card = MetricCard("Bitrate", "— bps", "Current reported rate")
+        self.frequency_card = MetricCard("Radio", "— MHz", "Frequency unavailable")
         for index, card in enumerate(
-            (self.engine_card, self.modem_card, self.snr_card, self.bitrate_card)
+            (self.engine_card, self.modem_card, self.snr_card, self.bitrate_card,
+             self.frequency_card)
         ):
             grid.addWidget(card, index // 2, index % 2)
         outer.addLayout(grid)
-
-        self.spectrum_card = QFrame()
-        self.spectrum_card.setObjectName("Card")
-        spectrum_layout = QVBoxLayout(self.spectrum_card)
-        spectrum_layout.setContentsMargins(14, 14, 14, 14)
-        spectrum_layout.addWidget(_label("Spectrum", "SectionTitle"))
-        self.spectrum = SpectrumWidget()
-        spectrum_layout.addWidget(self.spectrum)
-        outer.addWidget(self.spectrum_card)
-
-        self.waterfall_card = QFrame()
-        self.waterfall_card.setObjectName("Card")
-        waterfall_layout = QVBoxLayout(self.waterfall_card)
-        waterfall_layout.setContentsMargins(14, 14, 14, 14)
-        waterfall_layout.addWidget(_label("Waterfall", "SectionTitle"))
-        self.waterfall = WaterfallWidget()
-        waterfall_layout.addWidget(self.waterfall)
-        outer.addWidget(self.waterfall_card, 1)
-        self.spectrum_enabled.toggled.connect(self.spectrum_card.setVisible)
-        self.waterfall_enabled.toggled.connect(self.waterfall_card.setVisible)
-        self.spectrum_card.setVisible(False)
-        self.waterfall_card.setVisible(False)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -231,7 +99,6 @@ class Dashboard(QWidget):
         target = {
             "overview": self.engine_card,
             "signal": self.snr_card,
-            "waterfall": self.waterfall_card,
         }.get(section.casefold(), self.engine_card)
         self.scroll.ensureWidgetVisible(target, 20, 20)
 
@@ -260,13 +127,14 @@ class Dashboard(QWidget):
         self.modem_card.set_metric(modem_state, direction)
         self.snr_card.set_metric(f"{status.snr_db:.1f} dB")
         self.bitrate_card.set_metric(f"{status.bitrate_bps:,} bps")
-
-    def update_spectrum(self, frame: SpectrumFrame) -> None:
-        if self.spectrum_enabled.isChecked():
-            self.spectrum.set_frame(frame)
-        if self.waterfall_enabled.isChecked():
-            self.waterfall.add_frame(frame)
-
+        if status.radio_frequency_hz is None:
+            self.frequency_card.set_metric("— MHz", "Frequency unavailable")
+        else:
+            age = (status.radio_frequency_age_ms or 0) / 1000
+            self.frequency_card.set_metric(
+                f"{status.radio_frequency_hz / 1_000_000:.6f} MHz",
+                f"Mercury Hamlib · {age:.1f} s old",
+            )
 
 class ActivityPanel(QWidget):
     log_added = Signal(str)
@@ -287,6 +155,33 @@ class ActivityPanel(QWidget):
         self.log_added.emit(line)
 
 
+class FrequencyPanel(QWidget):
+    """Read-only radio frequency obtained from Mercury's Hamlib cache."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.addWidget(_label("Radio Frequency", "SectionTitle"))
+        self.frequency = _label("— MHz", "MetricValue")
+        self.frequency.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.frequency)
+        self.detail = _label("Waiting for Mercury Hamlib telemetry", "Muted")
+        self.detail.setWordWrap(True)
+        self.detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.detail)
+        layout.addStretch(1)
+
+    def update_status(self, status: ModemStatus) -> None:
+        if status.radio_frequency_hz is None:
+            self.frequency.setText("— MHz")
+            self.detail.setText("Frequency unavailable from Mercury")
+            return
+        self.frequency.setText(f"{status.radio_frequency_hz / 1_000_000:.6f} MHz")
+        age = (status.radio_frequency_age_ms or 0) / 1000
+        self.detail.setText(f"Read only · Mercury Hamlib · {age:.1f} s old")
+
+
 class NavigationPanel(QWidget):
     destination_requested = Signal(str)
 
@@ -299,7 +194,7 @@ class NavigationPanel(QWidget):
         self.navigation.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )
-        for label in ("Overview", "Signal", "Waterfall", "Activity", "Diagnostics"):
+        for label in ("Overview", "Signal", "Activity", "Diagnostics"):
             QListWidgetItem(label, self.navigation)
         self.navigation.setCurrentRow(0)
         self.navigation.currentTextChanged.connect(self.destination_requested)

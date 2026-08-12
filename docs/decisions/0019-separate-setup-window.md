@@ -15,9 +15,6 @@ The main window contains operational views only. Edit → Setup opens a reusable
 window whose initial tabs are Radio, Audio, User, and GPS. Radio remains first and
 the structure permits additional configuration tabs.
 
-Spectrum and waterfall rendering have independent, default-on visibility controls.
-Hidden views stop consuming incoming frames for rendering/history.
-
 Manual coordinates and GPS fixes are validated locally and calculate a proposed
 six-character Maidenhead grid in the User tab. The operator reviews and explicitly
 saves station identity. No internet geolocation service is used.

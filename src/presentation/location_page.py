@@ -143,6 +143,14 @@ class LocationPage(QWidget):
                 return str(identifier).strip()
         return self.serial_port.currentText().strip()
 
+    def set_selected_serial_port(self, port: str) -> None:
+        value = port.strip()
+        index = self.serial_port.findData(value)
+        if index >= 0:
+            self.serial_port.setCurrentIndex(index)
+        elif value:
+            self.serial_port.setEditText(value)
+
     def set_current(self, location) -> None:
         self.latitude.setText(f"{location.latitude:.6f}")
         self.longitude.setText(f"{location.longitude:.6f}")

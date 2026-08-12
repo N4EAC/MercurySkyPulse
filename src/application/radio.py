@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from PySide6.QtCore import QObject, QTimer, Signal
 
 
-TUNE_MIN_DBFS = -60
-TUNE_MAX_DBFS = 0
-TUNE_TIMEOUT_MS = 12_000
+TX_TEST_MIN_GAIN_DB = -20
+TX_TEST_MAX_GAIN_DB = 0
+TX_TEST_DURATION_MS = 12_000
+TX_TEST_BEACON_INTERVAL_MS = 3_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,8 +42,6 @@ class RadioStationService(QObject):
     audio_inputs_changed = Signal(object)
     audio_outputs_changed = Signal(object)
     config_changed = Signal(object)
-    tune_level_changed = Signal(int)
-    tune_state_changed = Signal(bool, str)
     status_changed = Signal(str)
     error_received = Signal(str)
 
@@ -58,13 +57,6 @@ class RadioStationService(QObject):
         self.managed = managed
         self._catalog: tuple[HamlibRig, ...] = ()
         self._config = self._load_config()
-        self._tune_level = self._load_tune_level()
-        self._tuning = False
-        self._link_state = "disconnected"
-        self._tune_timer = QTimer(self)
-        self._tune_timer.setSingleShot(True)
-        self._tune_timer.setInterval(TUNE_TIMEOUT_MS)
-        self._tune_timer.timeout.connect(self._tune_timeout)
         catalog_provider.models_loaded.connect(self._set_catalog)
         catalog_provider.error_received.connect(self.error_received)
         station_devices.serial_ports_loaded.connect(self.serial_ports_changed)
@@ -72,23 +64,13 @@ class RadioStationService(QObject):
             station_devices.audio_inputs_loaded.connect(self.audio_inputs_changed)
         if hasattr(station_devices, "audio_outputs_loaded"):
             station_devices.audio_outputs_loaded.connect(self.audio_outputs_changed)
-        client.control_event.connect(self._on_control_event)
-        if hasattr(client, "state_changed"):
-            client.state_changed.connect(self._set_link_state)
-        if hasattr(client, "session_disconnected"):
-            client.session_disconnected.connect(self._disconnect_stop)
 
     @property
     def config(self) -> RadioStationConfig:
         return self._config
 
-    @property
-    def tune_level(self) -> int:
-        return self._tune_level
-
     def start(self) -> None:
         self.config_changed.emit(self._config)
-        self.tune_level_changed.emit(self._tune_level)
         self.catalog_provider.load()
         self.station_devices.load()
 
@@ -146,80 +128,8 @@ class RadioStationService(QObject):
             input_device, output_device,
         )
 
-    def set_tune_level(self, level_dbfs: int) -> None:
-        try:
-            level = int(level_dbfs)
-            if not TUNE_MIN_DBFS <= level <= TUNE_MAX_DBFS:
-                raise ValueError("Tune level must be between -60 and 0 dBFS")
-            self._tune_level = level
-            self.repository.set_setting("radio.tune_dbfs", str(level), "radio-setup")
-            self.tune_level_changed.emit(level)
-            if self._tuning:
-                self.client.set_tune_level(level)
-        except (RuntimeError, ValueError) as error:
-            self.error_received.emit(str(error))
-
-    def start_tune(self) -> None:
-        try:
-            if self._link_state in {"connected", "linking"}:
-                raise ValueError("Disconnect the active station link before tuning")
-            self.client.start_tune(self._tune_level)
-            self._tuning = True
-            self._tune_timer.start()
-            self.tune_state_changed.emit(True, "Tuning; automatic stop in 12 seconds")
-        except (RuntimeError, ValueError) as error:
-            self._tuning = False
-            self._tune_timer.stop()
-            self.error_received.emit(str(error))
-
-    def stop_tune(self) -> None:
-        self._stop_tune("Tune stopped", report_errors=True)
-
     def stop(self) -> None:
-        self._stop_tune("Tune stopped during shutdown", report_errors=False)
-
-    def _tune_timeout(self) -> None:
-        self._stop_tune("Tune stopped after 12-second safety timeout", report_errors=True)
-
-    def _disconnect_stop(self) -> None:
-        if not self._tuning:
-            return
-        self._stop_tune("Tune stopped because the station session disconnected", False)
-
-    def _stop_tune(self, message: str, report_errors: bool) -> None:
-        was_tuning = self._tuning
-        self._tuning = False
-        self._tune_timer.stop()
-        if was_tuning:
-            try:
-                self.client.stop_tune()
-            except RuntimeError as error:
-                if report_errors:
-                    self.error_received.emit(str(error))
-        self.tune_state_changed.emit(False, message)
-
-    def _on_control_event(self, event: str) -> None:
-        if self._tuning and event == "WRONG":
-            self._tuning = False
-            self._tune_timer.stop()
-            self.tune_state_changed.emit(False, "Mercury refused the tune request")
-            self.error_received.emit(
-                "Mercury refused tuning; disconnect ARQ traffic and verify radio setup"
-            )
-
-    def _set_link_state(self, state: str) -> None:
-        self._link_state = state
-        if self._tuning and state in {"connected", "linking"}:
-            self._stop_tune("Tune stopped because a station link became active", False)
-        elif self._tuning and state == "disconnected":
-            self._tuning = False
-            self._tune_timer.stop()
-            self.tune_state_changed.emit(
-                False, "Mercury control disconnected; its 60-second tune failsafe remains"
-            )
-            self.error_received.emit(
-                "Could not send TUNE OFF after control disconnect; verify the transmitter unkeyed"
-            )
+        pass
 
     def _set_catalog(self, rigs) -> None:
         self._catalog = tuple(rigs)
@@ -251,9 +161,107 @@ class RadioStationService(QObject):
             self.repository.get_setting("radio.output_device") or "",
         )
 
-    def _load_tune_level(self) -> int:
+
+class TxLevelTestService(QObject):
+    """Bounded real-beacon TX gain test through documented Mercury interfaces."""
+
+    level_changed = Signal(float)
+    peak_changed = Signal(float)
+    state_changed = Signal(bool, str)
+    error_received = Signal(str)
+
+    def __init__(self, beacon_service, telemetry, link_client, parent=None) -> None:
+        super().__init__(parent)
+        self.beacon_service = beacon_service
+        self.telemetry = telemetry
+        self._active = False
+        self._level_db = float(TX_TEST_MIN_GAIN_DB)
+        self._link_state = "disconnected"
+        self._pulse_timer = QTimer(self)
+        self._pulse_timer.setInterval(TX_TEST_BEACON_INTERVAL_MS)
+        self._pulse_timer.timeout.connect(self._send_beacon)
+        self._deadline = QTimer(self)
+        self._deadline.setSingleShot(True)
+        self._deadline.setInterval(TX_TEST_DURATION_MS)
+        self._deadline.timeout.connect(self._timeout)
+        link_client.state_changed.connect(self._link_state_changed)
+        telemetry.status_received.connect(self._status_received)
+        telemetry.state_changed.connect(self._telemetry_state_changed)
+
+    @property
+    def active(self) -> bool:
+        return self._active
+
+    def set_level(self, level_db: float) -> None:
         try:
-            value = int(self.repository.get_setting("radio.tune_dbfs") or "-20")
-        except ValueError:
-            value = -20
-        return max(TUNE_MIN_DBFS, min(TUNE_MAX_DBFS, value))
+            level = float(level_db)
+            if not TX_TEST_MIN_GAIN_DB <= level <= TX_TEST_MAX_GAIN_DB:
+                raise ValueError("TX test gain must be between -20 and 0 dB")
+            if self._link_state in {"connected", "linking"}:
+                raise ValueError("Disconnect the active station link before changing TX gain")
+            self.telemetry.set_tx_gain_db(level)
+            self._level_db = level
+            self.level_changed.emit(level)
+        except (RuntimeError, TypeError, ValueError) as error:
+            self.error_received.emit(str(error))
+
+    def start(self) -> None:
+        try:
+            if self._active:
+                return
+            if self._link_state in {"connected", "linking"}:
+                raise ValueError("Disconnect the active station link before starting the TX test")
+            config = self.beacon_service.config
+            if not config.callsign or not config.grid:
+                raise ValueError("Save the station callsign and GRID before starting the TX test")
+            self.telemetry.set_tx_gain_db(self._level_db)
+            self.beacon_service.transmit_test_beacon()
+            self._active = True
+            self._pulse_timer.start()
+            self._deadline.start()
+            self.state_changed.emit(True, "TX level test active; automatic stop in 12 seconds")
+        except (RuntimeError, TypeError, ValueError) as error:
+            self._active = False
+            self._pulse_timer.stop()
+            self._deadline.stop()
+            self.state_changed.emit(False, "TX level test could not start")
+            self.error_received.emit(str(error))
+
+    def stop(self) -> None:
+        was_active = self._active
+        self._active = False
+        self._pulse_timer.stop()
+        self._deadline.stop()
+        if was_active:
+            self.state_changed.emit(False, "TX level test stopped")
+
+    def _send_beacon(self) -> None:
+        try:
+            self.beacon_service.transmit_test_beacon()
+        except (RuntimeError, ValueError) as error:
+            self.stop()
+            self.error_received.emit(str(error))
+
+    def _timeout(self) -> None:
+        self.stop()
+        self.state_changed.emit(False, "TX level test stopped after 12-second safety timeout")
+
+    def _link_state_changed(self, state: str) -> None:
+        self._link_state = state
+        if self._active and state in {"connected", "linking"}:
+            self.stop()
+            self.error_received.emit("TX level test stopped because a station link became active")
+
+    def _status_received(self, status) -> None:
+        if not self._active:
+            self._level_db = max(
+                float(TX_TEST_MIN_GAIN_DB),
+                min(float(TX_TEST_MAX_GAIN_DB), float(status.tx_gain_db)),
+            )
+            self.level_changed.emit(self._level_db)
+        self.peak_changed.emit(float(status.tx_peak_dbfs))
+
+    def _telemetry_state_changed(self, state: str) -> None:
+        if self._active and state != "connected":
+            self.stop()
+            self.error_received.emit("TX level test stopped because Mercury telemetry disconnected")

@@ -72,8 +72,8 @@ class FileTransferTests(unittest.TestCase):
         self.assertEqual(self.receiver._transfers[transfer_id].status, "paused")
         self.sender.resume(transfer_id)
         self.sender._pump()
-        self.assertGreater(self.sender._transfers[transfer_id].progress, 0)
-        self.assertLess(self.sender._transfers[transfer_id].progress, 100)
+        self.assertGreater(self.sender._transfers[transfer_id].transferred, 0)
+        self.assertEqual(self.sender._transfers[transfer_id].progress, 0)
         self._finish()
         received = self.receive_directory / "report.bin"
         self.assertEqual(received.read_bytes(), source.read_bytes())
@@ -168,6 +168,21 @@ class FileTransferTests(unittest.TestCase):
         self.assertEqual(transfer.status, "received")
         self.assertEqual(transfer.progress, 100)
         self.assertEqual((self.receive_directory / "empty.bin").read_bytes(), b"")
+
+    def test_desktop_policy_can_require_explicit_incoming_acceptance(self) -> None:
+        self.receiver.auto_accept = False
+        offers = []
+        self.receiver.incoming_offer.connect(offers.append)
+        source = self.source_directory / "permission.txt"
+        source.write_text("accept me", encoding="utf-8")
+        self.sender.send_file(str(source))
+        transfer_id = next(iter(self.sender._transfers))
+        self.assertEqual(self.receiver._transfers[transfer_id].status, "offered")
+        self.assertEqual(self.sender._transfers[transfer_id].status, "offered")
+        self.assertEqual(offers[0].name, "permission.txt")
+        self.receiver.accept(transfer_id)
+        self.assertEqual(self.receiver._transfers[transfer_id].status, "transferring")
+        self.assertEqual(self.sender._transfers[transfer_id].status, "transferring")
 
 
 if __name__ == "__main__":

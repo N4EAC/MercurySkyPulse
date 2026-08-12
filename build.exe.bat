@@ -6,15 +6,13 @@ echo MercurySkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
-set "MSP_MERCURY_VERSION=1.9.11"
-set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.11-w64-f5c8a2f0.zip"
-set "MSP_MERCURY_ARCHIVE_SHA256=a88c7739428e7afe864791a964d5f8eaa0fc73d6d0a60c016a6df0a5e30a9e78"
-set "MSP_MERCURY_URL=https://github.com/Rhizomatica/mercury/releases/download/v1.9.11/mercury-1.9.11-w64-f5c8a2f0.zip"
-set "MSP_MERCURY_LICENSE_URL=https://raw.githubusercontent.com/Rhizomatica/mercury/v1.9.11/LICENSE"
-set "MSP_MERCURY_LICENSE_SHA256=3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+set "MSP_MERCURY_VERSION=1.9.11-msp-9803d0fc"
+set "MSP_MERCURY_COMMIT=9803d0fcd690de76309dbe62d9186a0d34dba507"
+set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.11-msp-9803d0fc.zip"
+set "MSP_MERCURY_ARCHIVE_SHA256=e7a2563242dd2d3a57b1380a780d9b702a3c4f2050ff6f7e3c87bd31d4c80b25"
+set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.11-frequency-1/mercury-1.9.11-msp-9803d0fc.zip"
 set "MSP_MERCURY_CACHE=%TEMP%\MercurySkyPulse-build-cache\mercury-%MSP_MERCURY_VERSION%"
 set "MSP_MERCURY_ARCHIVE=%MSP_MERCURY_CACHE%\%MSP_MERCURY_ARCHIVE_NAME%"
-set "MSP_MERCURY_LICENSE=%MSP_MERCURY_CACHE%\LICENSE"
 set "MSP_MERCURY_RUNTIME=%MSP_MERCURY_CACHE%\runtime\mercury-%MSP_MERCURY_VERSION%"
 
 set "MSP_PYTHON=.venv\Scripts\python.exe"
@@ -95,14 +93,9 @@ if errorlevel 1 (
     echo ERROR: The Mercury runtime could not be copied into the test package.
     goto failed
 )
-copy /Y "%MSP_MERCURY_LICENSE%" "dist\MercurySkyPulse\mercury\LICENSE" >nul
-if errorlevel 1 (
-    echo ERROR: The Mercury license could not be copied into the test package.
-    goto failed
-)
 (
     echo Mercury %MSP_MERCURY_VERSION%
-    echo Corresponding source: https://github.com/Rhizomatica/mercury/tree/v%MSP_MERCURY_VERSION%
+    echo Corresponding source: https://github.com/N4EAC/mercury/tree/%MSP_MERCURY_COMMIT%
     echo License: GNU GPL-3.0; see LICENSE in this directory.
 ) > "dist\MercurySkyPulse\mercury\SOURCE.txt"
 
@@ -153,22 +146,6 @@ if errorlevel 1 (
     del /Q "%MSP_MERCURY_ARCHIVE%" >nul 2>nul
     exit /b 1
 )
-if not exist "%MSP_MERCURY_LICENSE%" (
-    echo Downloading Mercury GPL license...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri $env:MSP_MERCURY_LICENSE_URL -OutFile $env:MSP_MERCURY_LICENSE"
-    if errorlevel 1 (
-        echo ERROR: Mercury license download failed.
-        exit /b 1
-    )
-)
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "if ((Get-FileHash -LiteralPath $env:MSP_MERCURY_LICENSE -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:MSP_MERCURY_LICENSE_SHA256) { exit 1 }"
-if errorlevel 1 (
-    echo ERROR: Mercury license SHA-256 verification failed.
-    del /Q "%MSP_MERCURY_LICENSE%" >nul 2>nul
-    exit /b 1
-)
 if not exist "%MSP_MERCURY_RUNTIME%\mercury.exe" (
     echo Extracting Mercury runtime...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -180,6 +157,10 @@ if not exist "%MSP_MERCURY_RUNTIME%\mercury.exe" (
 )
 if not exist "%MSP_MERCURY_RUNTIME%\mercury.exe" (
     echo ERROR: Verified Mercury archive did not contain mercury.exe.
+    exit /b 1
+)
+if not exist "%MSP_MERCURY_RUNTIME%\LICENSE" (
+    echo ERROR: Verified Mercury archive did not contain its GPL license.
     exit /b 1
 )
 exit /b 0

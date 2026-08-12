@@ -8,7 +8,9 @@ Mercury as an independent engine and keeping module boundaries explicit.
 ## Before contributing
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `ROADMAP.md`, and `AGENTS.md`.
-2. Confirm that the change belongs in MercurySkyPulse. Mercury engine bugs and protocol changes belong in the separate Mercury project.
+2. Confirm that the change belongs in MercurySkyPulse. Mercury engine bugs and
+   protocol changes belong in the separate public Mercury fork and require an
+   explicit Mercury task.
 3. For a new dependency, language, framework, build system, or cross-cutting convention, add or update an ADR first.
 4. Keep the change limited to one architectural concern where practical.
 
@@ -29,9 +31,10 @@ Mercury as an independent engine and keeping module boundaries explicit.
   UI code consumes application services and typed modem projections.
 - `apps/desktop` is an alternate installed-package launcher.
 - `build.exe.bat` creates an unsigned PyInstaller one-directory Windows test build
-  after running the aggregate suite. It downloads the pinned official Mercury
-  runtime, verifies its SHA-256 digest, and includes the full runtime, GPL license,
-  and source URL. Do not commit Mercury binaries, caches, or the builder's
+  after running the aggregate suite. It downloads the pinned MSP-compatible
+  Mercury runtime, verifies its SHA-256 digest, and includes the full runtime,
+  GPL license, and exact corresponding-source commit URL. Do not commit Mercury
+  binaries, caches, or the builder's
   `build/` or `dist/` output.
 - Tests may depend inward or instantiate outer adapters, but production dependencies must follow the architecture.
 

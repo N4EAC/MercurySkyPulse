@@ -34,6 +34,7 @@ class ChatPage(QWidget):
     file_requested = Signal(str)
     transfer_pause_requested = Signal(str)
     transfer_resume_requested = Signal(str)
+    transfer_folder_requested = Signal(str)
     conversation_selected = Signal(int)
 
     def __init__(self, parent=None) -> None:
@@ -98,6 +99,8 @@ class ChatPage(QWidget):
         self.send_file_button = QPushButton("Send File…")
         self.pause_file_button = QPushButton("Pause")
         self.resume_file_button = QPushButton("Resume")
+        self.open_transfer_button = QPushButton("Open Folder")
+        self.open_transfer_button.setEnabled(False)
         self.transfer_status = QLabel("No file transfer")
         self.transfer_thumbnail = QLabel()
         self.transfer_thumbnail.setFixedSize(72, 72)
@@ -110,6 +113,7 @@ class ChatPage(QWidget):
         transfer_row.addWidget(self.transfer_thumbnail)
         transfer_row.addWidget(self.pause_file_button)
         transfer_row.addWidget(self.resume_file_button)
+        transfer_row.addWidget(self.open_transfer_button)
         transfer_row.addWidget(self.transfer_status, 1)
         transfer_row.addWidget(self.transfer_progress)
         chat_layout.addLayout(transfer_row)
@@ -130,11 +134,23 @@ class ChatPage(QWidget):
         self.send_file_button.clicked.connect(self._choose_file)
         self.pause_file_button.clicked.connect(self._pause_transfer)
         self.resume_file_button.clicked.connect(self._resume_transfer)
+        self.open_transfer_button.clicked.connect(self._open_transfer_folder)
         self.conversations.currentRowChanged.connect(self._select_row)
         self._transfer_id = ""
+        self._transfer_path = ""
 
     def set_state(self, state: str) -> None:
         self.link_state.setText(f"TNC: {state}")
+
+    def set_connected_peer(self, source: str, destination: str, bandwidth: int) -> None:
+        local = self.local_call.text().strip().upper()
+        peer = destination if source == local else source
+        self.remote_call.setText(peer)
+        self.link_state.setText(f"Connected: {peer} · {bandwidth} Hz")
+        self.link_state.setToolTip(f"ARQ session {source} ↔ {destination}")
+
+    def set_disconnected(self) -> None:
+        self.link_state.setText("TNC: ready · no station connected")
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""
@@ -170,7 +186,10 @@ class ChatPage(QWidget):
     def set_messages(self, messages: list[ChatMessage]) -> None:
         self.messages.clear()
         for message in messages:
-            direction = "You" if message.direction is MessageDirection.OUTGOING else "Station"
+            direction = (
+                "You" if message.direction is MessageDirection.OUTGOING
+                else (self.remote_call.text().strip().upper() or "Remote station")
+            )
             timestamp = self._display_time(message.sent_at)
             status = f" · {message.status.value}" if direction == "You" else ""
             item = QListWidgetItem(
@@ -186,14 +205,27 @@ class ChatPage(QWidget):
             return
         transfer = transfers[-1]
         self._transfer_id = transfer.id
+        self._transfer_path = transfer.path
+        status = {
+            "offered": "awaiting acceptance" if transfer.direction == "incoming" else "offer queued",
+            "transferring": "receiving" if transfer.direction == "incoming" else "queued to Mercury",
+            "verifying": "awaiting peer checksum result",
+            "duplicate": "already received and checksum verified",
+            "received": "checksum verified",
+        }.get(transfer.status, transfer.status)
         self.transfer_status.setText(
-            f"{transfer.name} · {transfer.direction} · {transfer.status} · "
+            f"{transfer.name} · {transfer.direction} · {status} · "
             f"SHA-256 {transfer.checksum[:12]}…"
         )
         self.transfer_status.setToolTip(
             f"{transfer.path}\nSHA-256: {transfer.checksum}"
         )
-        self.transfer_progress.setValue(transfer.progress)
+        indeterminate = transfer.direction == "outgoing" and transfer.status in {
+            "offered", "transferring", "verifying"
+        }
+        self.transfer_progress.setRange(0, 0 if indeterminate else 100)
+        if not indeterminate:
+            self.transfer_progress.setValue(transfer.progress)
         if transfer.thumbnail:
             pixmap = QPixmap()
             if pixmap.loadFromData(transfer.thumbnail):
@@ -208,6 +240,9 @@ class ChatPage(QWidget):
             self.transfer_thumbnail.clear()
         self.pause_file_button.setEnabled(transfer.status in {"offered", "transferring"})
         self.resume_file_button.setEnabled(transfer.status == "paused")
+        self.open_transfer_button.setEnabled(
+            bool(transfer.path) and transfer.status in {"received", "duplicate"}
+        )
 
     def _send(self) -> None:
         text = self.composer.toPlainText()
@@ -227,6 +262,10 @@ class ChatPage(QWidget):
     def _resume_transfer(self) -> None:
         if self._transfer_id:
             self.transfer_resume_requested.emit(self._transfer_id)
+
+    def _open_transfer_folder(self) -> None:
+        if self._transfer_path:
+            self.transfer_folder_requested.emit(self._transfer_path)
 
     def _select_row(self, row: int) -> None:
         if 0 <= row < len(self._conversation_ids):

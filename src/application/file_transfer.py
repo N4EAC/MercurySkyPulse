@@ -43,12 +43,16 @@ class FileTransfer:
 
     @property
     def progress(self) -> int:
+        if self.direction == "outgoing" and self.status not in {"received", "duplicate"}:
+            return 0
         return 100 if self.size == 0 else min(100, int(self.transferred * 100 / self.size))
 
 
 class FileTransferService(QObject):
     transfers_changed = Signal(object)
     error_received = Signal(str)
+    incoming_offer = Signal(object)
+    transfer_completed = Signal(object)
 
     def __init__(
         self,
@@ -57,6 +61,7 @@ class FileTransferService(QObject):
         receive_directory: Path,
         image_processor=None,
         auto_pump: bool = True,
+        auto_accept: bool = True,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -65,6 +70,7 @@ class FileTransferService(QObject):
         self.receive_directory = receive_directory
         self.image_processor = image_processor
         self.auto_pump = auto_pump
+        self.auto_accept = auto_accept
         self._transfers: dict[str, FileTransfer] = {}
         self._timer = QTimer(self)
         self._timer.setInterval(10)
@@ -121,6 +127,23 @@ class FileTransferService(QObject):
         self._timer.stop()
         if self.image_processor:
             self.image_processor.close()
+
+    def accept(self, transfer_id: str) -> None:
+        transfer = self._transfers.get(transfer_id)
+        if not transfer or transfer.direction != "incoming" or transfer.status != "offered":
+            return
+        self.receive_directory.mkdir(parents=True, exist_ok=True)
+        partial = self.receive_directory / f".{transfer_id}.part"
+        partial.write_bytes(b"")
+        self._update(transfer_id, status="transferring", path=str(partial))
+        self._send("file_accept", transfer_id, offset=0)
+
+    def reject(self, transfer_id: str) -> None:
+        transfer = self._transfers.get(transfer_id)
+        if not transfer or transfer.direction != "incoming" or transfer.status != "offered":
+            return
+        self._update(transfer_id, status="rejected")
+        self._send("file_result", transfer_id, result="failed", reason="operator-rejected")
 
     def pause(self, transfer_id: str) -> None:
         transfer = self._transfers.get(transfer_id)
@@ -182,18 +205,19 @@ class FileTransferService(QObject):
                 optimized=bool(values.get("optimized", False)),
             )
             self._emit()
+            self.transfer_completed.emit(self._transfers[transfer_id])
             self._send("file_result", transfer_id, result="duplicate", path=Path(duplicate).name)
             return
-        self.receive_directory.mkdir(parents=True, exist_ok=True)
-        partial = self.receive_directory / f".{transfer_id}.part"
-        partial.write_bytes(b"")
         self._transfers[transfer_id] = FileTransfer(
-            transfer_id, name, size, checksum, "incoming", "transferring",
-            path=str(partial), thumbnail=thumbnail,
+            transfer_id, name, size, checksum, "incoming", "offered",
+            thumbnail=thumbnail,
             optimized=bool(values.get("optimized", False)),
         )
         self._emit()
-        self._send("file_accept", transfer_id, offset=0)
+        if self.auto_accept:
+            self.accept(transfer_id)
+        else:
+            self.incoming_offer.emit(self._transfers[transfer_id])
 
     def _receive_accept(self, transfer_id: str, values: dict[str, object]) -> None:
         transfer = self._transfers[transfer_id]
@@ -245,6 +269,7 @@ class FileTransferService(QObject):
             f"file.sha256.{transfer.checksum}", str(destination), self._now()
         )
         self._update(transfer_id, status="received", path=str(destination))
+        self.transfer_completed.emit(self._transfers[transfer_id])
         self._send("file_result", transfer_id, result="received")
 
     def _receive_result(self, transfer_id: str, values: dict[str, object]) -> None:
@@ -254,6 +279,8 @@ class FileTransferService(QObject):
         transfer = self._transfers[transfer_id]
         transferred = transfer.size if result in {"received", "duplicate"} else transfer.transferred
         self._update(transfer_id, status=result, transferred=transferred)
+        if result in {"received", "duplicate"}:
+            self.transfer_completed.emit(self._transfers[transfer_id])
 
     def _pump(self) -> None:
         transfer = self._transfers.get(self._outgoing_id or "")

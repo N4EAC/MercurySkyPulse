@@ -26,6 +26,7 @@ class ApplicationMessagingClient(QObject):
     ping_event_received = Signal(object)
     bbs_event_received = Signal(object)
     error_received = Signal(str)
+    queued_bytes_changed = Signal(int)
 
     def __init__(self, transport, parent=None) -> None:
         super().__init__(parent)
@@ -37,6 +38,8 @@ class ApplicationMessagingClient(QObject):
         transport.session_disconnected.connect(self.session_disconnected)
         transport.data_received.connect(self._read_data)
         transport.error_received.connect(self.error_received)
+        if hasattr(transport, "queued_bytes_changed"):
+            transport.queued_bytes_changed.connect(self.queued_bytes_changed)
 
     @staticmethod
     def normalize_callsign(value: str) -> str:
@@ -66,18 +69,6 @@ class ApplicationMessagingClient(QObject):
 
     def disconnect_station(self) -> None:
         self.transport.send_control("DISCONNECT")
-
-    def start_tune(self, level_dbfs: int) -> None:
-        level = int(level_dbfs)
-        if not -60 <= level <= 0:
-            raise ValueError("Mercury tune level must be between -60 and 0 dBFS")
-        self.transport.send_control(f"TUNE {level}")
-
-    def set_tune_level(self, level_dbfs: int) -> None:
-        self.start_tune(level_dbfs)
-
-    def stop_tune(self) -> None:
-        self.transport.send_control("TUNE OFF")
 
     def send_message(self, message_id: str, timestamp: str, text: str) -> None:
         self.transport.write(encode_message(message_id, timestamp, text))

@@ -81,10 +81,22 @@ class LocationTests(unittest.TestCase):
     def test_gps_receiver_fix_becomes_current_without_auto_sharing(self) -> None:
         self.service.start_gps("/dev/example")
         self.assertEqual(self.receiver.started_with, "/dev/example")
+        restored = LocationService(self.client, self.repository, FakeGpsReceiver())
+        self.assertEqual(restored.saved_gps_port, "/dev/example")
+        restored.start()
+        self.assertEqual(restored.receiver.started_with, "/dev/example")
         self.receiver.position_received.emit(51.5, -0.12, 8.0)
         self.assertEqual(self.service.current.source, "gps")
         self.assertEqual(self.client.sent, [])
         self.assertEqual(self.repository.gps_location_count(), 0)
+
+    def test_gps_stop_disables_automatic_restart(self) -> None:
+        self.service.start_gps("/dev/example")
+        self.service.stop_gps()
+        restored_receiver = FakeGpsReceiver()
+        restored = LocationService(self.client, self.repository, restored_receiver)
+        restored.start()
+        self.assertIsNone(restored_receiver.started_with)
 
     def test_gps_fix_keeps_position_when_accuracy_is_unavailable(self) -> None:
         errors = []

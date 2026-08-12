@@ -117,6 +117,12 @@ class LocationService(QObject):
         self.retention_enabled = (
             repository.get_setting("location.retention_enabled") == "true"
         )
+        self.saved_gps_port = repository.get_setting("location.gps_port") or ""
+        saved_enabled = repository.get_setting("location.gps_enabled")
+        self.gps_enabled = (
+            saved_enabled == "true"
+            or (saved_enabled is None and bool(self.saved_gps_port))
+        )
         self.current: Location | None = None
         receiver.position_received.connect(self._on_gps_position)
         receiver.state_changed.connect(self.gps_state_changed)
@@ -159,10 +165,21 @@ class LocationService(QObject):
             self.error_received.emit(str(error))
 
     def start_gps(self, serial_port: str = "") -> None:
-        self.receiver.start(serial_port.strip())
+        self.saved_gps_port = serial_port.strip()
+        self.repository.set_setting("location.gps_port", self.saved_gps_port, self._now())
+        self.gps_enabled = True
+        self.repository.set_setting("location.gps_enabled", "true", self._now())
+        self.receiver.start(self.saved_gps_port)
 
     def stop_gps(self) -> None:
+        self.gps_enabled = False
+        self.repository.set_setting("location.gps_enabled", "false", self._now())
         self.receiver.stop()
+
+    def start(self) -> None:
+        """Restore an operator-enabled GPS source without auto-sharing."""
+        if self.gps_enabled:
+            self.receiver.start(self.saved_gps_port)
 
     def set_retention(self, enabled: bool) -> None:
         self.retention_enabled = bool(enabled)
