@@ -19,7 +19,9 @@ The existing PyInstaller one-directory application remains the common payload.
 - Ubuntu builds an `amd64` `.deb` on Ubuntu using `dpkg-deb`.
 - Fedora builds an `x86_64` `.rpm` on Fedora using `rpmbuild`.
 - Each Linux build bundles a compatible Linux Mercury executable, both Mercury
-  license files, and source provenance. The builder stops if they are absent.
+  license files, and source provenance. If no executable is supplied, it fetches
+  the checksum-pinned MSP compatibility source revision and builds it locally.
+  It rejects runtimes missing the MSP `radio_frequency_hz` telemetry capability.
 - Linux installs under `/opt/mercuryskypulse` with a command symlink, desktop
   entry, and hicolor MSP icon.
 - Outputs remain unsigned engineering artifacts until a release-signing policy

@@ -23,7 +23,11 @@ class PackagingScriptTests(unittest.TestCase):
 
     def test_linux_builder_requires_and_bundles_mercury(self) -> None:
         builder = (ROOT / "build.linux.sh").read_text(encoding="utf-8")
-        self.assertIn('MERCURY_SOURCE="${MERCURY_EXECUTABLE:-', builder)
+        self.assertIn('candidate="${MERCURY_EXECUTABLE:-}"', builder)
+        self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
+        self.assertIn('curl -L --fail --show-error "$MERCURY_ARCHIVE_URL"', builder)
+        self.assertIn('make -C "$MERCURY_ROOT"', builder)
+        self.assertIn('grep -a -q "radio_frequency_hz" "$MERCURY_SOURCE"', builder)
         self.assertIn('install -m 0755 "$MERCURY_SOURCE"', builder)
         self.assertIn("dpkg-deb --build", builder)
         self.assertIn("rpmbuild", builder)
