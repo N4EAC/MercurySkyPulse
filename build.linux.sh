@@ -4,8 +4,12 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 BUILD_VENV="$PROJECT_ROOT/.venv-build-linux"
-MERCURY_SOURCE="${MERCURY_EXECUTABLE:-$PROJECT_ROOT/../mercury/mercury}"
-MERCURY_ROOT="$(dirname "$MERCURY_SOURCE")"
+MERCURY_COMMIT="9803d0fcd690de76309dbe62d9186a0d34dba507"
+MERCURY_ARCHIVE_SHA256="c2f0ddd03c61a2ecb5d342bffe44ea4d61fa44cb1885df0c8ed33f7294f9bf27"
+MERCURY_ARCHIVE_URL="https://github.com/N4EAC/mercury/archive/$MERCURY_COMMIT.tar.gz"
+MERCURY_CACHE="$PROJECT_ROOT/build/mercury-linux-runtime"
+MERCURY_ROOT=""
+MERCURY_SOURCE=""
 VERSION="${MSP_VERSION:-0.1.0}"
 ARCH="$(uname -m)"
 
@@ -19,17 +23,6 @@ if [[ "$ARCH" != "x86_64" ]]; then
     echo "ERROR: The initial Linux packages support x86_64 only (found $ARCH)." >&2
     exit 1
 fi
-if [[ ! -x "$MERCURY_SOURCE" ]]; then
-    echo "ERROR: A compatible Linux Mercury executable was not found at:" >&2
-    echo "       $MERCURY_SOURCE" >&2
-    echo "Build the sibling Mercury checkout or set MERCURY_EXECUTABLE." >&2
-    exit 1
-fi
-if [[ ! -f "$MERCURY_ROOT/LICENSE" || ! -f "$MERCURY_ROOT/LICENSE-freedv" ]]; then
-    echo "ERROR: Mercury LICENSE and LICENSE-freedv must accompany the runtime." >&2
-    exit 1
-fi
-
 if command -v dpkg-deb >/dev/null 2>&1; then
     PACKAGE_KIND=deb
 elif command -v rpmbuild >/dev/null 2>&1; then
@@ -38,6 +31,79 @@ else
     echo "ERROR: Install dpkg-deb on Ubuntu or rpm-build on Fedora." >&2
     exit 1
 fi
+
+prepare_mercury() {
+    local candidate="${MERCURY_EXECUTABLE:-}"
+    if [[ -n "$candidate" ]]; then
+        if [[ ! -x "$candidate" ]]; then
+            echo "ERROR: MERCURY_EXECUTABLE is not runnable: $candidate" >&2
+            exit 1
+        fi
+        MERCURY_SOURCE="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
+        MERCURY_ROOT="$(dirname "$MERCURY_SOURCE")"
+        return
+    fi
+
+    candidate="$PROJECT_ROOT/../mercury/mercury"
+    if [[ -x "$candidate" ]]; then
+        MERCURY_SOURCE="$(cd "$(dirname "$candidate")" && pwd)/mercury"
+        MERCURY_ROOT="$(dirname "$MERCURY_SOURCE")"
+        return
+    fi
+
+    for command in curl tar make pkg-config sha256sum; do
+        if ! command -v "$command" >/dev/null 2>&1; then
+            echo "ERROR: '$command' is required to build the bundled Mercury runtime." >&2
+            echo "Fedora: sudo dnf install gcc make pkgconf-pkg-config curl tar gzip" >&2
+            echo "Ubuntu: sudo apt install build-essential pkg-config curl tar gzip" >&2
+            exit 1
+        fi
+    done
+    if ! pkg-config --exists alsa libpulse hamlib; then
+        echo "ERROR: Mercury development libraries are missing." >&2
+        echo "Fedora: sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel pulseaudio-libs-devel hamlib-devel curl tar gzip" >&2
+        echo "Ubuntu: sudo apt install build-essential pkg-config libasound2-dev libpulse-dev libhamlib-dev curl" >&2
+        exit 1
+    fi
+
+    local archive="$MERCURY_CACHE/mercury-$MERCURY_COMMIT.tar.gz"
+    MERCURY_ROOT="$MERCURY_CACHE/mercury-$MERCURY_COMMIT"
+    MERCURY_SOURCE="$MERCURY_ROOT/mercury"
+    mkdir -p "$MERCURY_CACHE"
+    if [[ ! -f "$archive" ]]; then
+        echo "Downloading pinned Mercury source $MERCURY_COMMIT..."
+        curl -L --fail --show-error "$MERCURY_ARCHIVE_URL" -o "$archive"
+    fi
+    if [[ "$(sha256sum "$archive" | cut -d ' ' -f 1)" != "$MERCURY_ARCHIVE_SHA256" ]]; then
+        echo "ERROR: Mercury source archive SHA-256 verification failed." >&2
+        echo "Delete $archive and retry." >&2
+        exit 1
+    fi
+    if [[ ! -f "$MERCURY_ROOT/Makefile" ]]; then
+        tar -xzf "$archive" -C "$MERCURY_CACHE"
+    fi
+    if [[ ! -x "$MERCURY_SOURCE" ]]; then
+        echo "Building pinned Mercury runtime locally..."
+        make -C "$MERCURY_ROOT" -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+    fi
+}
+
+prepare_mercury
+if [[ ! -f "$MERCURY_ROOT/LICENSE" || ! -f "$MERCURY_ROOT/LICENSE-freedv" ]]; then
+    echo "ERROR: Mercury LICENSE and LICENSE-freedv must accompany the runtime." >&2
+    exit 1
+fi
+if ! grep -a -q "radio_frequency_hz" "$MERCURY_SOURCE"; then
+    echo "ERROR: Mercury does not contain MSP's read-only CAT frequency telemetry." >&2
+    echo "Use the pinned automatic build or a compatible MERCURY_EXECUTABLE." >&2
+    exit 1
+fi
+if ldd "$MERCURY_SOURCE" | grep -q "not found"; then
+    echo "ERROR: The Mercury runtime has unresolved shared-library dependencies:" >&2
+    ldd "$MERCURY_SOURCE" >&2
+    exit 1
+fi
+"$MERCURY_SOURCE" -h >/dev/null
 
 "$PYTHON_BIN" -m venv "$BUILD_VENV"
 "$BUILD_VENV/bin/python" -m pip install --upgrade pip
@@ -62,8 +128,8 @@ mkdir -p dist/MercurySkyPulse/mercury
 install -m 0755 "$MERCURY_SOURCE" dist/MercurySkyPulse/mercury/mercury
 install -m 0644 "$MERCURY_ROOT/LICENSE" dist/MercurySkyPulse/mercury/LICENSE
 install -m 0644 "$MERCURY_ROOT/LICENSE-freedv" dist/MercurySkyPulse/mercury/LICENSE-freedv
-MERCURY_REVISION="$(git -C "$MERCURY_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
-MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || echo unknown)"
+MERCURY_REVISION="$(git -C "$MERCURY_ROOT" rev-parse HEAD 2>/dev/null || echo "$MERCURY_COMMIT")"
+MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || echo https://github.com/N4EAC/mercury)"
 printf 'Mercury Linux engineering runtime\nSource: %s\nRevision: %s\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
     "$MERCURY_REMOTE" "$MERCURY_REVISION" > dist/MercurySkyPulse/mercury/SOURCE.txt
 install -m 0644 LICENSE dist/MercurySkyPulse/LICENSE

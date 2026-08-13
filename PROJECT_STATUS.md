@@ -160,7 +160,9 @@ Mercury internals.
 - `packaging/windows/MercurySkyPulse.iss` wraps that payload in a per-user Inno
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
-  the native target and bundles the supplied compatible Linux Mercury runtime.
+  the native target. It automatically downloads, checksum-verifies, and compiles
+  pinned Mercury compatibility commit `9803d0fc` when no override/sibling runtime
+  exists, verifies the `radio_frequency_hz` capability, and bundles the runtime.
 - `scripts/check_local.sh` is the required Mac-local quality gate. It validates
   dependencies, compiles sources, runs the aggregate tests, builds the macOS app,
   and verifies bundle identity, icon, signature, and Mercury runtime.

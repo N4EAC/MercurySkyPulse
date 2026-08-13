@@ -429,8 +429,8 @@ it from an existing Command Prompt for the clearest diagnostic output.
 ### Ubuntu and Fedora engineering packages
 
 Linux packages must be built on the target Linux family, not macOS or Windows.
-Install Python 3.11 or newer and the native package tool (`dpkg-deb` on Ubuntu or
-`rpm-build` on Fedora), build the compatible sibling Mercury checkout, and run:
+Install Python 3.11 or newer, the native package tool (`dpkg-deb` on Ubuntu or
+`rpm-build` on Fedora), and Mercury's compiler/development dependencies. Then run:
 
 ```bash
 ./build.linux.sh
@@ -442,7 +442,18 @@ Select a different compatible Mercury executable when necessary:
 MERCURY_EXECUTABLE=/absolute/path/to/mercury ./build.linux.sh
 ```
 
-The builder runs the aggregate offscreen suite, creates a native PyInstaller
+When no compatible sibling executable or `MERCURY_EXECUTABLE` override exists,
+the builder downloads the exact MSP Mercury compatibility source revision,
+verifies its pinned SHA-256 digest, and compiles it in the ignored `build/` cache.
+The runtime is rejected unless it exposes the MSP read-only CAT-frequency field
+`radio_frequency_hz`. On Fedora, the one-time native prerequisites are:
+
+```bash
+sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
+  pulseaudio-libs-devel hamlib-devel curl tar gzip rpm-build python3
+```
+
+The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
 either `dist/packages/mercury-skypulse_0.1.0_amd64.deb` or an x86-64 RPM in the
 same directory. It installs MSP under `/opt/mercuryskypulse`, adds the
