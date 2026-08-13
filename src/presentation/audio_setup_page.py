@@ -21,6 +21,7 @@ NO_ENERGY_WARNING_MS = 5_000
 
 class AudioSetupPage(QWidget):
     apply_requested = Signal(str, str)
+    voice_apply_requested = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -57,6 +58,19 @@ class AudioSetupPage(QWidget):
             )
         )
         layout.addWidget(save)
+
+        voice = QGroupBox("Voice Message Audio")
+        voice_form = QFormLayout(voice)
+        self.voice_input_device = self._combo("System default microphone")
+        self.voice_output_device = self._combo("System default speaker")
+        voice_form.addRow("Voice microphone", self.voice_input_device)
+        voice_form.addRow("Voice playback", self.voice_output_device)
+        voice_save = QPushButton("Save Voice Devices")
+        voice_save.clicked.connect(lambda: self.voice_apply_requested.emit(
+            self._value(self.voice_input_device), self._value(self.voice_output_device)
+        ))
+        voice_form.addRow(voice_save)
+        layout.addWidget(voice)
 
         diagnostics = QGroupBox("Live Audio Diagnostics")
         diagnostic_form = QFormLayout(diagnostics)
@@ -113,6 +127,23 @@ class AudioSetupPage(QWidget):
         index = combo.findData(current)
         combo.setCurrentIndex(index) if index >= 0 else combo.setCurrentText(current)
         self._update_identifiers()
+
+        voice_combo = (
+            self.voice_input_device if kind == "capture_dev_list"
+            else self.voice_output_device
+        )
+        voice_current = self._value(voice_combo)
+        voice_combo.clear()
+        voice_combo.addItem("System default", "")
+        for device in devices:
+            voice_combo.addItem(device.name, device.identifier)
+        voice_index = voice_combo.findData(voice_current)
+        if voice_index >= 0:
+            voice_combo.setCurrentIndex(voice_index)
+
+    def set_voice_devices(self, input_device: str, output_device: str) -> None:
+        self.voice_input_device.setCurrentText(input_device)
+        self.voice_output_device.setCurrentText(output_device)
 
     def set_diagnostics_active(self, active: bool) -> None:
         self._diagnostics_active = bool(active)

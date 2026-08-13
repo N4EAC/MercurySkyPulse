@@ -78,6 +78,15 @@ class ChatProtocolTests(unittest.TestCase):
         self.assertEqual(envelope.kind, "bbs_auth_proof")
         self.assertEqual(envelope.values["callsign"], "N0CALL")
 
+    def test_presence_event_is_bounded_application_data(self) -> None:
+        frame = encode_event(
+            "presence", "presence-1", datetime.now(UTC).isoformat(),
+            state="typing", ttl_seconds=45,
+        )
+        envelope = FrameDecoder().feed(frame)[0]
+        self.assertEqual(envelope.kind, "presence")
+        self.assertEqual(envelope.values, {"state": "typing", "ttl_seconds": 45})
+
     def test_decoder_recovers_from_garbage_before_valid_frame(self) -> None:
         now = datetime.now(UTC).isoformat()
         decoder = FrameDecoder()

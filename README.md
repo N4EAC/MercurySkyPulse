@@ -64,13 +64,24 @@ provides unsigned engineering installers and SHA-256 checksum files for:
 These artifacts are intended for controlled testing rather than production use.
 Ubuntu will be added only after its native package is built and validated.
 
-### Station chat
+### Station chat and short voice messages
 
-The central Chat workspace provides text-only station-to-station conversations. On the receiving
+The central Chat workspace provides station-to-station text conversations. On the receiving
 station, enter a callsign and choose **Listen**. On the initiating station, enter
 both callsigns and choose **Connect**. Messages include timestamps and queued,
 sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
+
+Compatible MSP peers can also exchange compressed voice messages of up to 10
+seconds. Voice uses separate system microphone/playback devices selected under
+**Setup → Audio** and is transferred as verified application data over the active
+Mercury ARQ session; it is not live FreeDV audio. MSP enables recording only
+after three usable bitrate reports, disables it below the conservative link
+threshold, and blocks it whenever any file transfer is pending—including paused
+transfers. One voice message may be outstanding, and successful delivery starts
+a 120-second sending cooldown. Disconnecting discards incomplete session audio.
+Sparse `is typing…` and `is recording audio…` indicators use one expiring event
+per activity period rather than continuous RF presence traffic.
 
 Conversation history is stored locally in the platform application-data directory.
 The same connected station can receive files through **Send File…**. Transfers

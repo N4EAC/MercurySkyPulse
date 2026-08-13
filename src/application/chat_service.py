@@ -19,6 +19,7 @@ class ChatService(QObject):
     active_conversation_changed = Signal(object)
     error_received = Signal(str)
     listening_as_changed = Signal(str)
+    peer_presence_changed = Signal(str, int)
 
     def __init__(self, client, repository: ChatRepository, parent=None) -> None:
         super().__init__(parent)
@@ -38,6 +39,7 @@ class ChatService(QObject):
         client.message_delivered.connect(
             lambda message_id: self._set_status(message_id, MessageStatus.DELIVERED)
         )
+        client.presence_received.connect(self._on_presence_received)
         client.error_received.connect(self.error_received)
 
     def start(self) -> None:
@@ -139,6 +141,21 @@ class ChatService(QObject):
             return False
         return True
 
+    def send_presence(self, state: str) -> bool:
+        """Send one bounded, disposable presence transition over an active ARQ session."""
+        ttl_by_state = {"typing": 45, "recording_audio": 20, "idle": 0}
+        if state not in ttl_by_state or self._client_state != "connected":
+            return False
+        try:
+            self.client.send_presence(
+                str(uuid4()), self._now(), state, ttl_by_state[state]
+            )
+        except RuntimeError:
+            # Presence is deliberately best-effort: never distract the operator or
+            # retry stale activity over a constrained RF link.
+            return False
+        return True
+
     def _on_session_connected(self, source: str, destination: str, _bandwidth: int) -> None:
         source = source.upper()
         destination = destination.upper()
@@ -152,9 +169,21 @@ class ChatService(QObject):
         self._activate(self.local_call, remote)
 
     def _on_session_disconnected(self) -> None:
+        self.peer_presence_changed.emit("idle", 0)
         if self.active:
             self.repository.fail_unsettled(self.active.id)
             self._publish_messages()
+
+    def _on_presence_received(self, envelope) -> None:
+        values = envelope.values or {}
+        state = values.get("state")
+        ttl = values.get("ttl_seconds")
+        limits = {"typing": 45, "recording_audio": 20, "idle": 0}
+        if state not in limits or isinstance(ttl, bool) or not isinstance(ttl, int):
+            return
+        if ttl < 0 or ttl > limits[state]:
+            return
+        self.peer_presence_changed.emit(state, ttl)
 
     def _on_client_state(self, state: str) -> None:
         self._client_state = state
@@ -181,6 +210,7 @@ class ChatService(QObject):
         return True
 
     def _on_message_received(self, envelope) -> None:
+        self.peer_presence_changed.emit("idle", 0)
         if not self.active:
             self.error_received.emit("Received text without an identified station session")
             return

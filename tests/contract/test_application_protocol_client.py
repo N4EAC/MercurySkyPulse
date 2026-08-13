@@ -6,7 +6,7 @@ import unittest
 from PySide6.QtCore import QObject, Signal
 
 from application_protocol.client import ApplicationMessagingClient
-from application_protocol.messaging import encode_ack, encode_event, encode_message
+from application_protocol.messaging import FrameDecoder, encode_ack, encode_event, encode_message
 
 
 class FakeByteTransport(QObject):
@@ -80,19 +80,29 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         )
 
     def test_feature_events_are_routed_above_mercury_transport(self) -> None:
-        files, bbs, pings = [], [], []
+        files, bbs, pings, presence = [], [], [], []
         self.client.file_event_received.connect(files.append)
         self.client.bbs_event_received.connect(bbs.append)
         self.client.ping_event_received.connect(pings.append)
+        self.client.presence_received.connect(presence.append)
         frames = (
             encode_event("file_pause", "file", self.now),
             encode_event("bbs_file_request", "bbs", self.now),
             encode_event("ping_request", "ping", self.now),
+            encode_event("presence", "presence", self.now,
+                         state="typing", ttl_seconds=45),
         )
         self.transport.data_received.emit(b"".join(frames))
         self.assertEqual([item.kind for item in files], ["file_pause"])
         self.assertEqual([item.kind for item in bbs], ["bbs_file_request"])
         self.assertEqual([item.kind for item in pings], ["ping_request"])
+        self.assertEqual([item.kind for item in presence], ["presence"])
+
+    def test_presence_is_encoded_as_opaque_application_data(self) -> None:
+        self.client.send_presence("presence-1", self.now, "recording_audio", 20)
+        envelope = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(envelope.kind, "presence")
+        self.assertEqual(envelope.values["state"], "recording_audio")
 
     def test_ack_is_protocol_data_not_a_mercury_command(self) -> None:
         delivered = []

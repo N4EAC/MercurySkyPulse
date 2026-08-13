@@ -25,6 +25,8 @@ class ApplicationMessagingClient(QObject):
     location_received = Signal(object)
     ping_event_received = Signal(object)
     bbs_event_received = Signal(object)
+    presence_received = Signal(object)
+    voice_event_received = Signal(object)
     error_received = Signal(str)
     queued_bytes_changed = Signal(int)
 
@@ -79,6 +81,13 @@ class ApplicationMessagingClient(QObject):
                         **values: object) -> None:
         self.transport.write(encode_event(kind, event_id, timestamp, **values))
 
+    def send_presence(self, event_id: str, timestamp: str, state: str,
+                      ttl_seconds: int) -> None:
+        self.transport.write(encode_event(
+            "presence", event_id, timestamp,
+            state=state, ttl_seconds=ttl_seconds,
+        ))
+
     def file_write_ready(self) -> bool:
         return self.transport.write_ready()
 
@@ -104,3 +113,7 @@ class ApplicationMessagingClient(QObject):
                 self.ping_event_received.emit(envelope)
             elif envelope.kind.startswith("bbs_"):
                 self.bbs_event_received.emit(envelope)
+            elif envelope.kind == "presence":
+                self.presence_received.emit(envelope)
+            elif envelope.kind.startswith("voice_"):
+                self.voice_event_received.emit(envelope)

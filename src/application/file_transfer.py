@@ -76,7 +76,11 @@ class FileTransferService(QObject):
         self._timer.setInterval(10)
         self._timer.timeout.connect(self._pump)
         self._outgoing_id: str | None = None
+        self._external_busy_check = None
         client.file_event_received.connect(self._on_event)
+
+    def set_external_busy_check(self, callback) -> None:
+        self._external_busy_check = callback
 
     def send_file(self, path_value: str) -> None:
         self._begin_send(path_value, prepare_image=True)
@@ -88,6 +92,8 @@ class FileTransferService(QObject):
     def _begin_send(self, path_value: str, prepare_image: bool) -> None:
         path = Path(path_value)
         try:
+            if self._external_busy_check and self._external_busy_check():
+                raise ValueError("File transfer is unavailable while a voice message is pending")
             if any(
                 transfer.direction == "outgoing"
                 and transfer.status in {"offered", "transferring", "paused", "verifying"}
@@ -182,6 +188,9 @@ class FileTransferService(QObject):
             self.error_received.emit(f"Invalid file transfer: {error}")
 
     def _receive_offer(self, transfer_id: str, values: dict[str, object]) -> None:
+        if self._external_busy_check and self._external_busy_check():
+            self._send("file_result", transfer_id, result="failed", reason="voice-busy")
+            return
         name = Path(str(values["name"])).name
         size = int(values["size"])
         checksum = str(values["sha256"]).lower()

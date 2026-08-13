@@ -18,12 +18,14 @@ class FakeMessagingClient(QObject):
     message_received = Signal(object)
     message_sent = Signal(str)
     message_delivered = Signal(str)
+    presence_received = Signal(object)
     error_received = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
         self.ready = False
         self.listen_calls: list[str] = []
+        self.presence_calls: list[tuple[str, int]] = []
 
     @staticmethod
     def normalize_callsign(value: str) -> str:
@@ -43,6 +45,10 @@ class FakeMessagingClient(QObject):
 
     def stop(self) -> None:
         pass
+
+    def send_presence(self, _event_id: str, _timestamp: str, state: str,
+                      ttl_seconds: int) -> None:
+        self.presence_calls.append((state, ttl_seconds))
 
 
 class ChatServiceAutoListenTests(unittest.TestCase):
@@ -99,6 +105,25 @@ class ChatServiceAutoListenTests(unittest.TestCase):
         self.assertEqual(self.repository.list_conversations(), [])
         self.assertIsNone(self.service.active)
         self.assertEqual(messages[-1], [])
+
+    def test_presence_only_sends_during_connected_session(self) -> None:
+        self.assertFalse(self.service.send_presence("typing"))
+        self.client.state_changed.emit("connected")
+        self.assertTrue(self.service.send_presence("typing"))
+        self.assertEqual(self.client.presence_calls, [("typing", 45)])
+
+    def test_invalid_remote_presence_is_ignored_and_disconnect_clears_it(self) -> None:
+        class Envelope:
+            values = {"state": "typing", "ttl_seconds": 999}
+
+        received = []
+        self.service.peer_presence_changed.connect(
+            lambda state, ttl: received.append((state, ttl))
+        )
+        self.client.presence_received.emit(Envelope())
+        self.assertEqual(received, [])
+        self.client.session_disconnected.emit()
+        self.assertEqual(received, [("idle", 0)])
 
 
 if __name__ == "__main__":

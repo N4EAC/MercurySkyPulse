@@ -42,3 +42,4 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0029 — Bounded broadcast CQ discovery](0029-broadcast-cq-discovery.md)
 - [0030 — Opt-in internet weather for chat composition](0030-opt-in-weather-chat.md)
 - [0031 — Native engineering packages wrap a bundled Mercury runtime](0031-native-engineering-packages.md)
+- [0032 — Session-scoped compressed voice messages](0032-session-voice-messages.md)

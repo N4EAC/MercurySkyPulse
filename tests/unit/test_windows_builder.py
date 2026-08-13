@@ -24,6 +24,8 @@ class WindowsBuilderContractTests(unittest.TestCase):
         self.assertIn('if not exist "%msp_mercury_runtime%\\license"', script)
         self.assertIn("--icon assets\\icons\\mercuryskypulse.ico", script)
         self.assertIn("mercuryskypulse.png;assets\\icons", script)
+        self.assertIn("*mediaplugin*", script)
+        self.assertIn("qt multimedia backend", script)
         self.assertIn("goto failed", script)
 
 

@@ -25,6 +25,7 @@ from application.endpoints import MercuryEndpointProfile, MercuryRunMode
 from application.radio import RadioStationService, TxLevelTestService
 from application.psk_reporter import PskReporterService
 from application.weather import WeatherService
+from application.voice_message import VoiceMessageService
 from persistence.chat_repository import ChatRepository
 from platform_runtime.image_processor import ImageProcessor
 from platform_runtime.gps_receiver import GpsReceiver
@@ -46,6 +47,7 @@ from platform_runtime.macos_application import (
 )
 from platform_runtime.psk_reporter import PskReporterUploader
 from platform_runtime.weather_provider import WttrWeatherProvider
+from platform_runtime.voice_audio import VoiceAudioEngine
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
@@ -130,6 +132,10 @@ def main() -> int:
     file_transfer_service = FileTransferService(
         client, repository, downloads, image_processor=ImageProcessor(), auto_accept=False
     )
+    voice_message_service = VoiceMessageService(
+        client, data_directory / "voice-messages"
+    )
+    voice_audio_engine = VoiceAudioEngine()
     location_service = LocationService(
         client, repository, GpsReceiver(), exporter=LocationExporter()
     )
@@ -220,6 +226,8 @@ def main() -> int:
         app,
         chat_service=chat_service,
         file_transfer_service=file_transfer_service,
+        voice_message_service=voice_message_service,
+        voice_audio_engine=voice_audio_engine,
         location_service=location_service,
         beacon_service=beacon_service,
         ping_service=ping_service,

@@ -55,6 +55,8 @@ class MainWindow(QMainWindow):
         app: QApplication,
         chat_service: ChatService | None = None,
         file_transfer_service: FileTransferService | None = None,
+        voice_message_service=None,
+        voice_audio_engine=None,
         location_service: LocationService | None = None,
         beacon_service: BeaconService | None = None,
         ping_service: PingService | None = None,
@@ -98,6 +100,9 @@ class MainWindow(QMainWindow):
         self.plugin_registry = plugin_registry
         self.chat_service = chat_service
         self.file_transfer_service = file_transfer_service
+        self.voice_message_service = voice_message_service
+        self.voice_audio_engine = voice_audio_engine
+        self._voice_draft: tuple[str, str] | None = None
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
         self.frequency_panel = FrequencyPanel()
@@ -605,6 +610,7 @@ class MainWindow(QMainWindow):
         self.chat_page.connect_requested.connect(service.connect_station)
         self.chat_page.disconnect_requested.connect(service.disconnect_station)
         self.chat_page.send_requested.connect(service.send_text)
+        self.chat_page.presence_requested.connect(service.send_presence)
         self.chat_page.conversation_selected.connect(service.select_conversation)
         self.chat_page.conversation_delete_requested.connect(
             service.delete_conversation
@@ -624,6 +630,7 @@ class MainWindow(QMainWindow):
         service.active_conversation_changed.connect(
             self.chat_page.set_active_conversation
         )
+        service.peer_presence_changed.connect(self.chat_page.set_peer_presence)
         service.error_received.connect(self.chat_page.show_error)
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Chat error: {error}")
@@ -691,6 +698,61 @@ class MainWindow(QMainWindow):
                     f"File transfer error: {error}"
                 )
             )
+        if self.voice_message_service and self.voice_audio_engine:
+            voice = self.voice_message_service
+            audio = self.voice_audio_engine
+            self.chat_page.voice_record_requested.connect(self._start_voice_recording)
+            self.chat_page.voice_stop_requested.connect(audio.stop_recording)
+            self.chat_page.voice_send_requested.connect(self._send_voice_recording)
+            self.chat_page.voice_play_requested.connect(audio.play)
+            audio.recording_changed.connect(self.chat_page.set_voice_recording)
+            audio.recording_ready.connect(self._voice_recording_ready)
+            audio.error_received.connect(self.chat_page.show_error)
+            voice.availability_changed.connect(self.chat_page.set_voice_availability)
+            voice.messages_changed.connect(self.chat_page.set_voice_messages)
+            voice.error_received.connect(self.chat_page.show_error)
+            service.client.session_disconnected.connect(self._clear_voice_draft)
+            if self.file_transfer_service:
+                self.file_transfer_service.set_external_busy_check(voice.transfer_busy)
+                self.file_transfer_service.transfers_changed.connect(
+                    voice.set_file_transfers
+                )
+            self.telemetry.status_received.connect(
+                lambda status: voice.set_modem_bitrate(status.bitrate_bps)
+            )
+            if self.setup_window:
+                self.setup_window.voice_devices_changed.connect(audio.configure)
+                audio.configure(
+                    str(self._settings.value("voice/input_device", "")),
+                    str(self._settings.value("voice/output_device", "")),
+                )
+
+    def _start_voice_recording(self) -> None:
+        if not self.voice_message_service or not self.voice_audio_engine:
+            return
+        available, reason = self.voice_message_service.availability()
+        if not available:
+            self.chat_page.show_error(reason)
+            return
+        self.chat_service.send_presence("recording_audio")
+        self.voice_audio_engine.start_recording()
+
+    def _voice_recording_ready(self, path: str, mime_type: str) -> None:
+        self._voice_draft = (path, mime_type)
+        self.chat_page.set_voice_draft(True)
+
+    def _send_voice_recording(self) -> None:
+        if not self._voice_draft or not self.voice_message_service:
+            return
+        if self.voice_message_service.send_recording(*self._voice_draft):
+            self._voice_draft = None
+            self.chat_page.set_voice_draft(False)
+
+    def _clear_voice_draft(self) -> None:
+        if self.voice_audio_engine:
+            self.voice_audio_engine.discard_recording()
+        self._voice_draft = None
+        self.chat_page.set_voice_draft(False)
 
     def _start_mercury(self) -> None:
         self.activity_panel.append_log(
@@ -1079,6 +1141,7 @@ class MainWindow(QMainWindow):
             self.location_service.stop()
         if self.file_transfer_service:
             self.file_transfer_service.stop()
+        self._clear_voice_draft()
         if self.chat_service:
             self.chat_service.close()
         self.telemetry.stop()

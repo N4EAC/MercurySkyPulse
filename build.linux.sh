@@ -124,6 +124,11 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     "$PROJECT_ROOT/apps/desktop/main.py"
 
+if ! find dist/MercurySkyPulse -type f -iname '*mediaplugin*' -print -quit | grep -q .; then
+    echo "ERROR: The Linux package is missing the Qt Multimedia backend required for voice messages." >&2
+    exit 1
+fi
+
 mkdir -p dist/MercurySkyPulse/mercury
 install -m 0755 "$MERCURY_SOURCE" dist/MercurySkyPulse/mercury/mercury
 install -m 0644 "$MERCURY_ROOT/LICENSE" dist/MercurySkyPulse/mercury/LICENSE
@@ -148,6 +153,8 @@ if [[ "$PACKAGE_KIND" == deb ]]; then
     install -m 0644 assets/icons/linux/mercuryskypulse-256.png "$STAGE/usr/share/icons/hicolor/256x256/apps/mercuryskypulse.png"
     dpkg-deb --build --root-owner-group "$STAGE" "dist/packages/mercury-skypulse_${VERSION}_amd64.deb"
     dpkg-deb --info "dist/packages/mercury-skypulse_${VERSION}_amd64.deb" >/dev/null
+    dpkg-deb --contents "dist/packages/mercury-skypulse_${VERSION}_amd64.deb" | \
+        grep -q 'plugins/multimedia/.*mediaplugin'
     echo "Package complete: dist/packages/mercury-skypulse_${VERSION}_amd64.deb"
 else
     RPM_TOP="$PROJECT_ROOT/build/package-linux/rpm"
@@ -164,6 +171,8 @@ else
     rpmbuild --define "_topdir $RPM_TOP" -bb "$RPM_TOP/SPECS/mercury-skypulse.spec"
     find "$RPM_TOP/RPMS" -name '*.rpm' -exec cp {} dist/packages/ \;
     rpm -qpi dist/packages/mercury-skypulse-*.rpm >/dev/null
+    rpm -qpl dist/packages/mercury-skypulse-*.rpm | \
+        grep -q 'plugins/multimedia/.*mediaplugin'
     if rpm -qpR dist/packages/mercury-skypulse-*.rpm | grep -q '^libtiff[.]so[.]5'; then
         echo "ERROR: RPM retained an unavailable optional libtiff.so.5 dependency." >&2
         exit 1

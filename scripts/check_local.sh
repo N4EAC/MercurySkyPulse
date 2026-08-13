@@ -40,8 +40,12 @@ test -f "$APP/Contents/Resources/mercuryskypulse.icns"
 test -f "$APP/Contents/Resources/mercury/LICENSE"
 test -f "$APP/Contents/Resources/mercury/LICENSE-freedv"
 test -f "$APP/Contents/Resources/mercury/SOURCE.txt"
+test -d "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia"
+find "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia" \
+    -type f -name '*mediaplugin*' -print -quit | grep -q .
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "MercurySkyPulse" ]]
+[[ -n "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 
 print "[7/7] Local quality gate passed"

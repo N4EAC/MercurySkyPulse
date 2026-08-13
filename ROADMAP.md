@@ -61,7 +61,8 @@ Exit criteria: adapters can be developed against executable contract tests witho
 
 Exit criteria: the application layer can use transport ports without knowing protocol or network details.
 
-Text messaging, verified file transfer, application acknowledgements, location,
+Text messaging, bounded session voice messages, verified file transfer,
+application acknowledgements, location,
 ping, BBS events, and compact capability beacons are implemented above opaque
 Mercury transports. Remaining work includes explicit input bounds, stronger
 timeout/backpressure/error behavior, broader command coverage, a persisted

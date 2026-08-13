@@ -15,6 +15,9 @@ class MacosBuilderContractTests(unittest.TestCase):
         self.assertIn('--add-data "$MERCURY_RUNTIME/LICENSE:mercury"', script)
         self.assertIn("MERCURY_REVISION", script)
         self.assertIn("--osx-bundle-identifier org.mercuryskypulse.desktop", script)
+        self.assertIn("NSMicrophoneUsageDescription", script)
+        self.assertIn("plugins/multimedia", script)
+        self.assertIn("codesign --force --deep --sign -", script)
         self.assertIn("dist/MercurySkyPulse.app", script)
 
     def test_dmg_builder_creates_drag_install_layout(self) -> None:

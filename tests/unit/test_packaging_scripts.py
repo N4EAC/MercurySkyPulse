@@ -41,6 +41,12 @@ class PackagingScriptTests(unittest.TestCase):
             "ln -s ../../opt/mercuryskypulse/MercurySkyPulse", rpm_spec
         )
         self.assertIn("rpm -qpR", builder)
+        self.assertIn("plugins/multimedia/.*mediaplugin", builder)
+        self.assertIn("pipewire-libs", rpm_spec)
+        deb_control = (ROOT / "packaging/linux/debian-control.in").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("libpipewire-0.3-0", deb_control)
 
     def test_linux_desktop_entry_uses_installed_application(self) -> None:
         desktop = (ROOT / "packaging/linux/mercuryskypulse.desktop").read_text(
