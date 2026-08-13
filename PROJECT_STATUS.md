@@ -153,6 +153,8 @@ Mercury internals.
 
 - Python 3.11 or newer and PySide6 6.8–6.x are supported for source operation.
 - `build.app.sh` creates the Apple Silicon macOS engineering application bundle.
+- `build.dmg.sh` wraps the validated bundle, bundled Mercury runtime, project
+  license, and an Applications shortcut in a compressed drag-install `.dmg`.
 - `build.exe.bat` creates the Windows 10/11 engineering executable and bundles the
   pinned, checksum-verified Mercury compatibility runtime from the public
   `N4EAC/mercury` fork. That runtime includes the read-only Hamlib frequency

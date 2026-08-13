@@ -16,6 +16,8 @@ The existing PyInstaller one-directory application remains the common payload.
 
 - Windows uses Inno Setup 6 to wrap the complete portable payload in a per-user
   installer with the MSP icon and the pinned, checksum-verified Mercury runtime.
+- Apple Silicon macOS uses a compressed `.dmg` containing the validated `.app`,
+  project license, and Applications shortcut for conventional drag installation.
 - Ubuntu builds an `amd64` `.deb` on Ubuntu using `dpkg-deb`.
 - Fedora builds an `x86_64` `.rpm` on Fedora using `rpmbuild`.
 - Each Linux build bundles a compatible Linux Mercury executable, both Mercury
