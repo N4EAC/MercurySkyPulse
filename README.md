@@ -356,6 +356,23 @@ checkout into the app automatically. Set `MERCURY_EXECUTABLE` only when building
 from a different local Mercury location; operators do not copy it after building.
 Generated `build/`, `dist/`, and `.venv-build-macos/` content is ignored by Git.
 
+For a conventional drag-to-Applications disk image, run:
+
+```bash
+./build.dmg.sh
+```
+
+This first builds and validates `MercurySkyPulse.app`, then creates:
+
+```text
+dist/installer/MercurySkyPulse-0.1.0-macos-arm64.dmg
+```
+
+Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
+drag the application onto that shortcut. The engineering image is compressed and
+locally validated but is not Apple Developer ID signed or notarized, so macOS may
+require Control-click → **Open** on first launch.
+
 ### Application icon
 
 The shared MSP radar artwork lives at `assets/icons/mercuryskypulse.png`.

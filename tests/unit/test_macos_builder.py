@@ -17,6 +17,17 @@ class MacosBuilderContractTests(unittest.TestCase):
         self.assertIn("--osx-bundle-identifier org.mercuryskypulse.desktop", script)
         self.assertIn("dist/MercurySkyPulse.app", script)
 
+    def test_dmg_builder_creates_drag_install_layout(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        script = (root / "build.dmg.sh").read_text(encoding="utf-8")
+        self.assertIn('APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"', script)
+        self.assertIn('ln -s /Applications "$STAGING/Applications"', script)
+        self.assertIn('ditto "$APP" "$STAGING/MercurySkyPulse.app"', script)
+        self.assertIn("hdiutil create", script)
+        self.assertIn("-format UDZO", script)
+        self.assertIn('hdiutil verify "$OUTPUT"', script)
+        self.assertIn("MercurySkyPulse-$VERSION-macos-arm64.dmg", script)
+
 
 if __name__ == "__main__":
     unittest.main()
