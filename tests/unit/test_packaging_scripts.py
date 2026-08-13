@@ -36,9 +36,11 @@ class PackagingScriptTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("%global debug_package %{nil}", rpm_spec)
+        self.assertIn("%global __requires_exclude ^libtiff[.]so[.]5.*$", rpm_spec)
         self.assertIn(
             "ln -s ../../opt/mercuryskypulse/MercurySkyPulse", rpm_spec
         )
+        self.assertIn("rpm -qpR", builder)
 
     def test_linux_desktop_entry_uses_installed_application(self) -> None:
         desktop = (ROOT / "packaging/linux/mercuryskypulse.desktop").read_text(

@@ -465,7 +465,10 @@ Fedora's RPM metadata intentionally disables automatic `debugsource` package
 generation because MSP is packaged as an already-built PyInstaller application;
 there is no RPM compiler source list to place in a separate debug package. The
 installed `/usr/bin/mercury-skypulse` launcher is a relative symlink to the
-application under `/opt/mercuryskypulse`.
+application under `/opt/mercuryskypulse`. PySide6's optional private TIFF plugin
+still targets the obsolete `libtiff.so.5` ABI, so that single generated RPM
+requirement is filtered on current Fedora; core operation and PNG/JPEG image
+preparation do not depend on it, while TIFF input remains backend-dependent.
 
 ### Mercury executable
 

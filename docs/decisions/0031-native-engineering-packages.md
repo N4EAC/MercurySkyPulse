@@ -26,6 +26,8 @@ The existing PyInstaller one-directory application remains the common payload.
   entry, and hicolor MSP icon.
 - Fedora debugsource generation is disabled because the RPM wraps an already
   built PyInstaller payload rather than compiling sources inside `rpmbuild`.
+- RPM dependency filtering is limited to PySide6's optional private TIFF plugin
+  requirement on obsolete `libtiff.so.5`; other automatic requirements remain.
 - Outputs remain unsigned engineering artifacts until a release-signing policy
   is accepted.
 

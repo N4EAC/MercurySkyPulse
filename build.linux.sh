@@ -164,5 +164,9 @@ else
     rpmbuild --define "_topdir $RPM_TOP" -bb "$RPM_TOP/SPECS/mercury-skypulse.spec"
     find "$RPM_TOP/RPMS" -name '*.rpm' -exec cp {} dist/packages/ \;
     rpm -qpi dist/packages/mercury-skypulse-*.rpm >/dev/null
+    if rpm -qpR dist/packages/mercury-skypulse-*.rpm | grep -q '^libtiff[.]so[.]5'; then
+        echo "ERROR: RPM retained an unavailable optional libtiff.so.5 dependency." >&2
+        exit 1
+    fi
     echo "Package complete: dist/packages/mercury-skypulse-${RPM_VERSION}-1.*.x86_64.rpm"
 fi
