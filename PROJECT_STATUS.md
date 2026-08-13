@@ -13,8 +13,11 @@ Packaged engineering builds include the compatible Mercury runtime required by
 the application.
 
 MSP is licensed under GPL-3.0-or-later. Windows 10/11 x86-64 and Apple Silicon
-macOS are the current engineering-test platforms. Initial x86-64 Ubuntu `.deb`
-and Fedora `.rpm` builders are implemented and await native Linux validation.
+macOS are the current engineering-test platforms. The Fedora 42 x86-64 `.rpm`
+has been built, installed, and launched successfully; its hardware/RF paths still
+need validation. The Ubuntu `.deb` builder is implemented but not natively tested.
+The repository also includes two approved 4K MSP wallpaper assets; installers do
+not bundle them.
 
 ## Architecture
 

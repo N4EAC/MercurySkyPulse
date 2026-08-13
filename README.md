@@ -34,7 +34,7 @@ offline signed licensing, and a trusted built-in plugin kernel. It is suitable f
 manual testing, but is not yet a production release.
 
 Mercury remains a process-isolated engine accessed through its documented UI
-WebSocket and TNC TCP interfaces. Windows test packages include a pinned
+WebSocket and TNC TCP interfaces. Packaged MSP builds include a pinned,
 MSP-compatible Mercury fork runtime so operators do not install or copy it
 separately.
 
@@ -44,13 +44,25 @@ separately.
 |---|---|
 | Windows 10/11 x86-64 | Supported for engineering builds and live-radio testing through `build.exe.bat` |
 | macOS Apple Silicon | Supported for engineering builds and live-radio testing through `build.app.sh` |
-| Fedora Linux x86-64 | Initial RPM engineering builder; native validation required |
+| Fedora 42 Linux x86-64 | Alpha RPM built, installed, and launched successfully; further radio/hardware validation remains |
 | Ubuntu Linux x86-64 | Initial DEB engineering builder; native validation required |
 
-Linux native packages are reproducible but remain unverified engineering
-artifacts until representative Fedora and Ubuntu systems complete application,
-Mercury, audio, CAT/PTT, and RF testing. Intel macOS is not part of the presently
-validated build matrix.
+Fedora 42 RPM packaging, installation, desktop registration, and application
+launch have been validated. Further Fedora audio, CAT/PTT, GPS, and RF testing is
+still required. Ubuntu remains an unvalidated native packaging target. Intel
+macOS is not part of the presently validated build matrix.
+
+### Alpha downloads
+
+[MercurySkyPulse 0.1.0 Alpha 1](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.1)
+provides unsigned engineering installers and SHA-256 checksum files for:
+
+- Apple Silicon macOS (`.dmg`, drag to Applications);
+- Windows 10/11 x86-64 (Inno Setup `.exe`); and
+- Fedora 42 x86-64 (`.rpm`).
+
+These artifacts are intended for controlled testing rather than production use.
+Ubuntu will be added only after its native package is built and validated.
 
 ### Station chat
 
@@ -275,8 +287,8 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 
 ```text
 MercurySkyPulse/
-├── .github/workflows/           # Cross-platform automated tests
 ├── assets/icons/                # ICNS, ICO, and multi-resolution PNG artwork
+├── assets/wallpapers/           # Approved 3840×2160 MSP desktop wallpapers
 ├── packaging/                   # Inno Setup and native Linux package metadata
 ├── apps/
 │   └── desktop/                 # Alternate installed-package launcher
@@ -314,9 +326,9 @@ in [`docs/decisions/README.md`](docs/decisions/README.md).
 
 ## Mercury dependency
 
-Mercury is a bundled runtime dependency for Windows engineering packages, not a
-source dependency or in-process library. Source development may still launch a
-separate checkout or address another host. `application.endpoints` defines typed managed-local,
+Mercury is a bundled runtime dependency for macOS, Windows, and Linux engineering
+packages, not a source dependency or in-process library. Source development may
+still launch a separate checkout or address another host. `application.endpoints` defines typed managed-local,
 unmanaged-local, and remote profiles for independent control, data, KISS, and
 WebSocket endpoints, executable selection, reconnect policy, and receive limits.
 The current desktop uses the backward-compatible managed-loopback default; a
@@ -387,6 +399,17 @@ install Pillow in a tooling environment and run:
 ```bash
 python tools/generate_icons.py
 ```
+
+### Desktop wallpapers
+
+Two approved 3840×2160 PNG wallpapers are included as project artwork:
+
+- [Midnight MSP wallpaper](assets/wallpapers/mercuryskypulse-midnight-4k.png)
+- [Near-night sunset MSP wallpaper](assets/wallpapers/mercuryskypulse-sunset-4k.png)
+
+Both use the MSP badge and the phrases **Mercury Modem ARQ Data-Link
+Technology** and **Alternative Telecommunications**. They are optional artwork
+and are not bundled into the application installers.
 
 ### Windows test executable
 
@@ -473,9 +496,10 @@ sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
 The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
 either `dist/packages/mercury-skypulse_0.1.0_amd64.deb` or an x86-64 RPM in the
-same directory. It installs MSP under `/opt/mercuryskypulse`, adds the
+same directory. The Fedora 42 RPM path has been built, installed, and launched
+successfully. It installs MSP under `/opt/mercuryskypulse`, adds the
 `mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or
-failed tests stop packaging. Native install, launch, audio, CAT/PTT, and RF
+failed tests stop packaging. Fedora hardware/RF validation and all Ubuntu native
 validation remain required before broader distribution.
 
 Fedora's RPM metadata intentionally disables automatic `debugsource` package
@@ -493,9 +517,9 @@ MercurySkyPulse automatically starts Mercury with UI communication enabled. It l
 
 1. the explicitly configured executable, when endpoint-profile persistence is implemented;
 2. `MERCURY_EXECUTABLE`;
-3. the bundled `mercury/mercury` runtime inside a macOS app or
-   `mercury\mercury.exe` beside a packaged Windows executable, followed by the
-   legacy directly adjacent executable location;
+3. the bundled `mercury/mercury` runtime inside a macOS app or beside a packaged
+   Linux executable, or `mercury\mercury.exe` beside a packaged Windows
+   executable, followed by the legacy directly adjacent executable location;
 4. the sibling `/Users/eduardo/development/mercury/mercury`-style checkout location; or
 5. `mercury` on `PATH`.
 
@@ -621,9 +645,11 @@ builds the macOS app, and verifies its identity, signature, icon, licenses, and
 bundled Mercury runtime. Launching the managed-local package remains a manual,
 RF-safe operator check because saved CAT/PTT settings may address real hardware.
 
-Before release, the project still needs a persisted endpoint-profile UI,
-real-Mercury integration tests, further plugin migration, packaging, and
-platform/legal decisions described in the roadmap.
+Before a production release, the project still needs a persisted endpoint-profile
+UI, broader real-Mercury RF integration tests, Ubuntu package validation, release
+signing/notarization decisions, further plugin migration, and the remaining
+platform/legal decisions described in the roadmap. The current GitHub assets are
+explicitly unsigned alpha engineering packages.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes.
 

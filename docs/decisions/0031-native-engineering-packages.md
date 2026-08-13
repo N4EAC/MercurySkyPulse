@@ -37,5 +37,6 @@ The existing PyInstaller one-directory application remains the common payload.
 
 Operators receive one artifact without manual runtime assembly. Windows may
 still produce a portable directory when Inno Setup is unavailable, but reports
-that no installer was created. Ubuntu and Fedora packages must be built and
-tested on their respective distributions.
+that no installer was created. Native packages must be tested on their target
+distributions; Fedora 42 build/install/launch validation is complete, while its
+hardware paths and the Ubuntu package remain pending.
