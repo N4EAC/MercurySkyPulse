@@ -19,9 +19,10 @@ prohibit changes to Mercury from this repository. **Met.**
 - Python 3.11+ and PySide6 are selected for the initial presentation shell in ADR 0001.
 - Select the complete packaging, formatting, linting, and test toolchain beyond the current setuptools/unittest baseline.
 - Confirm initial supported platform versions and packaging targets.
-- Validate the initial Inno Setup, Ubuntu `.deb`, and Fedora `.rpm` engineering
-  packages on their native x86-64 targets, including bundled Mercury discovery,
-  desktop integration, audio, CAT/PTT, and uninstall behavior.
+- Continue native package validation: Fedora 42 `.rpm` build, installation,
+  desktop registration, and launch are confirmed; validate Fedora audio,
+  CAT/PTT, GPS, RF, and uninstall behavior. Build and validate the Ubuntu `.deb`
+  on its native x86-64 target. Continue Windows Inno Setup field validation.
 - Define complete endpoint configuration and secret-handling conventions.
 - Formalize the already-selected managed-local, unmanaged-local, and remote
   Mercury modes as typed endpoint profiles.
