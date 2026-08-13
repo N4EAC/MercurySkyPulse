@@ -393,6 +393,8 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertIn("8.2 dB", page.snr_meter.format())
         self.assertIn("8,000 Hz", page.spectrum_format.text())
         self.assertIn("energy detected", page.capture_state.text().lower())
+        self.assertEqual(page.capture_state.parentWidget().title(), "Live Audio Diagnostics")
+        self.assertGreaterEqual(page.capture_state.minimumHeight(), 1)
         page.deleteLater()
 
     def test_station_callsign_populates_chat_and_bbs_once(self) -> None:

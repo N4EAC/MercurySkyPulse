@@ -73,7 +73,11 @@ class AudioSetupPage(QWidget):
         layout.addWidget(voice)
 
         diagnostics = QGroupBox("Live Audio Diagnostics")
-        diagnostic_form = QFormLayout(diagnostics)
+        diagnostic_layout = QVBoxLayout(diagnostics)
+        diagnostic_form = QFormLayout()
+        diagnostic_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
         self.capture_meter = QProgressBar()
         self.capture_meter.setRange(0, 120)
         self.capture_meter.setValue(0)
@@ -84,20 +88,17 @@ class AudioSetupPage(QWidget):
         self.snr_meter.setValue(0)
         self.snr_meter.setFormat("Decoded SNR unavailable")
         diagnostic_form.addRow("Decoded signal SNR", self.snr_meter)
+        diagnostic_layout.addLayout(diagnostic_form)
         self.capture_state = QLabel("Open this Audio tab to test the RX capture path")
         self.capture_state.setWordWrap(True)
-        diagnostic_form.addRow("RX audio test", self.capture_state)
+        self.capture_state.setObjectName("Muted")
+        self.capture_state.setMinimumHeight(self.capture_state.sizeHint().height())
+        diagnostic_layout.addWidget(self.capture_state)
         self.spectrum_format = QLabel("RX spectrum format: waiting for telemetry")
         self.spectrum_format.setWordWrap(True)
-        diagnostic_form.addRow("Telemetry format", self.spectrum_format)
-        unavailable = QLabel(
-            "Mercury does not currently publish PCM channel peaks, playback level, "
-            "Windows host API, or negotiated capture channel format. The capture "
-            "meter is inferred from the public RX spectrum and never transmits."
-        )
-        unavailable.setWordWrap(True)
-        unavailable.setObjectName("Muted")
-        diagnostic_form.addRow("Public-interface limit", unavailable)
+        self.spectrum_format.setObjectName("Muted")
+        self.spectrum_format.setMinimumHeight(self.spectrum_format.sizeHint().height())
+        diagnostic_layout.addWidget(self.spectrum_format)
         layout.addWidget(diagnostics)
         layout.addStretch(1)
 
