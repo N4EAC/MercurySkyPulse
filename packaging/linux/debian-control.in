@@ -1,0 +1,10 @@
+Package: mercury-skypulse
+Version: @VERSION@
+Section: hamradio
+Priority: optional
+Architecture: amd64
+Maintainer: MercurySkyPulse contributors
+Depends: libc6, libegl1, libgl1, libxkbcommon-x11-0
+Description: Mercury-based amateur-radio digital communications station
+ MercurySkyPulse provides chat, beacon, ping, file transfer, BBS, location,
+ reporting, and station controls through a bundled Mercury modem runtime.

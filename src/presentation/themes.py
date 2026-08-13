@@ -224,6 +224,11 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
     QMenu::item {{ padding: 6px 28px 6px 24px; }}
     QMenu::item:selected {{ background: {colors['accent']}; color: white; }}
     QSplitter::handle {{ background: {colors['border']}; }}
+    QSplitter#ChatSplitter::handle {{
+        background: transparent;
+        width: 1px;
+        margin: 0;
+    }}
     QScrollBar:vertical {{ width: 11px; background: transparent; }}
     QScrollBar::handle:vertical {{
         min-height: 24px;

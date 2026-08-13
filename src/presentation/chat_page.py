@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFormLayout,
+    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -15,6 +16,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QProgressBar,
@@ -24,6 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from application.messaging import ChatMessage, Conversation, MessageDirection
+from .time_format import format_utc_timestamp
 
 
 class ChatPage(QWidget):
@@ -36,6 +39,10 @@ class ChatPage(QWidget):
     transfer_resume_requested = Signal(str)
     transfer_folder_requested = Signal(str)
     conversation_selected = Signal(int)
+    cq_requested = Signal()
+    answer_cq_requested = Signal(str)
+    weather_requested = Signal()
+    conversation_delete_requested = Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -68,12 +75,46 @@ class ChatPage(QWidget):
         self.link_state = QLabel("TNC: disconnected")
         self.link_state.setObjectName("StatusPill")
         control_row.addWidget(self.link_state)
+        self.listening_identity = QLabel("Listening as: not configured")
+        self.listening_identity.setObjectName("Muted")
+        self.listening_identity.setToolTip(
+            "Station identity used to accept incoming ARQ connections"
+        )
         root.addWidget(controls)
+        root.addWidget(self.listening_identity)
+
+        cq_row = QHBoxLayout()
+        self.call_cq_button = QPushButton("Call CQ")
+        self.call_cq_button.setToolTip(
+            "Broadcast one CQ invitation on the current radio frequency"
+        )
+        self.cq_callers = QComboBox()
+        self.cq_callers.setPlaceholderText("No CQ callers heard")
+        self.answer_cq_button = QPushButton("Answer CQ")
+        self.answer_cq_button.setEnabled(False)
+        cq_row.addWidget(self.call_cq_button)
+        cq_row.addWidget(QLabel("CQ callers"))
+        cq_row.addWidget(self.cq_callers, 1)
+        cq_row.addWidget(self.answer_cq_button)
+        root.addLayout(cq_row)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("ChatSplitter")
+        splitter.setHandleWidth(1)
+        self.chat_splitter = splitter
+        conversation_panel = QWidget()
+        conversation_layout = QVBoxLayout(conversation_panel)
+        conversation_layout.setContentsMargins(0, 0, 0, 0)
+        conversation_title = QLabel("Conversations")
+        conversation_title.setObjectName("SectionTitle")
+        conversation_layout.addWidget(conversation_title)
         self.conversations = QListWidget()
         self.conversations.setMinimumWidth(180)
-        splitter.addWidget(self.conversations)
+        conversation_layout.addWidget(self.conversations, 1)
+        self.delete_conversation_button = QPushButton("Delete Conversation")
+        self.delete_conversation_button.setEnabled(False)
+        conversation_layout.addWidget(self.delete_conversation_button)
+        splitter.addWidget(conversation_panel)
 
         chat = QWidget()
         chat_layout = QVBoxLayout(chat)
@@ -91,7 +132,16 @@ class ChatPage(QWidget):
         self.composer.setMaximumHeight(90)
         self.send_button = QPushButton("Send")
         self.send_button.setObjectName("PrimaryButton")
+        self.weather_button = QPushButton("WX")
+        self._weather_enabled = False
+        self._weather_fetching = False
+        self._session_connected = False
+        self.weather_button.setEnabled(False)
+        self.weather_button.setToolTip(
+            "Fetch internet weather and insert it into this message draft"
+        )
         compose_row.addWidget(self.composer, 1)
+        compose_row.addWidget(self.weather_button)
         compose_row.addWidget(self.send_button)
         chat_layout.addLayout(compose_row)
 
@@ -130,17 +180,74 @@ class ChatPage(QWidget):
             )
         )
         self.disconnect_button.clicked.connect(self.disconnect_requested)
+        self.call_cq_button.clicked.connect(self.cq_requested)
+        self.answer_cq_button.clicked.connect(self._answer_cq)
+        self.cq_callers.currentIndexChanged.connect(
+            lambda index: self.answer_cq_button.setEnabled(index >= 0)
+        )
         self.send_button.clicked.connect(self._send)
+        self.weather_button.clicked.connect(self.weather_requested)
         self.send_file_button.clicked.connect(self._choose_file)
         self.pause_file_button.clicked.connect(self._pause_transfer)
         self.resume_file_button.clicked.connect(self._resume_transfer)
         self.open_transfer_button.clicked.connect(self._open_transfer_folder)
         self.conversations.currentRowChanged.connect(self._select_row)
+        self.conversations.currentRowChanged.connect(
+            lambda row: self.delete_conversation_button.setEnabled(row >= 0)
+        )
+        self.delete_conversation_button.clicked.connect(self._delete_conversation)
         self._transfer_id = ""
         self._transfer_path = ""
+        self._cq_expiry_timer = QTimer(self)
+        self._cq_expiry_timer.setInterval(30_000)
+        self._cq_expiry_timer.timeout.connect(self._expire_cq_calls)
+        self._cq_expiry_timer.start()
 
     def set_state(self, state: str) -> None:
         self.link_state.setText(f"TNC: {state}")
+
+    def set_listening_identity(self, callsign: str) -> None:
+        self.listening_identity.setText(f"Listening as: {callsign}")
+
+    def add_cq_caller(self, cq) -> None:
+        received_at = datetime.fromisoformat(cq.timestamp).timestamp()
+        existing = next(
+            (index for index in range(self.cq_callers.count())
+             if self.cq_callers.itemData(index, Qt.ItemDataRole.UserRole) == cq.callsign),
+            -1,
+        )
+        label = f"{cq.callsign} · {cq.grid}"
+        if existing >= 0:
+            self.cq_callers.setItemText(existing, label)
+            self.cq_callers.setItemData(
+                existing, received_at, Qt.ItemDataRole.UserRole + 1
+            )
+            self.cq_callers.setCurrentIndex(existing)
+        else:
+            self.cq_callers.addItem(label, cq.callsign)
+            index = self.cq_callers.count() - 1
+            self.cq_callers.setItemData(
+                index, received_at, Qt.ItemDataRole.UserRole + 1
+            )
+            self.cq_callers.setCurrentIndex(index)
+        while self.cq_callers.count() > 16:
+            self.cq_callers.removeItem(0)
+        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
+
+    def _answer_cq(self) -> None:
+        self._expire_cq_calls()
+        callsign = self.cq_callers.currentData(Qt.ItemDataRole.UserRole)
+        if callsign:
+            self.remote_call.setText(str(callsign))
+            self.answer_cq_requested.emit(str(callsign))
+
+    def _expire_cq_calls(self) -> None:
+        cutoff = datetime.now(UTC).timestamp() - 300
+        for index in range(self.cq_callers.count() - 1, -1, -1):
+            timestamp = self.cq_callers.itemData(index, Qt.ItemDataRole.UserRole + 1)
+            if timestamp is None or float(timestamp) < cutoff:
+                self.cq_callers.removeItem(index)
+        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
 
     def set_connected_peer(self, source: str, destination: str, bandwidth: int) -> None:
         local = self.local_call.text().strip().upper()
@@ -148,9 +255,13 @@ class ChatPage(QWidget):
         self.remote_call.setText(peer)
         self.link_state.setText(f"Connected: {peer} · {bandwidth} Hz")
         self.link_state.setToolTip(f"ARQ session {source} ↔ {destination}")
+        self._session_connected = True
+        self._update_weather_button()
 
     def set_disconnected(self) -> None:
         self.link_state.setText("TNC: ready · no station connected")
+        self._session_connected = False
+        self._update_weather_button()
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""
@@ -160,6 +271,40 @@ class ChatPage(QWidget):
     def show_error(self, message: str) -> None:
         self.link_state.setText(message)
         self.link_state.setToolTip(message)
+
+    def insert_composer_text(self, text: str) -> None:
+        """Insert operator-reviewed helper text without transmitting it."""
+        clean = text.strip()
+        if not clean:
+            return
+        existing = self.composer.toPlainText().rstrip()
+        self.composer.setPlainText(f"{existing}\n{clean}" if existing else clean)
+        self.composer.setFocus()
+
+    def set_weather_enabled(self, enabled: bool) -> None:
+        self._weather_enabled = bool(enabled)
+        self._update_weather_button()
+
+    def set_weather_state(self, state: str) -> None:
+        self._weather_fetching = state.startswith("Fetching")
+        self.weather_button.setText("WX…" if self._weather_fetching else "WX")
+        self._update_weather_button()
+
+    def _update_weather_button(self) -> None:
+        self.weather_button.setEnabled(
+            self._weather_enabled
+            and self._session_connected
+            and not self._weather_fetching
+        )
+        if not self._weather_enabled:
+            tooltip = "Enable internet weather access in Setup → Weather"
+        elif not self._session_connected:
+            tooltip = "Connect to a station before inserting a weather report"
+        elif self._weather_fetching:
+            tooltip = "Fetching internet weather"
+        else:
+            tooltip = "Fetch internet weather and insert it into this message draft"
+        self.weather_button.setToolTip(tooltip)
 
     def set_active_conversation(self, conversation: Conversation) -> None:
         self.heading.setText(
@@ -176,12 +321,20 @@ class ChatPage(QWidget):
         self.conversations.clear()
         self._conversation_ids = [item.id for item in conversations]
         for conversation in conversations:
-            item = QListWidgetItem(conversation.remote_call)
-            item.setToolTip(f"From {conversation.local_call}")
+            updated = format_utc_timestamp(
+                conversation.updated_at, "%Y-%m-%d %H:%M UTC"
+            )
+            item = QListWidgetItem(f"{conversation.remote_call}\n{updated}")
+            item.setToolTip(
+                f"Conversation from {conversation.local_call} · last contact {updated}"
+            )
             self.conversations.addItem(item)
         if selected in self._conversation_ids:
             self.conversations.setCurrentRow(self._conversation_ids.index(selected))
         self.conversations.blockSignals(False)
+        self.delete_conversation_button.setEnabled(
+            self.conversations.currentRow() >= 0
+        )
 
     def set_messages(self, messages: list[ChatMessage]) -> None:
         self.messages.clear()
@@ -271,9 +424,21 @@ class ChatPage(QWidget):
         if 0 <= row < len(self._conversation_ids):
             self.conversation_selected.emit(self._conversation_ids[row])
 
+    def _delete_conversation(self) -> None:
+        row = self.conversations.currentRow()
+        if not 0 <= row < len(self._conversation_ids):
+            return
+        station = self.conversations.currentItem().text().splitlines()[0]
+        answer = QMessageBox.question(
+            self,
+            "Delete Conversation",
+            f"Delete the conversation and all locally saved messages with {station}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.conversation_delete_requested.emit(self._conversation_ids[row])
+
     @staticmethod
     def _display_time(value: str) -> str:
-        try:
-            return datetime.fromisoformat(value).astimezone().strftime("%b %d, %H:%M:%S")
-        except ValueError:
-            return value
+        return format_utc_timestamp(value, "%b %d, %H:%M:%S UTC")

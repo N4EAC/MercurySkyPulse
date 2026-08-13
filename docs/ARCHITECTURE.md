@@ -132,6 +132,12 @@ External actors and systems are:
 
 MercurySkyPulse uses a ports-and-adapters architecture with unidirectional dependencies and event-driven integration at I/O boundaries.
 
+Native engineering packages preserve the process boundary: PyInstaller packages
+MSP while a compatible Mercury executable and its license/source provenance are
+placed beside it as a supervised runtime. Windows uses Inno Setup around the
+portable directory; Ubuntu and Fedora wrap the equivalent native Linux directory
+as `.deb` and `.rpm` packages. Packaging never links Mercury into MSP.
+
 ```text
 apps/desktop -> presentation -> application -> domain
       |                              ^
@@ -225,7 +231,7 @@ src/transport/mercury/
   beacon.py                      KISS framing and opaque broadcast payloads
   telemetry/                     WebSocket JSON/binary codec and connection
 src/persistence/                 SQLite schema and repository
-src/platform_runtime/            Process, filesystem, GPS, web, license adapters
+src/platform_runtime/            Process, filesystem, GPS, web, weather, license adapters
 src/platform/                    Reserved platform placeholder
 src/presentation/                PySide6 UI and current composition root
 tests/unit/                      Pure module tests
@@ -697,6 +703,8 @@ Exact budgets require prototype measurement, but the design sets these constrain
   polled at a conservative interval, and is suppressed during ARQ and transmit.
 - Opt-in PSK Reporter aggregation is bounded, rate-limited, and refuses stale or
   unavailable frequency telemetry; the Qt UDP/DNS adapter remains platform-facing.
+- Opt-in weather access is manual, timeout-bounded, response-size-bounded, and
+  never makes an IP-location request; failure cannot affect radio workflows.
 - Database writes batch disposable telemetry summaries and never persist raw spectrum.
 - A slow plugin cannot block transport, application state, or UI threads.
 - Diagnostic logging cannot exhaust disk due to rotation/retention limits.
@@ -883,8 +891,13 @@ level, host API, or negotiated hardware format that Mercury does not publish.
 This read-only diagnostic path never invokes CAT, PTT, or transmission. ADR
 0021 records the capability and labeling boundary.
 
-The main window exposes operational tabs only. A reusable Setup window owns Radio,
-Audio, User, and GPS configuration, with Radio first and room for future tabs.
+The main window uses Chat as its central operating surface. Compact Station Status
+and independent Beacon, Ping, directed Location, BBS, PSK Reporter Activity,
+Radio Frequency, and Activity docks keep live functions
+available without switching top-level pages. Detailed telemetry and log docks are
+closed in the first-run layout but remain directly available from View and the
+movable toolbar. A reusable Setup window owns Radio, Audio, User, GPS, Reporting,
+and Weather configuration, with Radio first and room for future tabs.
 Manual and GPS coordinates calculate a proposed Maidenhead grid locally; the
 operator reviews and saves station identity, and no internet geolocation provider
 is used. ADR 0019 records this UI boundary.
@@ -897,6 +910,31 @@ bounded events in the existing messaging frame. The presentation receives only a
 typed result. Exact Mercury modulation names are used when the public telemetry
 contract supplies them; otherwise the adapter reports `ARQ` or `idle`. ADR 0009
 records measurement semantics and this public-interface limitation.
+
+CQ discovery is a separate bounded frame on the existing KISS broadcast adapter.
+It carries a validated callsign/grid/version/timestamp invitation and never opens
+CAT or changes VFO state. Chat expires callers after five minutes and answering
+delegates to the existing ARQ connection use case. PSK Reporter continues to
+consume only decoded capability beacons. ADR 0029 records this boundary and the
+absence of coordinated QSY.
+
+Weather composition is an application service backed by a platform HTTPS adapter.
+The operator explicitly enables access and initiates each request. Current station
+coordinates are preferred; otherwise MSP converts the saved GRID to its center
+locally. A bounded wttr.in JSON response becomes editable Chat composer text;
+Chat's WX action requests it asynchronously without navigating away. It is never
+automatically transmitted or placed in a beacon. ADR 0030 records the privacy and
+offline-operation boundary.
+
+Operator-facing absolute timestamps use UTC consistently, including Chat and BBS
+history. Application protocol timestamps were already UTC. Mercury-originated
+relative timings and telemetry remain authoritative and are not rewritten by the
+presentation layer.
+
+Station Status projects only the current compact Maidenhead locator: a locator
+calculated from current GPS/manual coordinates takes precedence over the saved
+User Setup GRID. GPS receiver lifecycle text remains in Setup rather than resizing
+the operational status grid.
 
 `src/application/bbs.py` owns mailbox/bulletin validation, system-folder
 projections, catalog advertisement/request handling, and checksum-gated file

@@ -5,7 +5,7 @@
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000.svg)
-![Linux planned](https://img.shields.io/badge/Linux-Fedora%20%7C%20Ubuntu%20planned-FCC624.svg)
+![Linux engineering packages](https://img.shields.io/badge/Linux-Fedora%20%7C%20Ubuntu%20engineering-FCC624.svg)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)
 
 MercurySkyPulse is a cross-platform, local-first station application built around
@@ -33,9 +33,6 @@ a loopback-only read-only web interface, optional PSK Reporter reception uploads
 offline signed licensing, and a trusted built-in plugin kernel. It is suitable for continued development and controlled
 manual testing, but is not yet a production release.
 
-The Navigator dock routes Overview and Signal to their dashboard sections and
-opens Activity for diagnostics.
-
 Mercury remains a process-isolated engine accessed through its documented UI
 WebSocket and TNC TCP interfaces. Windows test packages include a pinned
 MSP-compatible Mercury fork runtime so operators do not install or copy it
@@ -47,16 +44,17 @@ separately.
 |---|---|
 | Windows 10/11 x86-64 | Supported for engineering builds and live-radio testing through `build.exe.bat` |
 | macOS Apple Silicon | Supported for engineering builds and live-radio testing through `build.app.sh` |
-| Fedora Linux | Binary packaging planned after current RF validation |
-| Ubuntu Linux | Binary packaging planned after current RF validation |
+| Fedora Linux x86-64 | Initial RPM engineering builder; native validation required |
+| Ubuntu Linux x86-64 | Initial DEB engineering builder; native validation required |
 
-Linux remains a source-level architectural target, but no Linux binary package is
-currently published. Intel macOS is not part of the presently validated build
-matrix.
+Linux native packages are reproducible but remain unverified engineering
+artifacts until representative Fedora and Ubuntu systems complete application,
+Mercury, audio, CAT/PTT, and RF testing. Intel macOS is not part of the presently
+validated build matrix.
 
 ### Station chat
 
-The Chat tab provides text-only station-to-station conversations. On the receiving
+The central Chat workspace provides text-only station-to-station conversations. On the receiving
 station, enter a callsign and choose **Listen**. On the initiating station, enter
 both callsigns and choose **Connect**. Messages include timestamps and queued,
 sent, delivered, or failed status. Delivered means the peer application returned
@@ -106,20 +104,62 @@ existing history available for later export.
 
 ### Station beacon
 
-The Beacon tab advertises the station callsign, Maidenhead grid, software version,
+The dockable Beacon panel advertises the station callsign, Maidenhead grid, software version,
 and supported capabilities over Mercury's connectionless KISS broadcast port.
 Beaconing
 is Off by default and supports 1, 5, 10, 15, 30, or 60-minute intervals plus a
 manual **Send Now** action.
+Station Status displays **Next Beacon: Manual** while periodic beaconing is off;
+when an interval is enabled it displays the live time remaining until the next
+scheduled transmission. The countdown text blinks bright red only during the
+final ten seconds.
+Periodic beaconing shows **Paused** during an ARQ session and for 300 seconds
+after each CQ call. It resumes with a fresh interval when no pause remains.
+
+The Setup → Weather page can make a manual request to wttr.in after explicit
+operator consent. MSP uses the current saved station coordinates, or the center
+of the saved GRID according to the operator's location-source preference; it
+never requests weather by IP-derived location. After setup, the **WX** button
+beside Chat's Send button fetches in the background and inserts the bounded report
+into the message draft only while an ARQ station session is connected. It remains
+editable and is never transmitted automatically. Setup can preview weather but
+cannot insert it into Chat. Weather is not currently included in beacons.
+
+MSP-generated protocol, diagnostic, reporting, Chat, BBS, and weather-fetch
+timestamps are stored or displayed in UTC. Mercury-originated relative timing and
+modem telemetry remain unchanged.
+The bottom status bar shows the current UTC date and time.
+
+Station Status shows a compact **GRID** card. It is calculated from the current
+GPS/manual coordinates when available and otherwise uses the station GRID saved
+in User Setup.
+
+Chat's **Conversations** list is persistent local history. It shows each remote
+callsign and last-contact time in UTC. Operators can delete a selected conversation
+and its locally stored messages after confirmation. Empty connection attempts
+older than 30 days are removed automatically; conversations containing messages
+are never expired automatically.
+The conversation and message areas retain a draggable but visually transparent
+splitter; the panel borders provide the visible separation.
 
 Precise GPS coordinates are optional and disabled independently. When enabled,
 the latest valid GPS-source fix and its timestamp are included; manual positions
 are not substituted. This is a compact Mercury broadcast application beacon, not
 an APRS packet or APRS-IS announcement.
 
+### CQ discovery
+
+Chat provides **Call CQ** without requiring an ARQ connection. MSP broadcasts a
+short-lived callsign, grid, version, and timestamp invitation on the current
+radio frequency. Other MSP stations display valid callers for five minutes and
+can select **Answer CQ** to start the normal Mercury ARQ connection. CQ calls do
+not change the radio frequency or mode and are not submitted to PSK Reporter.
+Both operators must remain on the common frequency while connecting; manually
+retuning during an active ARQ session can stall or terminate it.
+
 ### Station ping
 
-The Ping tab sends a bounded request to the station connected through Mercury ARQ
+The dockable Ping panel sends a bounded request to the station connected through Mercury ARQ
 and reports round-trip time, local SNR, remote SNR, remote bitrate, and remote
 modem mode. RTT is measured locally with a monotonic clock and includes the radio
 and application path. Pings time out after 15 seconds and only one may be active.
@@ -157,7 +197,7 @@ MSP labels those limits rather than inventing values. ADR 0021 records this poli
 **TX Level Test** sends the station's normal real-call beacon every three seconds
 for at most 12 seconds while allowing live modem TX-gain adjustment from -20
 through 0 dB. Mercury's reported TX peak is displayed. The operator must
-acknowledge that the test transmits RF, and an active ARQ link blocks or stops it.
+understand that the action transmits RF; an active ARQ link blocks or stops it.
 
 Audio prefers capture/playback IDs reported by Mercury and falls back to editable
 local device names when a Mercury list is unavailable. User stores the station
@@ -187,7 +227,7 @@ receptions, receiver and sender fields, frequency, mode, timestamps, IPFIX packe
 metadata, resolved destination, byte counts, and upload outcomes.
 
 The main window also provides a movable, resizable **Radio Frequency** dock. It
-displays Mercury's cached Hamlib reading and its age. It is deliberately read-only;
+displays Mercury's cached Hamlib reading without a changing age counter. It is deliberately read-only;
 frequency and mode remain under direct operator control at the radio.
 
 ### BBS mailbox
@@ -195,7 +235,7 @@ frequency and mode remain under direct operator control at the radio.
 For field-by-field setup, roles, connection steps, and security limitations, see
 the [BBS usage guide](docs/BBS_GUIDE.md).
 
-The BBS tab provides persistent Inbox, Outbox, Bulletins, and Files folders.
+The dockable BBS panel provides persistent Inbox, Outbox, Bulletins, and Files folders.
 Operators can send addressed private messages, post public bulletins, upload files
 to an application-owned catalog, and request remote catalog files for verified
 download. Uploads are capped at 100 MiB and retain their exact SHA-256 identity.
@@ -237,6 +277,7 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 MercurySkyPulse/
 ├── .github/workflows/           # Cross-platform automated tests
 ├── assets/icons/                # ICNS, ICO, and multi-resolution PNG artwork
+├── packaging/                   # Inno Setup and native Linux package metadata
 ├── apps/
 │   └── desktop/                 # Alternate installed-package launcher
 ├── src/
@@ -341,11 +382,22 @@ build.exe.bat
 
 The script creates/reuses `.venv`, installs the project and PyInstaller, runs the
 aggregate test suite, and creates a windowed one-directory test build at
-`dist\MercurySkyPulse\MercurySkyPulse.exe`. Copy the entire
-`dist\MercurySkyPulse` directory when testing on another computer. This is an
-unsigned engineering build, not an installer or release artifact. It downloads
-and includes the pinned MSP-compatible Mercury runtime automatically. The Windows
-executable and taskbar use the same MSP radar artwork as macOS and Linux.
+`dist\MercurySkyPulse\MercurySkyPulse.exe`. It downloads and includes the pinned
+MSP-compatible Mercury runtime automatically. The Windows executable and taskbar
+use the same MSP radar artwork as macOS and Linux.
+
+When [Inno Setup 6](https://jrsoftware.org/isdl.php) is installed, the same
+command compiles `packaging\windows\MercurySkyPulse.iss` and creates:
+
+```text
+dist\installer\MercurySkyPulse-0.1.0-windows-x86_64-setup.exe
+```
+
+The installer displays the MSP icon, installs per user without an administrator
+prompt, creates Start Menu and optional desktop shortcuts, and includes the
+complete tested payload with Mercury and license material. Without Inno Setup,
+the portable directory remains valid and the builder reports that no installer
+was created. Both outputs are unsigned engineering artifacts.
 
 The builder downloads the Mercury 1.9.11 MSP compatibility build from the
 public `N4EAC/mercury` fork, verifies its pinned archive SHA-256 digest, and
@@ -374,6 +426,30 @@ or `python` on `PATH`. If a build fails, it reports the failed stage and pauses 
 the error remains visible when the batch file was opened by double-clicking. Run
 it from an existing Command Prompt for the clearest diagnostic output.
 
+### Ubuntu and Fedora engineering packages
+
+Linux packages must be built on the target Linux family, not macOS or Windows.
+Install Python 3.11 or newer and the native package tool (`dpkg-deb` on Ubuntu or
+`rpm-build` on Fedora), build the compatible sibling Mercury checkout, and run:
+
+```bash
+./build.linux.sh
+```
+
+Select a different compatible Mercury executable when necessary:
+
+```bash
+MERCURY_EXECUTABLE=/absolute/path/to/mercury ./build.linux.sh
+```
+
+The builder runs the aggregate offscreen suite, creates a native PyInstaller
+payload, bundles Mercury with both license files and source provenance, and emits
+either `dist/packages/mercury-skypulse_0.1.0_amd64.deb` or an x86-64 RPM in the
+same directory. It installs MSP under `/opt/mercuryskypulse`, adds the
+`mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or
+failed tests stop packaging. Native install, launch, audio, CAT/PTT, and RF
+validation remain required before broader distribution.
+
 ### Mercury executable
 
 MercurySkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:
@@ -394,9 +470,10 @@ MERCURY_EXECUTABLE=/path/to/mercury .venv/bin/mercury-skypulse
 
 Unexpected Mercury exits are detected and restarted automatically with bounded backoff. Use **Mercury → Restart Mercury** for a manual restart. Child-process output and restart events appear in the Activity panel.
 
-The command toolbar plus Navigator and Activity docks can be moved, floated, and
-resized. Workflow tabs can be reordered. Main-window geometry, dock/toolbar
-placement and sizes, workflow-tab order, setup-window geometry, appearance/theme,
+The command toolbar plus Station Status, Activity, Radio
+Frequency, Beacon, Ping, Location, PSK Reporter Activity, and BBS docks can be
+moved, floated, tabified, and resized around the central Chat workspace.
+Main-window geometry, dock/toolbar placement and sizes, setup-window geometry, appearance/theme,
 UI scale, and the selected GPS port are restored for the current OS user. Use
 **Window → Reset Panel Layout** to restore the default dock arrangement.
 
@@ -408,6 +485,13 @@ and platform details, Mercury output, TNC control events, ARQ and telemetry stat
 changes, errors, and file-transfer byte/status transitions. It intentionally
 excludes chat/BBS message bodies, file contents, passwords, authentication proofs,
 and tokens; suspected secret fields are redacted before writing.
+
+When a valid station callsign is saved, MSP automatically configures Mercury to
+accept incoming ARQ calls as soon as the TNC is ready and re-arms listening after
+a disconnect or TNC reconnection. Chat displays **Listening as: CALLSIGN**. The
+small status-bar LED is green while Mercury reports receive and red while it
+reports transmit. Beacon traffic uses Mercury's separate broadcast interface;
+automatic ARQ listening does not disable Beacon, BBS, GPS, or reception reporting.
 
 Use **Mercury → Open Diagnostic Log Folder** to locate it. Logs rotate at 10 MiB
 with ten retained backups. For radio-to-radio fault reports, collect logs from

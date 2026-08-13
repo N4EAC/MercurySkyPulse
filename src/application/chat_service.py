@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, Signal
@@ -18,14 +18,17 @@ class ChatService(QObject):
     messages_changed = Signal(object)
     active_conversation_changed = Signal(object)
     error_received = Signal(str)
+    listening_as_changed = Signal(str)
 
     def __init__(self, client, repository: ChatRepository, parent=None) -> None:
         super().__init__(parent)
         self.client = client
         self.repository = repository
         self.local_call = ""
+        self._auto_listen_call = ""
+        self._client_state = "disconnected"
         self.active: Conversation | None = None
-        client.state_changed.connect(self.state_changed)
+        client.state_changed.connect(self._on_client_state)
         client.session_connected.connect(self._on_session_connected)
         client.session_disconnected.connect(self._on_session_disconnected)
         client.message_received.connect(self._on_message_received)
@@ -39,6 +42,9 @@ class ChatService(QObject):
 
     def start(self) -> None:
         self.client.start()
+        self.repository.delete_empty_conversations_before(
+            (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        )
         self._publish_conversations()
 
     def close(self) -> None:
@@ -48,13 +54,25 @@ class ChatService(QObject):
     def listen(self, local_call: str) -> None:
         try:
             self.local_call = self.client.normalize_callsign(local_call)
-            self.client.configure_and_listen(self.local_call)
+            self._auto_listen_call = self.local_call
+            self._arm_listening(report_error=True)
         except (ValueError, RuntimeError) as error:
             self.error_received.emit(str(error))
+
+    def configure_auto_listen(self, local_call: str) -> None:
+        """Remember a validated identity and listen whenever the TNC is ready."""
+        try:
+            self._auto_listen_call = self.client.normalize_callsign(local_call)
+            self.local_call = self._auto_listen_call
+        except ValueError as error:
+            self.error_received.emit(str(error))
+            return
+        self._arm_listening(report_error=False)
 
     def connect_station(self, local_call: str, remote_call: str) -> None:
         try:
             self.local_call = self.client.normalize_callsign(local_call)
+            self._auto_listen_call = self.local_call
             remote = self.client.normalize_callsign(remote_call)
             self._activate(self.local_call, remote)
             self.client.connect_station(self.local_call, remote)
@@ -75,6 +93,23 @@ class ChatService(QObject):
         if self.active:
             self.active_conversation_changed.emit(self.active)
             self._publish_messages()
+
+    def delete_conversation(self, conversation_id: int) -> None:
+        conversation = next(
+            (item for item in self.repository.list_conversations()
+             if item.id == int(conversation_id)),
+            None,
+        )
+        if conversation is None:
+            return
+        if self.active and self.active.id == conversation.id and self._client_state == "connected":
+            self.error_received.emit("Disconnect before deleting the active conversation")
+            return
+        self.repository.delete_conversation(conversation.id)
+        if self.active and self.active.id == conversation.id:
+            self.active = None
+            self.messages_changed.emit([])
+        self._publish_conversations()
 
     def send_text(self, text: str) -> bool:
         body = text.strip()
@@ -120,6 +155,30 @@ class ChatService(QObject):
         if self.active:
             self.repository.fail_unsettled(self.active.id)
             self._publish_messages()
+
+    def _on_client_state(self, state: str) -> None:
+        self._client_state = state
+        self.state_changed.emit(state)
+        if state == "ready":
+            self._arm_listening(report_error=False)
+
+    def _arm_listening(self, report_error: bool) -> bool:
+        if not self._auto_listen_call:
+            return False
+        if self._client_state not in {"ready", "listening"}:
+            if report_error:
+                self.error_received.emit(
+                    "TNC is not ready to listen; wait for Mercury or disconnect the active station"
+                )
+            return False
+        try:
+            self.client.configure_and_listen(self._auto_listen_call)
+        except RuntimeError as error:
+            if report_error:
+                self.error_received.emit(str(error))
+            return False
+        self.listening_as_changed.emit(self._auto_listen_call)
+        return True
 
     def _on_message_received(self, envelope) -> None:
         if not self.active:

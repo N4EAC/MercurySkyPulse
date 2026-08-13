@@ -48,6 +48,13 @@ class ApplicationProtocolClientTests(unittest.TestCase):
                          ["MYCALL N0CALL", "LISTEN ON", "CONNECT N0CALL K1ABC"])
         self.assertEqual(states, ["linking"])
 
+    def test_listening_publishes_explicit_state(self) -> None:
+        states = []
+        self.client.state_changed.connect(states.append)
+        self.client.configure_and_listen("n0call")
+        self.assertEqual(self.transport.controls, ["MYCALL N0CALL", "LISTEN ON"])
+        self.assertEqual(states, ["listening"])
+
     def test_transport_receives_only_encoded_opaque_bytes(self) -> None:
         self.client.send_message("message-1", self.now, "hello")
         self.assertIsInstance(self.transport.writes[0], bytes)

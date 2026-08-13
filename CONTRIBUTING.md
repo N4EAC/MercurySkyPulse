@@ -41,6 +41,10 @@ submit it.
   GPL license, and exact corresponding-source commit URL. Do not commit Mercury
   binaries, caches, or the builder's
   `build/` or `dist/` output.
+- `packaging/windows/MercurySkyPulse.iss` creates the per-user installer from the
+  complete Windows payload. `build.linux.sh` creates `.deb` and `.rpm`
+  engineering packages only on their native target and requires a compatible
+  Linux Mercury executable plus its licenses. Never commit generated packages.
 - Tests may depend inward or instantiate outer adapters, but production dependencies must follow the architecture.
 
 ## Mercury integration rules

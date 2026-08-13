@@ -19,6 +19,9 @@ prohibit changes to Mercury from this repository. **Met.**
 - Python 3.11+ and PySide6 are selected for the initial presentation shell in ADR 0001.
 - Select the complete packaging, formatting, linting, and test toolchain beyond the current setuptools/unittest baseline.
 - Confirm initial supported platform versions and packaging targets.
+- Validate the initial Inno Setup, Ubuntu `.deb`, and Fedora `.rpm` engineering
+  packages on their native x86-64 targets, including bundled Mercury discovery,
+  desktop integration, audio, CAT/PTT, and uninstall behavior.
 - Define complete endpoint configuration and secret-handling conventions.
 - Formalize the already-selected managed-local, unmanaged-local, and remote
   Mercury modes as typed endpoint profiles.
@@ -30,7 +33,7 @@ Exit criteria: accepted ADRs define a minimal, reproducible toolchain without in
 The language/UI, process, protocol, transfer, location, beacon, ping, BBS, web,
 licensing, plugin, test, opaque-transport, and setup/privacy decisions are recorded
 in ADRs 0001–0020. Packaging targets, persisted configuration conventions, supported platforms,
-Mercury compatibility and final release packaging remain open. The project legal
+Mercury compatibility, native validation, signing, and final release packaging remain open. The project legal
 license is established by ADR 0027.
 
 ## Phase 2 — Mercury contract layer (prototype complete; hardening remains)
@@ -77,13 +80,19 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
 ## Phase 5 — Application shell (vertical slice complete)
 
 - Initial operator journeys and application services are implemented.
+- Connectionless CQ discovery and explicit Answer CQ are implemented for
+  real-radio validation; coordinated QSY is not implemented.
+- Periodic beacons pause during active ARQ sessions, and each CQ refreshes a
+  five-minute hold before idle scheduling resumes with a fresh interval.
+- Manual, explicitly enabled internet weather preview can be inserted into Chat;
+  automatic refresh and beacon weather remain intentionally out of scope.
 - PySide6 presentation, composition, status projections, and primary workflow
   pages are implemented.
-- Operational tabs are separated from the Radio/Audio/User/GPS Setup window;
-  the main workspace stays focused on operating views, and manual/GPS positions
-  calculate a local GRID proposal without an internet dependency.
-- The Navigator routes dashboard sections and exposes Activity/Diagnostics docks.
-- Navigator/Activity docks and the command toolbar are movable/resizable, workflow
+- The unified operator console separates live operations from the
+  Radio/Audio/User/GPS/Reporting Setup window; manual/GPS positions calculate a
+  local GRID proposal without an internet dependency.
+- The unused Navigator/workspace dock is removed. Activity and Radio Frequency
+  remain dockable alongside the movable command toolbar; workflow
   tabs are reorderable, and their per-user layout plus appearance and Setup geometry
   are restored across launches.
 - Validate the new named macOS `.app` bundle and replace the interpreter-launch **Python** menu label through a
@@ -110,6 +119,12 @@ Exit criteria: a minimal application can connect to Mercury and display verified
 
 The next milestone should harden existing behavior rather than add another large
 product feature.
+
+The staged unified operator workspace in ADR 0028 now composes existing services
+as independently dockable panels around central Chat. Field validation must
+confirm at-a-glance state, narrow-screen defaults, restored layouts, peer-safe
+actions, and parity with every retired workflow tab. Only station and device
+configuration remains in Setup.
 
 ## Phase 7 — Plugin migration
 

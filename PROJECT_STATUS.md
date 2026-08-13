@@ -13,8 +13,8 @@ Packaged engineering builds include the compatible Mercury runtime required by
 the application.
 
 MSP is licensed under GPL-3.0-or-later. Windows 10/11 x86-64 and Apple Silicon
-macOS are the current engineering-test platforms. Fedora and Ubuntu binary
-packages are planned after current RF validation; they are not yet published.
+macOS are the current engineering-test platforms. Initial x86-64 Ubuntu `.deb`
+and Fedora `.rpm` builders are implemented and await native Linux validation.
 
 ## Architecture
 
@@ -43,11 +43,17 @@ Mercury internals.
 
 - Supervised managed-local Mercury process with typed unmanaged-local and remote
   endpoint profiles, bounded reconnection, and explicit remote safety policy.
-- Station chat with conversations, delivery acknowledgements, and persistent
-  SQLite history.
+- Station chat with conversations, delivery acknowledgements, persistent SQLite
+  history, explicit confirmed deletion, UTC last-contact display, conservative
+  cleanup of 30-day-old empty attempts, and automatic incoming ARQ listening
+  under the saved station callsign.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, and a dedicated download directory.
 - Capability beacons over Mercury KISS broadcast transport.
+- Bounded five-minute CQ discovery over the broadcast transport, with explicit
+  Answer CQ handoff into the existing Mercury ARQ connection workflow.
+- Periodic beacon scheduling pauses during every active ARQ session and for 300
+  seconds after each CQ call, then restarts with a fresh interval only when idle.
 - Station ping with round-trip time and modem telemetry exchange.
 - Persistent BBS mailbox, bulletins, file catalog, optional password protection,
   authenticated ARQ-session identity binding, and commander role controls.
@@ -57,16 +63,28 @@ Mercury internals.
 - Trusted built-in plugin registry and offline signed licensing framework.
 - Persistent rotating diagnostic log suitable for radio-to-radio test collection.
 - Disabled-by-default PSK Reporter uploads for decoded MSP beacons, using bounded
-  aggregation and current read-only Mercury CAT frequency telemetry.
+  aggregation and current read-only Mercury CAT frequency telemetry. CQ calls and
+  ARQ traffic are not PSK Reporter inputs.
+- Explicitly enabled, manual wttr.in weather retrieval from the current station
+  position or saved GRID center, with bounded preview and operator-controlled
+  insertion into Chat. A connection-gated Chat WX button performs the asynchronous
+  fetch without reopening Setup. Weather is not fetched automatically or added to
+  beacons.
 
 ## Desktop interface
 
-- Operational tabs: Overview, Chat, Beacon, Ping, and BBS.
-- Separate Setup window with Radio, Audio, User, GPS, and Reporting tabs.
-- Movable, floatable, closable, and resizable Navigator and Activity docks.
+- Unified operator console with Chat as the central surface and dockable Station
+  Status, Beacon, Ping, Location, transfer-in-Chat, PSK Reporter Activity, BBS,
+  Radio Frequency, and Activity views. Station Status includes Mercury/TNC state,
+  modem sync, TX/RX, SNR, bitrate, frequency, peer, current GRID, next-beacon
+  countdown or paused state, and workflow state.
+- Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:
+  slow blinking green for receive and steady red for transmit.
+- Separate Setup window with Radio, Audio, User, GPS, Reporting, and Weather tabs.
+- Movable, floatable, closable, and resizable Activity dock.
 - Movable, floatable, closable, and resizable read-only Radio Frequency dock.
-- Reorderable workflow tabs and persistent window, dock, toolbar, tab, theme,
-  scale, Setup-window, and GPS-port settings.
+- Persistent window, dock, toolbar, theme, scale, Setup-window, and GPS-port
+  settings, with resettable dock placement, visibility, tabification, and sizes.
 - System, light, and dark themes with macOS and Windows style presets.
 - Native MSP application name and icon in packaged macOS and Windows builds.
 - No general waterfall, spectrum, oscilloscope, or constellation display.
@@ -115,8 +133,9 @@ Mercury internals.
 - Modem TX gain is adjustable from -20 through 0 dB through Mercury's documented
   `set_tx_gain` WebSocket command.
 - Mercury's reported TX peak is displayed in dBFS.
-- The operator must acknowledge RF transmission. The test requires saved station
-  identity, is blocked during an active/linking ARQ session, and stops on link,
+- The control is explicitly named **TX Level Test** and therefore carries no
+  redundant RF-warning checkbox. The test requires saved station identity, is
+  blocked during an active/linking ARQ session, and stops on link,
   telemetry loss, Setup closure, application shutdown, or explicit Stop.
 - Mercury remains responsible for PTT, waveform generation, gain application, and
   completing any frame already accepted for transmission.
@@ -138,6 +157,10 @@ Mercury internals.
   pinned, checksum-verified Mercury compatibility runtime from the public
   `N4EAC/mercury` fork. That runtime includes the read-only Hamlib frequency
   telemetry required by MSP reporting and display.
+- `packaging/windows/MercurySkyPulse.iss` wraps that payload in a per-user Inno
+  Setup installer with MSP branding when Inno Setup 6 is present.
+- `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
+  the native target and bundles the supplied compatible Linux Mercury runtime.
 - `scripts/check_local.sh` is the required Mac-local quality gate. It validates
   dependencies, compiles sources, runs the aggregate tests, builds the macOS app,
   and verifies bundle identity, icon, signature, and Mercury runtime.
@@ -145,6 +168,13 @@ Mercury internals.
   collaboration, issues, and requested releases.
 
 ## Current validation priority
+
+The unified dockable operator console governed by ADR 0028 is implemented for
+field validation. Its purpose is at-a-glance awareness and simultaneous access to
+all operating functions without leaving Chat. Radio/audio/CAT, identity,
+GPS-source, manual-position, and reporting preferences remain in the separate
+Setup window. Validate panel density, restored layouts, peer targeting, and
+complete feature parity during the next two-station tests.
 
 Continue controlled two-station RF testing on representative Windows and macOS
 systems. Capture the persistent log from both stations and validate:

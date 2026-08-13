@@ -22,7 +22,9 @@ content with it through the BBS tab.
 ## Connect and use an open BBS
 
 1. Enter the station callsign under **Setup > User** and save it.
-2. In Chat, listen for a connection or connect to the other station.
+2. MSP automatically listens for incoming ARQ connections whenever Mercury's TNC
+   is ready; Chat shows the active listening identity. You may also connect to
+   the other station from Chat.
 3. Open BBS. When the remote BBS is unprotected, authentication is unnecessary.
 4. Use **Compose** for private mail or bulletins. Use **Files** to publish or
    request catalog files. Private mail is addressed but is not encrypted.

@@ -24,6 +24,7 @@ from application.licensing import LicenseStatus
 from application.endpoints import MercuryEndpointProfile, MercuryRunMode
 from application.radio import RadioStationService, TxLevelTestService
 from application.psk_reporter import PskReporterService
+from application.weather import WeatherService
 from persistence.chat_repository import ChatRepository
 from platform_runtime.image_processor import ImageProcessor
 from platform_runtime.gps_receiver import GpsReceiver
@@ -44,6 +45,7 @@ from platform_runtime.macos_application import (
     set_macos_program_name,
 )
 from platform_runtime.psk_reporter import PskReporterUploader
+from platform_runtime.weather_provider import WttrWeatherProvider
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
@@ -177,6 +179,12 @@ def main() -> int:
         beacon_service, mercury_telemetry, repository, PskReporterUploader(),
         QCoreApplication.applicationVersion(),
     )
+    weather_service = WeatherService(repository, WttrWeatherProvider())
+    location_service.current_changed.connect(weather_service.update_location)
+    beacon_service.config_changed.connect(weather_service.update_grid)
+    weather_service.update_grid(beacon_service.config)
+    if location_service.current is not None:
+        weather_service.update_location(location_service.current)
     ping_service = PingService(client)
     bbs_service = BbsService(
         client, repository, file_transfer_service, data_directory / "bbs-files"
@@ -218,6 +226,7 @@ def main() -> int:
         radio_service=radio_service,
         tx_level_service=tx_level_service,
         psk_reporter_service=psk_reporter_service,
+        weather_service=weather_service,
         bbs_service=bbs_service,
         web_snapshot=web_snapshot,
         web_server=web_server,

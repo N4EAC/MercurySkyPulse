@@ -26,6 +26,15 @@ Periodic attempts made without a ready broadcast interface enter a waiting state
 repeated error prompts. Manual Send Now reports failures immediately. Turn Off
 persists interval zero and stops the scheduler.
 
+Station Status reads the scheduler's actual remaining time and displays a live
+next-beacon countdown. Interval zero is shown as `Manual`, distinguishing disabled
+periodic scheduling from a failed beacon transport while retaining Send Now.
+Automatic beacons are paused throughout an active ARQ session. Transmitting a CQ
+starts or refreshes a 300-second pause; scheduling resumes with a fresh full
+interval only after the CQ hold has expired and no ARQ session is active. Station
+Status displays `Paused` while either hold applies. Explicit manual transmissions
+remain operator-controlled.
+
 ## Consequences
 
 - Receiving stations learn station identity, grid, version, capabilities, and

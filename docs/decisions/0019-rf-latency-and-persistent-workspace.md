@@ -25,9 +25,9 @@ visible peer identity, durable setup choices, and a restorable working layout.
   retain an injectable automatic policy for deterministic protocol tests.
 - Persist appearance, main/setup geometry, dock/toolbar state, central-tab order,
   and the selected GPS port in per-user application settings. Do not auto-start GPS.
-- Keep Navigator and Activity as movable/resizable docks, the command bar as a
-  movable toolbar, and make the central workflow tabs reorderable. Central workflow
-  pages remain tabs rather than independent floating windows.
+- Keep Activity as a movable/resizable dock, the command bar as a movable toolbar,
+  and make the central workflow tabs reorderable. The later removal of the unused
+  Navigator and the planned composable operator workspace are recorded in ADR 0028.
 - Log identifiers, state transitions, offsets, queue sizes, and outcomes, but never
   message bodies, file contents, passwords, or authentication proofs.
 

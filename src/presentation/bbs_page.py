@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from .time_format import format_utc_timestamp
+
 
 class BbsPage(QWidget):
     folder_requested = Signal(str)
@@ -263,7 +265,8 @@ class BbsPage(QWidget):
         for message in messages:
             target = f" → {message.recipient}" if message.recipient else ""
             self.messages.addItem(
-                f"{message.subject}\n{message.sender}{target} · {message.created_at}"
+                f"{message.subject}\n{message.sender}{target} · "
+                f"{format_utc_timestamp(message.created_at)}"
             )
         self.message_body.clear()
 
@@ -289,7 +292,8 @@ class BbsPage(QWidget):
             self.message_body.setPlainText(
                 f"Subject: {message.subject}\nFrom: {message.sender}\n"
                 f"To: {message.recipient or 'All stations'}\n"
-                f"Status: {message.status}\nDate: {message.created_at}\n\n"
+                f"Status: {message.status}\n"
+                f"Date: {format_utc_timestamp(message.created_at)}\n\n"
                 f"{message.body}"
             )
 

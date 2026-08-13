@@ -15,6 +15,7 @@ from application_protocol.beacon import CAPABILITIES, normalize_callsign
 
 
 INTERVALS_MINUTES = (0, 1, 5, 10, 15, 30, 60)
+CQ_BEACON_HOLD_MS = 300_000
 GRID = re.compile(r"^[A-R]{2}\d{2}(?:[A-X]{2}(?:\d{2})?)?$")
 CAPABILITY = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 DEFAULT_BEACON_CAPABILITIES = tuple(CAPABILITIES)
@@ -30,6 +31,14 @@ class Beacon:
     latitude: float | None = None
     longitude: float | None = None
     gps_timestamp: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CqCall:
+    callsign: str
+    grid: str
+    software_version: str
+    timestamp: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +60,7 @@ class BeaconService(QObject):
     config_changed = Signal(object)
     state_changed = Signal(str)
     beacon_received = Signal(object)
+    cq_received = Signal(object)
     error_received = Signal(str)
 
     def __init__(
@@ -72,7 +82,13 @@ class BeaconService(QObject):
         self.auto_timer = auto_timer
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._timer_fired)
+        self._cq_hold_timer = QTimer(self)
+        self._cq_hold_timer.setSingleShot(True)
+        self._cq_hold_timer.timeout.connect(self._cq_hold_expired)
+        self._cq_hold_active = False
+        self._session_connected = False
         client.beacon_received.connect(self._on_beacon)
+        client.cq_received.connect(self._on_cq)
         client.error_received.connect(self.error_received)
 
     def start(self) -> None:
@@ -82,6 +98,8 @@ class BeaconService(QObject):
 
     def stop(self) -> None:
         self._timer.stop()
+        self._cq_hold_timer.stop()
+        self._cq_hold_active = False
         self.client.stop()
         self.state_changed.emit("stopped")
 
@@ -126,15 +144,59 @@ class BeaconService(QObject):
         if location.source == "gps":
             self.latest_gps = location
 
+    def milliseconds_until_next(self) -> int | None:
+        """Return the live periodic deadline, or None in manual mode."""
+        if self.config.interval_minutes == 0 or self.periodic_paused:
+            return None
+        remaining = self._timer.remainingTime()
+        return remaining if remaining >= 0 else self.config.interval_minutes * 60 * 1000
+
     def send_now(self) -> None:
         try:
             self._transmit()
         except (RuntimeError, ValueError) as error:
             self.error_received.emit(str(error))
 
+    def call_cq(self) -> None:
+        try:
+            if not self.config.callsign or not self.config.grid:
+                raise ValueError("Save the station callsign and grid before calling CQ")
+            call = CqCall(
+                self.config.callsign,
+                self.config.grid,
+                self.software_version,
+                self._now(),
+            )
+            self.client.send_cq(call)
+            self.state_changed.emit("cq-sent")
+            self._cq_hold_active = True
+            self._cq_hold_timer.setInterval(CQ_BEACON_HOLD_MS)
+            if self.auto_timer:
+                self._cq_hold_timer.start()
+            self._schedule()
+        except (RuntimeError, ValueError) as error:
+            self.error_received.emit(str(error))
+
     def transmit_test_beacon(self) -> None:
         """Transmit one normal, real-identity beacon or raise to the test owner."""
         self._transmit()
+
+    @property
+    def periodic_paused(self) -> bool:
+        """Whether automatic beacons are held for CQ discovery or an ARQ QSO."""
+        return self._session_connected or self._cq_hold_active
+
+    def set_session_connected(self, connected: bool) -> None:
+        """Pause periodic broadcast traffic while Mercury has an ARQ session."""
+        connected = bool(connected)
+        if connected == self._session_connected:
+            return
+        self._session_connected = connected
+        self._schedule()
+
+    def _cq_hold_expired(self) -> None:
+        self._cq_hold_active = False
+        self._schedule()
 
     def _timer_fired(self) -> None:
         try:
@@ -168,10 +230,23 @@ class BeaconService(QObject):
     def _on_beacon(self, beacon: Beacon) -> None:
         self.beacon_received.emit(beacon)
 
+    def _on_cq(self, cq: CqCall) -> None:
+        try:
+            received = datetime.fromisoformat(cq.timestamp)
+            age = (datetime.now(UTC) - received.astimezone(UTC)).total_seconds()
+            if age < -30 or age > 300:
+                raise ValueError("CQ timestamp is outside the five-minute window")
+            if cq.callsign != self.config.callsign:
+                self.cq_received.emit(cq)
+        except (TypeError, ValueError) as error:
+            self.error_received.emit(f"Invalid CQ call: {error}")
+
     def _schedule(self) -> None:
         self._timer.stop()
         if self.config.interval_minutes == 0:
             self.state_changed.emit("off")
+        elif self.periodic_paused:
+            self.state_changed.emit("paused")
         else:
             self._timer.setInterval(self.config.interval_minutes * 60 * 1000)
             if self.auto_timer:

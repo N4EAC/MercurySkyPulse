@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 import unittest
 
-from application.beacon import Beacon
-from application_protocol.beacon import decode_beacon, encode_beacon
+from application.beacon import Beacon, CqCall
+from application_protocol.beacon import decode_beacon, decode_cq, encode_beacon, encode_cq
 from transport.mercury.beacon import KissDecoder, kiss_frame
 
 
@@ -30,6 +30,14 @@ class BeaconBroadcastContractTests(unittest.TestCase):
         for byte in framed:
             decoded.extend(decoder.feed(bytes((byte,))))
         self.assertEqual(decoded, [payload])
+
+    def test_compact_cq_round_trip_is_bounded(self) -> None:
+        cq = CqCall("N0CALL", "FN30AS", "0.1.0", datetime.now(UTC).isoformat())
+        encoded = encode_cq(cq)
+        self.assertLessEqual(len(encoded), 67)
+        decoded = decode_cq(encoded)
+        self.assertEqual(decoded.callsign, "N0CALL")
+        self.assertEqual(decoded.grid, "FN30AS")
 
     def test_invalid_beacon_is_rejected(self) -> None:
         with self.assertRaises(ValueError):

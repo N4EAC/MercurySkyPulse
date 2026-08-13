@@ -405,6 +405,27 @@ class ChatRepository:
         ).fetchall()
         return [Conversation(*row) for row in rows]
 
+    def delete_conversation(self, conversation_id: int) -> bool:
+        with self._connection:
+            cursor = self._connection.execute(
+                "DELETE FROM conversations WHERE id=?", (int(conversation_id),)
+            )
+        return cursor.rowcount > 0
+
+    def delete_empty_conversations_before(self, cutoff: str) -> int:
+        """Remove stale connection attempts while preserving every message history."""
+        with self._connection:
+            cursor = self._connection.execute(
+                """DELETE FROM conversations
+                   WHERE updated_at < ?
+                     AND NOT EXISTS (
+                         SELECT 1 FROM messages
+                         WHERE messages.conversation_id=conversations.id
+                     )""",
+                (cutoff,),
+            )
+        return max(0, cursor.rowcount)
+
     def save_message(self, message: ChatMessage) -> None:
         with self._connection:
             self._connection.execute(
