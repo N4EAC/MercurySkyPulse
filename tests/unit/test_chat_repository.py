@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import UTC, datetime, timedelta
 import sqlite3
 from tempfile import TemporaryDirectory
 import unittest
@@ -150,6 +151,40 @@ class ChatRepositoryTests(unittest.TestCase):
             repository.list_messages(conversation.id)[0].status,
             MessageStatus.FAILED,
         )
+        repository.close()
+
+    def test_delete_conversation_cascades_messages(self) -> None:
+        repository = ChatRepository(":memory:")
+        conversation = repository.get_or_create_conversation(
+            "N0CALL", "K1ABC", "2026-01-01T00:00:00+00:00"
+        )
+        repository.save_message(ChatMessage(
+            "id-1", conversation.id, MessageDirection.INCOMING, "Hello",
+            "2026-01-01T00:01:00+00:00", MessageStatus.RECEIVED,
+        ))
+        self.assertTrue(repository.delete_conversation(conversation.id))
+        self.assertEqual(repository.list_conversations(), [])
+        self.assertEqual(repository.list_messages(conversation.id), [])
+        repository.close()
+
+    def test_cleanup_removes_only_old_empty_connection_attempts(self) -> None:
+        repository = ChatRepository(":memory:")
+        old = (datetime.now(UTC) - timedelta(days=31)).isoformat()
+        recent = datetime.now(UTC).isoformat()
+        empty = repository.get_or_create_conversation("N0CALL", "K1OLD", old)
+        kept = repository.get_or_create_conversation("N0CALL", "K1KEPT", old)
+        repository.save_message(ChatMessage(
+            "kept", kept.id, MessageDirection.INCOMING, "History", old,
+            MessageStatus.RECEIVED,
+        ))
+        repository.get_or_create_conversation("N0CALL", "K1NEW", recent)
+        removed = repository.delete_empty_conversations_before(
+            (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        )
+        self.assertEqual(removed, 1)
+        calls = [item.remote_call for item in repository.list_conversations()]
+        self.assertNotIn(empty.remote_call, calls)
+        self.assertEqual(set(calls), {"K1KEPT", "K1NEW"})
         repository.close()
 
 

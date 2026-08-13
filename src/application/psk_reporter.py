@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 import random
 import time
@@ -96,7 +96,7 @@ class PskReporterService(QObject):
                     "enabled": self.config.enabled,
                     "antenna": self.config.antenna,
                 }),
-                datetime.now().astimezone().isoformat(),
+                datetime.now(UTC).isoformat(),
             )
             self.config_changed.emit(self.config)
             self.state_changed.emit("enabled" if enabled else "disabled")
@@ -193,7 +193,7 @@ class PskReporterService(QObject):
         self._log(f"SENT reports={count} transport=UDP")
 
     def _log(self, message: str) -> None:
-        timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+        timestamp = datetime.now(UTC).isoformat(timespec="seconds")
         self.activity_logged.emit(f"{timestamp} {message}")
 
     def _status_received(self, status) -> None:

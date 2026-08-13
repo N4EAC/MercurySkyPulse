@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from PySide6.QtCore import Qt, QSize, QSettings, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeySequence
@@ -12,13 +13,14 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QStyle,
-    QTabWidget,
     QToolBar,
+    QHBoxLayout,
+    QWidget,
 )
 
 from application.chat_service import ChatService
 from application.file_transfer import FileTransferService
-from application.location import LocationService
+from application.location import LocationService, to_maidenhead
 from application.beacon import BeaconService
 from application.ping import PingService
 from application.radio import RadioStationService
@@ -35,9 +37,10 @@ from .ping_page import PingPage
 from .setup_window import SetupWindow
 from .panels import (
     ActivityPanel,
-    Dashboard,
     FrequencyPanel,
-    create_navigation_panel,
+    OperationalLocationPanel,
+    ReportingActivityPanel,
+    StationSummaryPanel,
 )
 from .themes import Appearance, PlatformPreset, Theme, apply_appearance
 from platform_runtime import MercuryProcessConfig, MercuryProcessSupervisor
@@ -58,6 +61,7 @@ class MainWindow(QMainWindow):
         radio_service: RadioStationService | None = None,
         tx_level_service=None,
         psk_reporter_service=None,
+        weather_service=None,
         bbs_service: BbsService | None = None,
         web_snapshot: WebDashboardSnapshot | None = None,
         web_server: LocalWebServer | None = None,
@@ -75,7 +79,6 @@ class MainWindow(QMainWindow):
         self._appearance = self._load_appearance()
         apply_appearance(self._app, self._appearance)
         self._docks: dict[str, QDockWidget] = {}
-        self.dashboard = Dashboard()
         self.chat_page = ChatPage()
         self.beacon_service = beacon_service
         self.beacon_page = BeaconPage(
@@ -86,6 +89,7 @@ class MainWindow(QMainWindow):
         self.radio_service = radio_service
         self.tx_level_service = tx_level_service
         self.psk_reporter_service = psk_reporter_service
+        self.weather_service = weather_service
         self.bbs_service = bbs_service
         self.bbs_page = BbsPage()
         self.web_snapshot = web_snapshot
@@ -97,6 +101,12 @@ class MainWindow(QMainWindow):
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
         self.frequency_panel = FrequencyPanel()
+        self.station_summary = StationSummaryPanel()
+        self.location_panel = OperationalLocationPanel()
+        self.reporting_panel = ReportingActivityPanel()
+        self._beacon_countdown_timer = QTimer(self)
+        self._beacon_countdown_timer.setInterval(1000)
+        self._beacon_countdown_timer.timeout.connect(self._update_beacon_countdown)
         self.endpoint_profile = endpoint_profile or MercuryEndpointProfile.default()
         self.supervisor = supervisor or MercuryProcessSupervisor(
             MercuryProcessConfig(), self
@@ -107,7 +117,7 @@ class MainWindow(QMainWindow):
         self.setup_window = (
             SetupWindow(
                 radio_service, beacon_service, location_service,
-                tx_level_service, psk_reporter_service, self,
+                tx_level_service, psk_reporter_service, weather_service, self,
             )
             if radio_service and beacon_service and location_service else None
         )
@@ -126,15 +136,7 @@ class MainWindow(QMainWindow):
             | QMainWindow.DockOption.AllowTabbedDocks
             | QMainWindow.DockOption.GroupedDragging
         )
-        self.tabs = QTabWidget()
-        self.tabs.setMovable(True)
-        self.tabs.addTab(self.dashboard, "Overview")
-        self.tabs.addTab(self.chat_page, "Chat")
-        self.tabs.addTab(self.beacon_page, "Beacon")
-        self.tabs.addTab(self.ping_page, "Ping")
-        self.tabs.addTab(self.bbs_page, "BBS")
-        self._restore_tab_order()
-        self.setCentralWidget(self.tabs)
+        self.setCentralWidget(self.chat_page)
 
         self._create_docks()
         self._create_toolbar()
@@ -144,6 +146,7 @@ class MainWindow(QMainWindow):
         self._connect_chat_service()
         self._connect_beacon_service()
         self._connect_ping_service()
+        self._connect_operational_panels()
         if self.radio_service:
             self.radio_service.error_received.connect(
                 lambda error: self.activity_panel.append_log(f"Radio error: {error}")
@@ -152,12 +155,29 @@ class MainWindow(QMainWindow):
             self.location_service.error_received.connect(
                 lambda error: self.activity_panel.append_log(f"Location error: {error}")
             )
+        if self.weather_service:
+            self.chat_page.weather_requested.connect(
+                self.weather_service.fetch_for_chat
+            )
+            self.weather_service.chat_report_ready.connect(
+                self.chat_page.insert_composer_text
+            )
+            self.weather_service.enabled_changed.connect(
+                self.chat_page.set_weather_enabled
+            )
+            self.weather_service.state_changed.connect(
+                self.chat_page.set_weather_state
+            )
+            self.weather_service.error_received.connect(
+                lambda error: self.activity_panel.append_log(f"Weather error: {error}")
+            )
         self._connect_bbs_service()
         self._connect_web_snapshot()
+        self._default_layout_state = self._build_default_layout_state()
         if not self.restoreGeometry(self._settings.value("main/geometry", b"")):
             self.resize(1280, 820)
-        if not self.restoreState(self._settings.value("main/state", b""), 1):
-            self._reset_layout(clear_saved=False)
+        if not self.restoreState(self._settings.value("main/state", b""), 6):
+            self.restoreState(self._default_layout_state, 6)
         if auto_start:
             QTimer.singleShot(0, self._start_mercury)
 
@@ -184,17 +204,11 @@ class MainWindow(QMainWindow):
         return dock
 
     def _create_docks(self) -> None:
-        self.navigation_panel = create_navigation_panel()
-        self.navigation_panel.destination_requested.connect(
-            self._navigate_workspace
+        summary = self._make_dock(
+            "summary", "Station Status", self.station_summary,
+            Qt.DockWidgetArea.TopDockWidgetArea, 640,
         )
-        self._make_dock(
-            "navigation",
-            "Navigator",
-            self.navigation_panel,
-            Qt.DockWidgetArea.LeftDockWidgetArea,
-            190,
-        )
+        summary.setMinimumHeight(180)
         activity = self._make_dock(
             "activity",
             "Activity",
@@ -211,21 +225,27 @@ class MainWindow(QMainWindow):
             220,
         )
         frequency.setMinimumHeight(150)
-
-    def _navigate_workspace(self, destination: str) -> None:
-        key = destination.casefold()
-        if key in {"overview", "signal"}:
-            self.tabs.setCurrentWidget(self.dashboard)
-            QTimer.singleShot(0, lambda: self.dashboard.show_section(key))
-        elif key == "activity":
-            self._docks["activity"].show()
-            self._docks["activity"].raise_()
-            self.activity_panel.output.setFocus()
-        elif key == "diagnostics":
-            self._docks["activity"].show()
-            self._docks["activity"].raise_()
-            self.activity_panel.output.setFocus()
-            self.statusBar().showMessage("Activity diagnostics shown", 2500)
+        beacon = self._make_dock(
+            "beacon", "Beacon", self.beacon_page,
+            Qt.DockWidgetArea.RightDockWidgetArea, 320,
+        )
+        ping = self._make_dock(
+            "ping", "Ping", self.ping_page,
+            Qt.DockWidgetArea.RightDockWidgetArea, 320,
+        )
+        location = self._make_dock(
+            "location", "Location", self.location_panel,
+            Qt.DockWidgetArea.RightDockWidgetArea, 320,
+        )
+        reporting = self._make_dock(
+            "reporting", "PSK Reporter Activity", self.reporting_panel,
+            Qt.DockWidgetArea.BottomDockWidgetArea, 360,
+        )
+        bbs = self._make_dock(
+            "bbs", "BBS", self.bbs_page,
+            Qt.DockWidgetArea.BottomDockWidgetArea, 560,
+        )
+        bbs.setMinimumSize(720, 520)
 
     def _create_toolbar(self) -> None:
         toolbar = QToolBar("Main", self)
@@ -244,9 +264,49 @@ class MainWindow(QMainWindow):
         toolbar.addAction(connect_action)
         toolbar.addSeparator()
 
-        for key in ("navigation", "frequency", "activity"):
+        for key in (
+            "summary", "frequency", "beacon", "ping",
+            "location", "reporting", "bbs", "activity",
+        ):
             toolbar.addAction(self._docks[key].toggleViewAction())
         self._toolbar = toolbar
+
+    @staticmethod
+    def _build_default_layout_state():
+        """Build a clean dock-state template without mutating the live window."""
+        template = QMainWindow()
+        template.resize(1280, 820)
+        template.setCentralWidget(QWidget())
+        docks: dict[str, QDockWidget] = {}
+        areas = {
+            "summary": Qt.DockWidgetArea.TopDockWidgetArea,
+            "frequency": Qt.DockWidgetArea.RightDockWidgetArea,
+            "beacon": Qt.DockWidgetArea.RightDockWidgetArea,
+            "ping": Qt.DockWidgetArea.RightDockWidgetArea,
+            "location": Qt.DockWidgetArea.RightDockWidgetArea,
+            "activity": Qt.DockWidgetArea.BottomDockWidgetArea,
+            "reporting": Qt.DockWidgetArea.BottomDockWidgetArea,
+            "bbs": Qt.DockWidgetArea.BottomDockWidgetArea,
+        }
+        for key, area in areas.items():
+            dock = QDockWidget(template)
+            dock.setObjectName(f"{key}Dock")
+            dock.setWidget(QWidget())
+            template.addDockWidget(area, dock)
+            docks[key] = dock
+        template.tabifyDockWidget(docks["beacon"], docks["ping"])
+        template.tabifyDockWidget(docks["ping"], docks["location"])
+        template.tabifyDockWidget(docks["activity"], docks["reporting"])
+        docks["beacon"].raise_()
+        docks["activity"].raise_()
+        template.resizeDocks([docks["frequency"]], [240], Qt.Orientation.Horizontal)
+        template.resizeDocks([docks["activity"]], [185], Qt.Orientation.Vertical)
+        docks["bbs"].setFloating(True)
+        docks["bbs"].resize(960, 650)
+        docks["bbs"].move(120, 90)
+        for key in ("activity", "reporting", "bbs"):
+            docks[key].hide()
+        return template.saveState(6)
 
     def _create_status_bar(self) -> None:
         self.statusBar().showMessage("Starting Mercury")
@@ -254,11 +314,40 @@ class MainWindow(QMainWindow):
         self._telemetry_status.setObjectName("Muted")
         self._engine_status = QLabel("Mercury: starting")
         self._engine_status.setObjectName("StatusPill")
+        self._tx_rx_led = QLabel()
+        self._tx_rx_led.setFixedSize(10, 10)
+        self._tx_rx_led.setAccessibleName("Radio receive indicator")
+        self._radio_direction = ""
+        self._rx_led_visible = False
+        self._rx_blink_timer = QTimer(self)
+        self._rx_blink_timer.setInterval(1000)
+        self._rx_blink_timer.timeout.connect(self._toggle_rx_indicator)
+        self._set_tx_rx_indicator("rx")
+        tx_rx_container = QWidget()
+        tx_rx_layout = QHBoxLayout(tx_rx_container)
+        tx_rx_layout.setContentsMargins(8, 0, 8, 0)
+        tx_rx_layout.addWidget(self._tx_rx_led)
+        self._tx_rx_container = tx_rx_container
+        self.statusBar().addPermanentWidget(tx_rx_container)
         self.statusBar().addPermanentWidget(self._telemetry_status)
         self.statusBar().addPermanentWidget(self._engine_status)
         self._license_status = QLabel(f"Edition: {self.license_state.edition.title()}")
         self._license_status.setObjectName("Muted")
         self.statusBar().addPermanentWidget(self._license_status)
+        self._utc_status = QLabel()
+        self._utc_status.setObjectName("Muted")
+        self._utc_status.setToolTip("Coordinated Universal Time")
+        self.statusBar().addPermanentWidget(self._utc_status)
+        self._utc_status_timer = QTimer(self)
+        self._utc_status_timer.setInterval(1000)
+        self._utc_status_timer.timeout.connect(self._update_utc_status)
+        self._update_utc_status()
+        self._utc_status_timer.start()
+
+    def _update_utc_status(self) -> None:
+        self._utc_status.setText(
+            datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+        )
 
     def _create_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
@@ -411,27 +500,7 @@ class MainWindow(QMainWindow):
 
     def _reset_layout(self, checked: bool = False, clear_saved: bool = True) -> None:
         del checked
-        for dock in self._docks.values():
-            dock.setFloating(False)
-            dock.show()
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._docks["navigation"])
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._docks["frequency"])
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._docks["activity"])
-        self.resizeDocks(
-            [self._docks["frequency"]],
-            [240],
-            Qt.Orientation.Horizontal,
-        )
-        self.resizeDocks(
-            [self._docks["navigation"]],
-            [220],
-            Qt.Orientation.Horizontal,
-        )
-        self.resizeDocks(
-            [self._docks["activity"]],
-            [185],
-            Qt.Orientation.Vertical,
-        )
+        self.restoreState(self._default_layout_state, 6)
         self.statusBar().showMessage("Panel layout reset", 2500)
         if clear_saved:
             self._settings.remove("main/geometry")
@@ -494,8 +563,11 @@ class MainWindow(QMainWindow):
         self.telemetry.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Telemetry error: {error}")
         )
-        self.telemetry.status_received.connect(self.dashboard.update_status)
         self.telemetry.status_received.connect(self.frequency_panel.update_status)
+        self.telemetry.status_received.connect(self.station_summary.update_status)
+        self.telemetry.status_received.connect(
+            lambda status: self._set_tx_rx_indicator(status.direction)
+        )
         if self.ping_service:
             self.telemetry.status_received.connect(self.ping_service.update_status)
         if hasattr(self.telemetry, "set_spectrum_processing_enabled"):
@@ -534,7 +606,16 @@ class MainWindow(QMainWindow):
         self.chat_page.disconnect_requested.connect(service.disconnect_station)
         self.chat_page.send_requested.connect(service.send_text)
         self.chat_page.conversation_selected.connect(service.select_conversation)
+        self.chat_page.conversation_delete_requested.connect(
+            service.delete_conversation
+        )
         service.state_changed.connect(self.chat_page.set_state)
+        service.listening_as_changed.connect(
+            self.chat_page.set_listening_identity
+        )
+        service.state_changed.connect(
+            lambda state: self.station_summary.set_value("link", state.title())
+        )
         service.state_changed.connect(
             lambda state: self.activity_panel.append_log(f"ARQ state: {state}")
         )
@@ -557,10 +638,12 @@ class MainWindow(QMainWindow):
             )
         )
         service.client.session_connected.connect(self.chat_page.set_connected_peer)
+        service.client.session_connected.connect(self._session_connected)
         service.client.session_disconnected.connect(
             lambda: self.activity_panel.append_log("ARQ session disconnected")
         )
         service.client.session_disconnected.connect(self.chat_page.set_disconnected)
+        service.client.session_disconnected.connect(self._session_disconnected)
         service.client.message_sent.connect(
             lambda message_id: self.activity_panel.append_log(
                 f"Chat message queued id={message_id}"
@@ -586,6 +669,11 @@ class MainWindow(QMainWindow):
                 f"BBS event kind={envelope.kind} id={envelope.message_id}"
             )
         )
+        self.chat_page.answer_cq_requested.connect(
+            lambda remote: service.connect_station(
+                self.chat_page.local_call.text(), remote
+            )
+        )
         if self.file_transfer_service:
             transfers = self.file_transfer_service
             self.chat_page.file_requested.connect(transfers.send_file)
@@ -594,6 +682,7 @@ class MainWindow(QMainWindow):
             self.chat_page.transfer_folder_requested.connect(self._open_transfer_folder)
             transfers.transfers_changed.connect(self.chat_page.set_transfers)
             transfers.transfers_changed.connect(self._log_transfers)
+            transfers.transfers_changed.connect(self._update_transfer_summary)
             transfers.incoming_offer.connect(self._confirm_incoming_file)
             transfers.transfer_completed.connect(self._transfer_completed)
             transfers.error_received.connect(self.chat_page.show_error)
@@ -622,12 +711,17 @@ class MainWindow(QMainWindow):
             self.radio_service.start()
         if self.psk_reporter_service:
             self.psk_reporter_service.start()
+        if self.weather_service:
+            self.weather_service.start()
 
     def _connect_beacon_service(self) -> None:
         if not self.beacon_service:
             self.beacon_page.setEnabled(False)
+            self.chat_page.call_cq_button.setEnabled(False)
+            self.chat_page.answer_cq_button.setEnabled(False)
             return
         service = self.beacon_service
+        self.chat_page.cq_requested.connect(service.call_cq)
         self.beacon_page.configure_requested.connect(
             lambda interval, include_gps: service.configure(
                 service.config.callsign, service.config.grid, interval, include_gps
@@ -637,17 +731,45 @@ class MainWindow(QMainWindow):
         self.beacon_page.disable_requested.connect(service.disable)
         service.config_changed.connect(self.beacon_page.set_config)
         service.config_changed.connect(self._apply_station_callsign_defaults)
+        service.config_changed.connect(self._station_grid_config_changed)
+        service.config_changed.connect(lambda _config: self._sync_beacon_countdown())
         service.state_changed.connect(self.beacon_page.set_state)
+        service.state_changed.connect(lambda _state: self._sync_beacon_countdown())
         service.state_changed.connect(
             lambda state: self.activity_panel.append_log(f"Beacon state: {state}")
         )
         service.beacon_received.connect(self.beacon_page.set_received)
+        service.cq_received.connect(self.chat_page.add_cq_caller)
+        service.cq_received.connect(
+            lambda cq: self.activity_panel.append_log(
+                f"CQ received callsign={cq.callsign} grid={cq.grid}"
+            )
+        )
         service.error_received.connect(self.beacon_page.show_error)
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Beacon error: {error}")
         )
         if self.location_service:
             self.location_service.current_changed.connect(service.update_location)
+        self._sync_beacon_countdown()
+
+    def _sync_beacon_countdown(self) -> None:
+        if not self.beacon_service or self.beacon_service.config.interval_minutes == 0:
+            self._beacon_countdown_timer.stop()
+            self.station_summary.set_next_beacon(None)
+            return
+        if self.beacon_service.periodic_paused:
+            self._beacon_countdown_timer.stop()
+            self.station_summary.set_next_beacon_paused()
+            return
+        self._update_beacon_countdown()
+        self._beacon_countdown_timer.start()
+
+    def _update_beacon_countdown(self) -> None:
+        if self.beacon_service:
+            self.station_summary.set_next_beacon(
+                self.beacon_service.milliseconds_until_next()
+            )
 
     def _apply_station_callsign_defaults(self, config) -> None:
         callsign = config.callsign.strip()
@@ -655,6 +777,8 @@ class MainWindow(QMainWindow):
             return
         self.chat_page.set_station_callsign_once(callsign)
         self.bbs_page.set_station_callsign_once(callsign)
+        if self.chat_service:
+            self.chat_service.configure_auto_listen(callsign)
 
     def _connect_ping_service(self) -> None:
         if not self.ping_service:
@@ -671,6 +795,66 @@ class MainWindow(QMainWindow):
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Ping error: {error}")
         )
+
+    def _connect_operational_panels(self) -> None:
+        if self.location_service:
+            location = self.location_service
+            self.location_panel.share_requested.connect(location.share)
+            location.current_changed.connect(self.location_panel.set_current)
+            location.current_changed.connect(self._position_summary_changed)
+            location.shared_received.connect(self.location_panel.set_received)
+            location.error_received.connect(self.location_panel.show_error)
+            if location.current is not None:
+                self.location_panel.set_current(location.current)
+                self._position_summary_changed(location.current)
+        else:
+            self.location_panel.setEnabled(False)
+        if self.psk_reporter_service:
+            reporter = self.psk_reporter_service
+            reporter.state_changed.connect(self.reporting_panel.set_state)
+            reporter.state_changed.connect(self._reporting_state_changed)
+            reporter.activity_logged.connect(self.reporting_panel.append_activity)
+            reporter.error_received.connect(self.reporting_panel.show_error)
+        else:
+            self.reporting_panel.setEnabled(False)
+
+    def _session_connected(self, source: str, destination: str, _bandwidth: int) -> None:
+        local = self.chat_page.local_call.text().strip().upper()
+        peer = destination if source == local else source
+        self.station_summary.set_value("peer", peer or "Unknown")
+        self.station_summary.set_value("link", "Connected")
+        self.location_panel.set_peer(peer)
+        if self.beacon_service:
+            self.beacon_service.set_session_connected(True)
+
+    def _session_disconnected(self) -> None:
+        self.station_summary.set_value("peer", "None")
+        self.station_summary.set_value("link", "Disconnected")
+        self.location_panel.set_peer("")
+        if self.beacon_service:
+            self.beacon_service.set_session_connected(False)
+
+    def _reporting_state_changed(self, state: str) -> None:
+        if state.startswith("queued-"):
+            value = f"{state.partition('-')[2]} queued"
+        elif state.startswith("sent-"):
+            value = f"{state.partition('-')[2]} sent"
+        elif state.startswith("frequency-"):
+            value = "Enabled"
+        else:
+            value = state.replace("-", " ").title()
+        self.station_summary.set_value("reporting", value)
+
+    def _position_summary_changed(self, location) -> None:
+        grid = to_maidenhead(location.latitude, location.longitude)
+        self.station_summary.set_value("grid", grid)
+
+    def _station_grid_config_changed(self, config) -> None:
+        if self.location_service and self.location_service.current is not None:
+            self._position_summary_changed(self.location_service.current)
+            return
+        grid = str(config.grid).strip().upper()
+        self.station_summary.set_value("grid", grid or "Unavailable")
 
     def _connect_bbs_service(self) -> None:
         if not self.bbs_service:
@@ -694,6 +878,9 @@ class MainWindow(QMainWindow):
         service.roles_changed.connect(self.bbs_page.set_roles)
         service.auth_changed.connect(self.bbs_page.set_auth)
         service.status_changed.connect(self.bbs_page.set_status)
+        service.status_changed.connect(
+            lambda state: self.station_summary.set_value("bbs", str(state))
+        )
         service.error_received.connect(self.bbs_page.show_error)
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"BBS error: {error}")
@@ -771,15 +958,44 @@ class MainWindow(QMainWindow):
         self.supervisor.stop()
 
     def _on_engine_state(self, state: str) -> None:
-        self.dashboard.set_engine_state(state)
+        self.station_summary.set_engine_state(state)
         self._engine_status.setText(f"Mercury: {state}")
         self.statusBar().showMessage(f"Mercury process: {state}", 3000)
         self.activity_panel.append_log(f"Mercury process state: {state}")
 
     def _on_telemetry_state(self, state: str) -> None:
-        self.dashboard.set_telemetry_state(state)
+        self.station_summary.set_telemetry_state(state)
         self._telemetry_status.setText(f"Telemetry: {state}")
         self.activity_panel.append_log(f"Telemetry state: {state}")
+
+    def _set_tx_rx_indicator(self, direction: str) -> None:
+        transmitting = direction == "tx"
+        state = "transmit" if transmitting else "receive"
+        changed = direction != self._radio_direction
+        self._radio_direction = direction
+        if transmitting:
+            self._rx_blink_timer.stop()
+            self._apply_radio_indicator_color("#e53935")
+        elif changed or not self._rx_blink_timer.isActive():
+            self._rx_led_visible = True
+            self._apply_radio_indicator_color("#2fbf71")
+            self._rx_blink_timer.start()
+        self._tx_rx_led.setToolTip(f"Radio {state}")
+        self._tx_rx_led.setAccessibleName(f"Radio {state} indicator")
+
+    def _toggle_rx_indicator(self) -> None:
+        if self._radio_direction == "tx":
+            return
+        self._rx_led_visible = not self._rx_led_visible
+        self._apply_radio_indicator_color(
+            "#2fbf71" if self._rx_led_visible else "transparent"
+        )
+
+    def _apply_radio_indicator_color(self, color: str) -> None:
+        border = "1px solid rgba(0, 0, 0, 90)" if color != "transparent" else "none"
+        self._tx_rx_led.setStyleSheet(
+            f"background-color: {color}; border: {border}; border-radius: 5px;"
+        )
 
     def _log_transfers(self, transfers) -> None:
         for transfer in transfers:
@@ -795,6 +1011,16 @@ class MainWindow(QMainWindow):
                 f"status={transfer.status} bytes={transfer.transferred}/{transfer.size} "
                 f"checksum={transfer.checksum[:12]}"
             )
+
+    def _update_transfer_summary(self, transfers) -> None:
+        if not transfers:
+            self.station_summary.set_value("transfer", "Idle")
+            return
+        transfer = transfers[-1]
+        label = str(transfer.status).replace("_", " ").title()
+        if transfer.size and transfer.status not in {"received", "duplicate"}:
+            label = f"{label} {transfer.progress}%"
+        self.station_summary.set_value("transfer", label)
 
     def _confirm_incoming_file(self, transfer) -> None:
         size = f"{transfer.size:,} bytes"
@@ -831,11 +1057,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
         self._settings.setValue("main/geometry", self.saveGeometry())
-        self._settings.setValue("main/state", self.saveState(1))
-        self._settings.setValue(
-            "main/tab_order",
-            [self.tabs.tabText(index) for index in range(self.tabs.count())],
-        )
+        self._settings.setValue("main/state", self.saveState(6))
         if self.setup_window:
             self._settings.setValue("setup/geometry", self.setup_window.saveGeometry())
         self._settings.sync()
@@ -879,13 +1101,3 @@ class MainWindow(QMainWindow):
         self._settings.setValue("appearance/platform", self._appearance.platform.value)
         self._settings.setValue("appearance/scale", self._appearance.scale)
         self._settings.sync()
-
-    def _restore_tab_order(self) -> None:
-        saved = self._settings.value("main/tab_order", [])
-        if isinstance(saved, str):
-            saved = [saved]
-        for target, label in enumerate(saved or []):
-            for current in range(target, self.tabs.count()):
-                if self.tabs.tabText(current) == label:
-                    self.tabs.tabBar().moveTab(current, target)
-                    break

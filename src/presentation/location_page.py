@@ -1,4 +1,4 @@
-"""Manual, GPS, APRS, and explicit location-sharing UI."""
+"""Manual position, GPS-source, retention, and export setup UI."""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ class LocationPage(QWidget):
     aprs_requested = Signal(str)
     gps_start_requested = Signal(str)
     gps_stop_requested = Signal()
-    share_requested = Signal()
     retention_requested = Signal(bool)
     export_requested = Signal(str)
 
@@ -37,7 +36,8 @@ class LocationPage(QWidget):
         title.setObjectName("PageTitle")
         root.addWidget(title)
         privacy = QLabel(
-            "Your position stays local until you explicitly choose Share Location."
+            "Configure the local position source here. Send Location is available "
+            "from the main operator console."
         )
         privacy.setObjectName("Muted")
         root.addWidget(privacy)
@@ -97,13 +97,7 @@ class LocationPage(QWidget):
         current_layout = QVBoxLayout(current_card)
         self.current = QLabel("No local position")
         self.current.setObjectName("SectionTitle")
-        self.received = QLabel("No shared station position received")
-        self.received.setWordWrap(True)
-        share = QPushButton("Share Location")
-        share.setObjectName("PrimaryButton")
         current_layout.addWidget(self.current)
-        current_layout.addWidget(self.received)
-        current_layout.addWidget(share)
         root.addWidget(current_card)
         root.addStretch(1)
 
@@ -117,7 +111,6 @@ class LocationPage(QWidget):
             lambda: self.gps_start_requested.emit(self.selected_serial_port())
         )
         stop_gps.clicked.connect(self.gps_stop_requested)
-        share.clicked.connect(self.share_requested)
         self.retain_history.toggled.connect(self.retention_requested)
         export.clicked.connect(self._choose_export)
 
@@ -160,12 +153,6 @@ class LocationPage(QWidget):
         )
         self.current.setText(
             f"Current: {location.aprs} · {location.source}{accuracy}"
-        )
-
-    def set_received(self, location) -> None:
-        self.received.setText(
-            f"Station shared: {location.aprs} "
-            f"({location.latitude:.6f}, {location.longitude:.6f})"
         )
 
     def set_gps_state(self, state: str) -> None:

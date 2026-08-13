@@ -38,3 +38,7 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0025 — Bounded real-beacon TX level test](0025-bounded-beacon-tx-level-test.md)
 - [0026 — Optional PSK Reporter reception uploads](0026-psk-reporter.md)
 - [0027 — GPL-3.0-or-later project license](0027-gpl-project-license.md)
+- [0028 — Unified dockable operator workspace](0028-unified-operator-workspace.md)
+- [0029 — Bounded broadcast CQ discovery](0029-broadcast-cq-discovery.md)
+- [0030 — Opt-in internet weather for chat composition](0030-opt-in-weather-chat.md)
+- [0031 — Native engineering packages wrap a bundled Mercury runtime](0031-native-engineering-packages.md)

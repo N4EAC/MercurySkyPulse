@@ -98,11 +98,23 @@ if errorlevel 1 (
     echo Corresponding source: https://github.com/N4EAC/mercury/tree/%MSP_MERCURY_COMMIT%
     echo License: GNU GPL-3.0; see LICENSE in this directory.
 ) > "dist\MercurySkyPulse\mercury\SOURCE.txt"
+copy /Y LICENSE "dist\MercurySkyPulse\LICENSE" >nul
+if errorlevel 1 (
+    echo ERROR: The MercurySkyPulse GPL license could not be copied into the package.
+    goto failed
+)
+
+call :build_installer
+if errorlevel 1 goto failed
 
 echo.
 echo Build complete: dist\MercurySkyPulse\MercurySkyPulse.exe
 echo Mercury included: dist\MercurySkyPulse\mercury\mercury.exe
-echo Copy the entire dist\MercurySkyPulse directory when testing another PC.
+if defined MSP_ISCC (
+    echo Installer complete: dist\installer\MercurySkyPulse-0.1.0-windows-x86_64-setup.exe
+) else (
+    echo Portable package complete. Copy the entire dist\MercurySkyPulse directory.
+)
 exit /b 0
 
 :find_python
@@ -161,6 +173,27 @@ if not exist "%MSP_MERCURY_RUNTIME%\mercury.exe" (
 )
 if not exist "%MSP_MERCURY_RUNTIME%\LICENSE" (
     echo ERROR: Verified Mercury archive did not contain its GPL license.
+    exit /b 1
+)
+exit /b 0
+
+:build_installer
+set "MSP_ISCC="
+where ISCC.exe >nul 2>nul
+if not errorlevel 1 set "MSP_ISCC=ISCC.exe"
+if not defined MSP_ISCC if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "MSP_ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if not defined MSP_ISCC if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "MSP_ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
+if not defined MSP_ISCC (
+    echo.
+    echo WARNING: Inno Setup 6 was not found; the portable package is complete,
+    echo          but no setup.exe was created. Install Inno Setup 6 and rerun:
+    echo          https://jrsoftware.org/isdl.php
+    exit /b 0
+)
+echo Building the Inno Setup installer...
+"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.0 packaging\windows\MercurySkyPulse.iss
+if errorlevel 1 (
+    echo ERROR: Inno Setup failed to create the Windows installer.
     exit /b 1
 )
 exit /b 0

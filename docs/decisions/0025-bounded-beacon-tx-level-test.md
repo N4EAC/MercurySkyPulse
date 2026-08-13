@@ -12,7 +12,9 @@ status, and the broadcast path used by MSP beacons.
 
 ## Decision
 
-- Add an explicitly acknowledged **TX Level Test** to Radio setup.
+- Add an explicitly named **TX Level Test** to Radio setup. The initial redundant
+  RF-warning checkbox was later removed for licensed amateur-radio operators;
+  starting the deliberately named control remains the explicit action.
 - Use the configured real callsign and GRID in normal MSP beacon frames. Never
   invent an identity or hide that the action transmits RF.
 - Send immediately and every three seconds, with scheduling stopped at 12 seconds.

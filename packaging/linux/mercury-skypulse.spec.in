@@ -1,0 +1,38 @@
+Name:           mercury-skypulse
+Version:        @RPM_VERSION@
+Release:        1%{?dist}
+Summary:        Mercury-based amateur-radio digital communications station
+License:        GPL-3.0-or-later
+URL:            https://github.com/N4EAC/MercurySkyPulse
+Source0:        mercury-skypulse-@VERSION@.tar.gz
+BuildArch:      x86_64
+Requires:       glibc, mesa-libEGL, mesa-libGL, libxkbcommon-x11
+
+%description
+MercurySkyPulse provides chat, beacon, ping, file transfer, BBS, location,
+reporting, and station controls through a bundled Mercury modem runtime.
+
+%prep
+%setup -q -n mercury-skypulse-@VERSION@
+
+%build
+
+%install
+mkdir -p %{buildroot}/opt/mercuryskypulse
+cp -a app/. %{buildroot}/opt/mercuryskypulse/
+mkdir -p %{buildroot}%{_bindir}
+ln -s /opt/mercuryskypulse/MercurySkyPulse %{buildroot}%{_bindir}/mercury-skypulse
+mkdir -p %{buildroot}%{_datadir}/applications
+install -m 0644 mercuryskypulse.desktop %{buildroot}%{_datadir}/applications/mercuryskypulse.desktop
+mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps
+install -m 0644 mercuryskypulse.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/mercuryskypulse.png
+
+%files
+/opt/mercuryskypulse
+%{_bindir}/mercury-skypulse
+%{_datadir}/applications/mercuryskypulse.desktop
+%{_datadir}/icons/hicolor/256x256/apps/mercuryskypulse.png
+
+%changelog
+* Thu Aug 13 2026 MercurySkyPulse contributors - @RPM_VERSION@-1
+- Initial Fedora engineering package

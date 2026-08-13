@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MercurySkyPulse
+Comment=Amateur-radio digital communications through Mercury
+Exec=/opt/mercuryskypulse/MercurySkyPulse
+Icon=mercuryskypulse
+Terminal=false
+Categories=Network;HamRadio;
+StartupNotify=true
+StartupWMClass=MercurySkyPulse

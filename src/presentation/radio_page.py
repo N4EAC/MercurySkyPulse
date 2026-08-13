@@ -96,12 +96,8 @@ class RadioPage(QWidget):
         peak_row.addStretch(1)
         tx_layout.addLayout(peak_row)
 
-        self.tx_acknowledgement = QCheckBox("I understand this test transmits RF")
-        self.tx_acknowledgement.toggled.connect(self._update_tx_test_enabled)
-        tx_layout.addWidget(self.tx_acknowledgement)
         self.tx_test_button = QPushButton("Start TX Level Test")
         self.tx_test_button.setCheckable(True)
-        self.tx_test_button.setEnabled(False)
         self.tx_test_button.toggled.connect(self._toggle_tx_test)
         tx_layout.addWidget(self.tx_test_button)
 
@@ -184,8 +180,6 @@ class RadioPage(QWidget):
         self.tx_test_button.blockSignals(False)
         self.tx_gain.setEnabled(active or not self.tx_test_button.isChecked())
         self.status.setText(message)
-        if not active:
-            self.tx_acknowledgement.setChecked(False)
 
     def show_error(self, message: str) -> None:
         self.status.setText(message)
@@ -196,10 +190,6 @@ class RadioPage(QWidget):
         self.radio_list.setEnabled(enabled)
         self.device.setEnabled(enabled)
         self.serial_speed.setEnabled(enabled)
-
-    def _update_tx_test_enabled(self, acknowledged: bool) -> None:
-        if not self.tx_test_button.isChecked():
-            self.tx_test_button.setEnabled(acknowledged)
 
     def _tx_gain_changed(self, value: int) -> None:
         self.tx_gain_value.setText(f"{value} dB")

@@ -58,6 +58,7 @@ class ApplicationMessagingClient(QObject):
         call = self.normalize_callsign(local_call)
         self.transport.send_control(f"MYCALL {call}")
         self.transport.send_control("LISTEN ON")
+        self.state_changed.emit("listening")
 
     def connect_station(self, local_call: str, remote_call: str) -> None:
         local = self.normalize_callsign(local_call)

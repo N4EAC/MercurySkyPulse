@@ -10,13 +10,15 @@ from .location_page import LocationPage
 from .radio_page import RadioPage
 from .reporting_setup_page import ReportingSetupPage
 from .user_setup_page import UserSetupPage
+from .weather_setup_page import WeatherSetupPage
 
 
 class SetupWindow(QDialog):
     audio_diagnostics_changed = Signal(bool)
 
     def __init__(self, radio_service, beacon_service, location_service,
-                 tx_level_service=None, psk_reporter_service=None, parent=None) -> None:
+                 tx_level_service=None, psk_reporter_service=None,
+                 weather_service=None, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("MercurySkyPulse Setup")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
@@ -27,6 +29,7 @@ class SetupWindow(QDialog):
         self.location_service = location_service
         self.tx_level_service = tx_level_service
         self.psk_reporter_service = psk_reporter_service
+        self.weather_service = weather_service
         self._settings = QSettings()
 
         self.tabs = QTabWidget()
@@ -35,11 +38,13 @@ class SetupWindow(QDialog):
         self.user_page = UserSetupPage()
         self.gps_page = LocationPage()
         self.reporting_page = ReportingSetupPage()
+        self.weather_page = WeatherSetupPage()
         self.tabs.addTab(self.radio_page, "Radio")
         self.tabs.addTab(self.audio_page, "Audio")
         self.tabs.addTab(self.user_page, "User")
         self.tabs.addTab(self.gps_page, "GPS")
         self.tabs.addTab(self.reporting_page, "Reporting")
+        self.tabs.addTab(self.weather_page, "Weather")
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
 
@@ -92,17 +97,32 @@ class SetupWindow(QDialog):
             reporter.error_received.connect(self.reporting_page.show_error)
             reporter.activity_logged.connect(self.reporting_page.append_activity)
 
+        if self.weather_service:
+            weather = self.weather_service
+            self.weather_page.enabled_requested.connect(weather.configure)
+            self.weather_page.position_preference_requested.connect(
+                weather.set_use_station_position
+            )
+            self.weather_page.fetch_requested.connect(weather.fetch)
+            weather.enabled_changed.connect(self.weather_page.set_enabled)
+            weather.position_preference_changed.connect(
+                self.weather_page.set_position_preference
+            )
+            weather.state_changed.connect(self.weather_page.set_state)
+            weather.report_ready.connect(self.weather_page.set_report)
+            weather.error_received.connect(self.weather_page.show_error)
+        else:
+            self.weather_page.setEnabled(False)
+
         location = self.location_service
         page = self.gps_page
         page.manual_requested.connect(location.set_manual)
         page.aprs_requested.connect(location.set_manual_aprs)
         page.gps_start_requested.connect(location.start_gps)
         page.gps_stop_requested.connect(location.stop_gps)
-        page.share_requested.connect(location.share)
         page.retention_requested.connect(location.set_retention)
         page.export_requested.connect(location.export_history)
         location.current_changed.connect(self._position_changed)
-        location.shared_received.connect(page.set_received)
         location.gps_state_changed.connect(page.set_gps_state)
         location.retention_changed.connect(page.set_retention)
         location.history_changed.connect(page.set_history_count)
