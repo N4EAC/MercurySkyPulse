@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:           mercury-skypulse
 Version:        @RPM_VERSION@
 Release:        1%{?dist}
@@ -21,7 +23,7 @@ reporting, and station controls through a bundled Mercury modem runtime.
 mkdir -p %{buildroot}/opt/mercuryskypulse
 cp -a app/. %{buildroot}/opt/mercuryskypulse/
 mkdir -p %{buildroot}%{_bindir}
-ln -s /opt/mercuryskypulse/MercurySkyPulse %{buildroot}%{_bindir}/mercury-skypulse
+ln -s ../../opt/mercuryskypulse/MercurySkyPulse %{buildroot}%{_bindir}/mercury-skypulse
 mkdir -p %{buildroot}%{_datadir}/applications
 install -m 0644 mercuryskypulse.desktop %{buildroot}%{_datadir}/applications/mercuryskypulse.desktop
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/256x256/apps

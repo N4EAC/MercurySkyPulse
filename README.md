@@ -461,6 +461,12 @@ same directory. It installs MSP under `/opt/mercuryskypulse`, adds the
 failed tests stop packaging. Native install, launch, audio, CAT/PTT, and RF
 validation remain required before broader distribution.
 
+Fedora's RPM metadata intentionally disables automatic `debugsource` package
+generation because MSP is packaged as an already-built PyInstaller application;
+there is no RPM compiler source list to place in a separate debug package. The
+installed `/usr/bin/mercury-skypulse` launcher is a relative symlink to the
+application under `/opt/mercuryskypulse`.
+
 ### Mercury executable
 
 MercurySkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:

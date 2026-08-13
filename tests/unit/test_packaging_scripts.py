@@ -32,6 +32,13 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("dpkg-deb --build", builder)
         self.assertIn("rpmbuild", builder)
         self.assertIn("mercuryskypulse-256.png", builder)
+        rpm_spec = (ROOT / "packaging/linux/mercury-skypulse.spec.in").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("%global debug_package %{nil}", rpm_spec)
+        self.assertIn(
+            "ln -s ../../opt/mercuryskypulse/MercurySkyPulse", rpm_spec
+        )
 
     def test_linux_desktop_entry_uses_installed_application(self) -> None:
         desktop = (ROOT / "packaging/linux/mercuryskypulse.desktop").read_text(
