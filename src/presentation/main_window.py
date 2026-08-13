@@ -722,6 +722,18 @@ class MainWindow(QMainWindow):
             )
             if self.setup_window:
                 self.setup_window.voice_devices_changed.connect(audio.configure)
+                self.setup_window.voice_diagnostics_changed.connect(
+                    lambda active: (
+                        audio.start_input_diagnostics()
+                        if active else audio.stop_input_diagnostics()
+                    )
+                )
+                audio.input_level_changed.connect(
+                    self.setup_window.audio_page.set_voice_input_level
+                )
+                audio.devices_configured.connect(
+                    self.setup_window.audio_page.set_active_voice_devices
+                )
                 audio.configure(
                     str(self._settings.value("voice/input_device", "")),
                     str(self._settings.value("voice/output_device", "")),

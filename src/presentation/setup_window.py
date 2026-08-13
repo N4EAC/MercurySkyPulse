@@ -15,6 +15,7 @@ from .weather_setup_page import WeatherSetupPage
 
 class SetupWindow(QDialog):
     audio_diagnostics_changed = Signal(bool)
+    voice_diagnostics_changed = Signal(bool)
     voice_devices_changed = Signal(str, str)
 
     def __init__(self, radio_service, beacon_service, location_service,
@@ -169,9 +170,11 @@ class SetupWindow(QDialog):
     def hideEvent(self, event: QHideEvent) -> None:  # noqa: N802 - Qt API
         self.audio_page.set_diagnostics_active(False)
         self.audio_diagnostics_changed.emit(False)
+        self.voice_diagnostics_changed.emit(False)
         super().hideEvent(event)
 
     def _update_audio_diagnostics(self, _index: int = -1) -> None:
         active = self.isVisible() and self.tabs.currentWidget() is self.audio_page
         self.audio_page.set_diagnostics_active(active)
         self.audio_diagnostics_changed.emit(active)
+        self.voice_diagnostics_changed.emit(active)

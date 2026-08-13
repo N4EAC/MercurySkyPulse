@@ -65,11 +65,21 @@ class AudioSetupPage(QWidget):
         self.voice_output_device = self._combo("System default speaker")
         voice_form.addRow("Voice microphone", self.voice_input_device)
         voice_form.addRow("Voice playback", self.voice_output_device)
-        voice_save = QPushButton("Save Voice Devices")
-        voice_save.clicked.connect(lambda: self.voice_apply_requested.emit(
-            self._value(self.voice_input_device), self._value(self.voice_output_device)
-        ))
-        voice_form.addRow(voice_save)
+        self.voice_save_button = QPushButton("Save Voice Devices")
+        self.voice_save_button.clicked.connect(self._save_voice_devices)
+        voice_form.addRow(self.voice_save_button)
+        self.voice_save_status = QLabel()
+        self.voice_save_status.setObjectName("Muted")
+        voice_form.addRow("Saved configuration", self.voice_save_status)
+        self.voice_input_level = QProgressBar()
+        self.voice_input_level.setRange(0, 100)
+        self.voice_input_level.setValue(0)
+        self.voice_input_level.setFormat("Open this Audio tab to monitor the microphone")
+        voice_form.addRow("Live microphone", self.voice_input_level)
+        self.voice_active_devices = QLabel("Voice endpoints: system defaults")
+        self.voice_active_devices.setWordWrap(True)
+        self.voice_active_devices.setObjectName("Muted")
+        voice_form.addRow(self.voice_active_devices)
         layout.addWidget(voice)
 
         diagnostics = QGroupBox("Live Audio Diagnostics")
@@ -141,10 +151,29 @@ class AudioSetupPage(QWidget):
         voice_index = voice_combo.findData(voice_current)
         if voice_index >= 0:
             voice_combo.setCurrentIndex(voice_index)
+        elif voice_current:
+            voice_combo.setEditText(voice_current)
 
     def set_voice_devices(self, input_device: str, output_device: str) -> None:
         self.voice_input_device.setCurrentText(input_device)
         self.voice_output_device.setCurrentText(output_device)
+
+    def set_voice_input_level(self, dbfs: float) -> None:
+        bounded = max(-100.0, min(0.0, float(dbfs)))
+        self.voice_input_level.setValue(round(bounded + 100.0))
+        self.voice_input_level.setFormat(f"{bounded:.1f} dBFS")
+
+    def set_active_voice_devices(self, input_device: str, output_device: str) -> None:
+        self.voice_active_devices.setText(
+            f"Active microphone: {input_device or 'system default'} · "
+            f"Playback: {output_device or 'system default'}"
+        )
+
+    def _save_voice_devices(self) -> None:
+        self.voice_apply_requested.emit(
+            self._value(self.voice_input_device), self._value(self.voice_output_device)
+        )
+        self.voice_save_status.setText("Voice audio devices saved")
 
     def set_diagnostics_active(self, active: bool) -> None:
         self._diagnostics_active = bool(active)

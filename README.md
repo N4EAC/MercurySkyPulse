@@ -82,6 +82,9 @@ transfers. One voice message may be outstanding, and successful delivery starts
 a 120-second sending cooldown. Disconnecting discards incomplete session audio.
 Sparse `is typing…` and `is recording audio…` indicators use one expiring event
 per activity period rather than continuous RF presence traffic.
+The Audio tab confirms the active voice endpoints and displays a local live
+microphone meter while that tab is open. This diagnostic never records or
+transmits audio.
 
 Conversation history is stored locally in the platform application-data directory.
 The same connected station can receive files through **Send File…**. Transfers

@@ -350,6 +350,26 @@ class GuiSmokeTests(unittest.TestCase):
         )
         page.deleteLater()
 
+    def test_voice_device_selection_survives_device_refresh_and_confirms_save(self) -> None:
+        page = AudioSetupPage()
+        page.set_voice_devices("Saved Microphone", "Saved Speaker")
+        page.set_devices(
+            "capture_dev_list", (MercuryDevice("Other Microphone", "Other Microphone"),)
+        )
+        page.set_devices(
+            "playback_dev_list", (MercuryDevice("Other Speaker", "Other Speaker"),)
+        )
+        self.assertEqual(page.voice_input_device.currentText(), "Saved Microphone")
+        self.assertEqual(page.voice_output_device.currentText(), "Saved Speaker")
+        saved = []
+        page.voice_apply_requested.connect(lambda *values: saved.append(values))
+        page.voice_save_button.click()
+        self.assertEqual(saved[-1], ("Saved Microphone", "Saved Speaker"))
+        self.assertIn("saved", page.voice_save_status.text().lower())
+        page.set_voice_input_level(-24.5)
+        self.assertIn("-24.5 dBFS", page.voice_input_level.format())
+        page.deleteLater()
+
     def test_psk_reporter_setup_is_opt_in_with_mercury_frequency(self) -> None:
         page = ReportingSetupPage()
         self.assertFalse(page.enabled.isChecked())

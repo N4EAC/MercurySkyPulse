@@ -54,6 +54,8 @@ Mercury internals.
   10-second/256-KiB bounds, peer capability negotiation, conservative sustained
   bitrate gating, file-transfer exclusion, checksum verification, disconnect
   cleanup, sparse typing/recording presence, and a 120-second post-delivery cooldown.
+  Separate voice-device choices persist locally; Setup shows the active endpoints
+  and a non-transmitting live microphone-level diagnostic.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, and a dedicated download directory.
 - Capability beacons over Mercury KISS broadcast transport.
