@@ -142,7 +142,7 @@ if [[ "$PACKAGE_KIND" == deb ]]; then
         "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
         "$STAGE/usr/share/icons/hicolor/256x256/apps"
     cp -a dist/MercurySkyPulse/. "$STAGE/opt/mercuryskypulse/"
-    ln -s /opt/mercuryskypulse/MercurySkyPulse "$STAGE/usr/bin/mercury-skypulse"
+    ln -s ../../opt/mercuryskypulse/MercurySkyPulse "$STAGE/usr/bin/mercury-skypulse"
     sed "s/@VERSION@/$VERSION/g" packaging/linux/debian-control.in > "$STAGE/DEBIAN/control"
     install -m 0644 packaging/linux/mercuryskypulse.desktop "$STAGE/usr/share/applications/"
     install -m 0644 assets/icons/linux/mercuryskypulse-256.png "$STAGE/usr/share/icons/hicolor/256x256/apps/mercuryskypulse.png"

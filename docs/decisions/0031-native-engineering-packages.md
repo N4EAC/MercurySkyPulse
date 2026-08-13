@@ -24,6 +24,8 @@ The existing PyInstaller one-directory application remains the common payload.
   It rejects runtimes missing the MSP `radio_frequency_hz` telemetry capability.
 - Linux installs under `/opt/mercuryskypulse` with a command symlink, desktop
   entry, and hicolor MSP icon.
+- Fedora debugsource generation is disabled because the RPM wraps an already
+  built PyInstaller payload rather than compiling sources inside `rpmbuild`.
 - Outputs remain unsigned engineering artifacts until a release-signing policy
   is accepted.
 

@@ -163,6 +163,8 @@ Mercury internals.
   the native target. It automatically downloads, checksum-verifies, and compiles
   pinned Mercury compatibility commit `9803d0fc` when no override/sibling runtime
   exists, verifies the `radio_frequency_hz` capability, and bundles the runtime.
+  Fedora packaging disables inapplicable debugsource subpackages for the
+  prebuilt PyInstaller payload and uses a relocatable relative launcher symlink.
 - `scripts/check_local.sh` is the required Mac-local quality gate. It validates
   dependencies, compiles sources, runs the aggregate tests, builds the macOS app,
   and verifies bundle identity, icon, signature, and Mercury runtime.
