@@ -433,14 +433,17 @@ python tools/generate_icons.py
 
 ### Desktop wallpapers
 
-Two approved 3840×2160 PNG wallpapers are included as project artwork:
+The repository includes optional desktop artwork under `assets/wallpapers/`:
 
-- [Midnight MSP wallpaper](assets/wallpapers/mercuryskypulse-midnight-4k.png)
-- [Near-night sunset MSP wallpaper](assets/wallpapers/mercuryskypulse-sunset-4k.png)
+- [Midnight MSP 4K wallpaper](assets/wallpapers/mercuryskypulse-midnight-4k.png)
+- [Near-night sunset MSP 4K wallpaper](assets/wallpapers/mercuryskypulse-sunset-4k.png)
+- [Xingu communities and Mercury Modem 4K wallpaper](assets/wallpapers/mercuryskypulse-xingu-communities-4k.png)
+- [MSP widescreen wallpaper](assets/wallpapers/MSP.png)
 
-Both use the MSP badge and the phrases **Mercury Modem ARQ Data-Link
-Technology** and **Alternative Telecommunications**. They are optional artwork
-and are not bundled into the application installers.
+The MSP designs use the phrases **Mercury Modem ARQ Data-Link Technology** and
+**Alternative Telecommunications**. The Xingu design uses the original Mercury
+emblem with **Mercury Modem** and **Connecting Distant Communities**. These
+wallpapers are project artwork and are not bundled into application installers.
 
 ### Windows test executable
 
