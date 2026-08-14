@@ -362,10 +362,14 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(page.voice_input_device.currentText(), "Saved Microphone")
         self.assertEqual(page.voice_output_device.currentText(), "Saved Speaker")
         saved = []
+        gains = []
         page.voice_apply_requested.connect(lambda *values: saved.append(values))
+        page.voice_gain_requested.connect(gains.append)
+        page.set_voice_gain(72)
         page.voice_save_button.click()
         self.assertEqual(saved[-1], ("Saved Microphone", "Saved Speaker"))
         self.assertIn("saved", page.voice_save_status.text().lower())
+        self.assertEqual(gains[-1], 72)
         page.set_voice_input_level(-24.5)
         self.assertIn("-24.5 dBFS", page.voice_input_level.format())
         page.deleteLater()

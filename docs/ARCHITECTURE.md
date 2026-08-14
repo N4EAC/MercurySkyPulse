@@ -816,7 +816,8 @@ Expansion rules:
 
 ### Implemented messaging slice
 
-The initial product slice implements text-only station chat through Mercury's
+The initial product slice implements station text chat and bounded compressed
+voice-message transfer through Mercury's
 documented TNC control and ARQ data sockets. `src/transport/mercury/tnc.py`
 owns socket lifecycle and opaque reliable bytes; `src/application_protocol`
 owns the bounded `MSP1` framing contract, feature-event demultiplexing, and
@@ -825,6 +826,14 @@ connectionless beacon codec;
 transitions; `src/persistence/chat_repository.py` owns the SQLite schema; and
 `src/presentation/chat_page.py` renders conversations. Peer acknowledgements mean
 application delivery, not human reading.
+
+`src/application/voice_message.py` owns session capability negotiation, bitrate
+and transfer gating, bounded chunk transfer, checksum completion, and cooldown.
+`src/platform_runtime/voice_audio.py` owns separate Qt Multimedia capture,
+playback, voice-only microphone level, and local diagnostics. Voice recording and
+review are local operations; only sending requires a compatible ARQ session.
+Connectionless beacons advertise `voice-chat`, but the session event remains the
+authoritative compatibility negotiation.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral

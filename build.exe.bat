@@ -87,10 +87,10 @@ if errorlevel 1 (
     goto failed
 )
 
-echo Verifying Qt Multimedia voice-message support...
+echo Verifying Qt Multimedia voice recording and playback support...
 "%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
 if errorlevel 1 (
-    echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice messages.
+    echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice recording and playback.
     goto failed
 )
 

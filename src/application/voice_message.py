@@ -111,7 +111,7 @@ class VoiceMessageService(QObject):
 
     def availability(self) -> tuple[bool, str]:
         if not self._connected:
-            return False, "Connect to a station before recording voice"
+            return False, "Connect to a station before sending voice"
         if not self._peer_compatible:
             return False, "Connected station does not advertise compatible voice messages"
         if self._file_busy:

@@ -61,13 +61,15 @@ Exit criteria: adapters can be developed against executable contract tests witho
 
 Exit criteria: the application layer can use transport ports without knowing protocol or network details.
 
-Text messaging, bounded session voice messages, verified file transfer,
+Text messaging, locally reviewable and bounded session voice messages, verified file transfer,
 application acknowledgements, location,
 ping, BBS events, and compact capability beacons are implemented above opaque
 Mercury transports. Remaining work includes explicit input bounds, stronger
 timeout/backpressure/error behavior, broader command coverage, a persisted
 profile UI/loader, and real-Mercury integration tests. TNC control and KISS input
 bounds and acknowledgement disconnect-race handling are implemented.
+Voice transmission is negotiated per ARQ session, while connectionless beacons
+advertise the compact `voice-chat` discovery capability.
 
 ## Phase 4 — Mercury runtime management (managed-local prototype complete)
 

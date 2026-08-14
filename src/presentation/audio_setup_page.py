@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -22,6 +23,7 @@ NO_ENERGY_WARNING_MS = 5_000
 class AudioSetupPage(QWidget):
     apply_requested = Signal(str, str)
     voice_apply_requested = Signal(str, str)
+    voice_gain_requested = Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -65,6 +67,23 @@ class AudioSetupPage(QWidget):
         self.voice_output_device = self._combo("System default speaker")
         voice_form.addRow("Voice microphone", self.voice_input_device)
         voice_form.addRow("Voice playback", self.voice_output_device)
+        self.voice_input_gain = QSlider(Qt.Orientation.Horizontal)
+        self.voice_input_gain.setRange(0, 100)
+        self.voice_input_gain.setValue(100)
+        self.voice_input_gain.setToolTip(
+            "Voice microphone capture level. Use the operating-system input "
+            "level if additional amplification is needed."
+        )
+        self.voice_gain_value = QLabel("100%")
+        gain_row = QWidget()
+        gain_layout = QVBoxLayout(gain_row)
+        gain_layout.setContentsMargins(0, 0, 0, 0)
+        gain_layout.addWidget(self.voice_input_gain)
+        gain_layout.addWidget(self.voice_gain_value)
+        voice_form.addRow("Microphone level", gain_row)
+        self.voice_input_gain.valueChanged.connect(
+            lambda value: self.voice_gain_value.setText(f"{value}%")
+        )
         self.voice_save_button = QPushButton("Save Voice Devices")
         self.voice_save_button.clicked.connect(self._save_voice_devices)
         voice_form.addRow(self.voice_save_button)
@@ -158,6 +177,9 @@ class AudioSetupPage(QWidget):
         self.voice_input_device.setCurrentText(input_device)
         self.voice_output_device.setCurrentText(output_device)
 
+    def set_voice_gain(self, percent: int) -> None:
+        self.voice_input_gain.setValue(max(0, min(100, int(percent))))
+
     def set_voice_input_level(self, dbfs: float) -> None:
         bounded = max(-100.0, min(0.0, float(dbfs)))
         self.voice_input_level.setValue(round(bounded + 100.0))
@@ -173,7 +195,8 @@ class AudioSetupPage(QWidget):
         self.voice_apply_requested.emit(
             self._value(self.voice_input_device), self._value(self.voice_output_device)
         )
-        self.voice_save_status.setText("Voice audio devices saved")
+        self.voice_gain_requested.emit(self.voice_input_gain.value())
+        self.voice_save_status.setText("Voice audio devices and level saved")
 
     def set_diagnostics_active(self, active: bool) -> None:
         self._diagnostics_active = bool(active)

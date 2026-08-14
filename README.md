@@ -75,16 +75,18 @@ an acknowledgement; it is not a read receipt.
 Compatible MSP peers can also exchange compressed voice messages of up to 10
 seconds. Voice uses separate system microphone/playback devices selected under
 **Setup → Audio** and is transferred as verified application data over the active
-Mercury ARQ session; it is not live FreeDV audio. MSP enables recording only
-after three usable bitrate reports, disables it below the conservative link
-threshold, and blocks it whenever any file transfer is pending—including paused
-transfers. One voice message may be outstanding, and successful delivery starts
-a 120-second sending cooldown. Disconnecting discards incomplete session audio.
+Mercury ARQ session; it is not live FreeDV audio. MSP permits local recording,
+review playback, discard, and replacement without requiring a station connection.
+**Send Voice** is enabled only after the connected peer advertises `voice-chat`,
+after three usable bitrate reports, and while no file transfer is pending—including
+paused transfers. One voice message may be outstanding, and successful delivery
+starts a 120-second sending cooldown. Disconnecting discards incomplete session audio.
 Sparse `is typing…` and `is recording audio…` indicators use one expiring event
 per activity period rather than continuous RF presence traffic.
-The Audio tab confirms the active voice endpoints and displays a local live
-microphone meter while that tab is open. This diagnostic never records or
-transmits audio.
+The Audio tab confirms the active voice endpoints, saves a voice-only microphone
+level, and displays a local live dBFS microphone meter while that tab is open.
+This diagnostic never records or transmits audio and does not change Mercury's
+modem audio devices or gain.
 
 Conversation history is stored locally in the platform application-data directory.
 The same connected station can receive files through **Send File…**. Transfers
@@ -130,8 +132,9 @@ existing history available for later export.
 
 ### Station beacon
 
-The dockable Beacon panel advertises the station callsign, Maidenhead grid, software version,
-and supported capabilities over Mercury's connectionless KISS broadcast port.
+The dockable Beacon panel advertises the station callsign, Maidenhead grid,
+software version, and supported capabilities—including `voice-chat`—over
+Mercury's connectionless KISS broadcast port.
 Beaconing
 is Off by default and supports 1, 5, 10, 15, 30, or 60-minute intervals plus a
 manual **Send Now** action.

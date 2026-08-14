@@ -48,6 +48,7 @@ class ChatPage(QWidget):
     voice_stop_requested = Signal()
     voice_send_requested = Signal()
     voice_play_requested = Signal(str)
+    voice_discard_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -162,14 +163,17 @@ class ChatPage(QWidget):
         self.voice_stop_button = QPushButton("Stop")
         self.voice_send_button = QPushButton("Send Voice")
         self.voice_play_button = QPushButton("Play")
-        self.voice_status = QLabel("Voice unavailable")
+        self.voice_discard_button = QPushButton("Discard")
+        self.voice_status = QLabel("Ready to record locally")
         self.voice_stop_button.setEnabled(False)
         self.voice_send_button.setEnabled(False)
         self.voice_play_button.setEnabled(False)
+        self.voice_discard_button.setEnabled(False)
         voice_row.addWidget(self.voice_record_button)
         voice_row.addWidget(self.voice_stop_button)
         voice_row.addWidget(self.voice_send_button)
         voice_row.addWidget(self.voice_play_button)
+        voice_row.addWidget(self.voice_discard_button)
         voice_row.addWidget(self.voice_status, 1)
         chat_layout.addLayout(voice_row)
 
@@ -221,6 +225,7 @@ class ChatPage(QWidget):
         self.voice_play_button.clicked.connect(
             lambda: self.voice_play_requested.emit(self._voice_play_path)
         )
+        self.voice_discard_button.clicked.connect(self.voice_discard_requested)
         self.send_file_button.clicked.connect(self._choose_file)
         self.pause_file_button.clicked.connect(self._pause_transfer)
         self.resume_file_button.clicked.connect(self._resume_transfer)
@@ -327,23 +332,34 @@ class ChatPage(QWidget):
 
     def set_voice_availability(self, available: bool, reason: str) -> None:
         self._voice_available = available
-        self.voice_record_button.setEnabled(available and not self._voice_draft_ready)
-        self.voice_status.setText(reason)
+        self.voice_send_button.setEnabled(self._voice_draft_ready and available)
+        if not self._voice_draft_ready:
+            self.voice_status.setText(
+                "Ready to record locally" if not available else reason
+            )
 
     def set_voice_recording(self, recording: bool, duration_ms: int) -> None:
-        self.voice_record_button.setEnabled(False if recording else self._voice_available)
+        self.voice_record_button.setEnabled(not recording)
         self.voice_stop_button.setEnabled(recording)
+        self.voice_discard_button.setEnabled(
+            not recording and self._voice_draft_ready
+        )
         self.voice_status.setText(
             f"Recording… {min(10.0, duration_ms / 1000):.1f} / 10.0 seconds"
             if recording else self.voice_status.text()
         )
 
-    def set_voice_draft(self, ready: bool) -> None:
+    def set_voice_draft(self, ready: bool, path: str = "") -> None:
         self._voice_draft_ready = ready
+        self._voice_play_path = path if ready else ""
+        self.voice_record_button.setEnabled(True)
         self.voice_send_button.setEnabled(ready and self._voice_available)
-        self.voice_play_button.setEnabled(ready)
+        self.voice_play_button.setEnabled(ready and bool(self._voice_play_path))
+        self.voice_discard_button.setEnabled(ready)
         if ready:
             self.voice_status.setText("Voice recording ready to review or send")
+        else:
+            self.voice_status.setText("Ready to record locally")
 
     def set_voice_messages(self, messages) -> None:
         if not messages:

@@ -41,6 +41,7 @@ class VoiceAudioEngine(QObject):
         self._level_stream = None
         self._configured_input = ""
         self._configured_output = ""
+        self._input_gain = 1.0
         self._limit = QTimer(self)
         self._limit.setSingleShot(True)
         self._limit.setInterval(10_000)
@@ -78,11 +79,19 @@ class VoiceAudioEngine(QObject):
         if diagnostics_active:
             self.start_input_diagnostics()
 
+    def set_input_gain(self, percent: int) -> None:
+        """Apply a bounded capture level without altering Mercury modem audio."""
+        self._input_gain = max(0.0, min(1.0, int(percent) / 100.0))
+        self._input.setVolume(self._input_gain)
+        if self._level_source is not None:
+            self._level_source.setVolume(self._input_gain)
+
     def start_input_diagnostics(self) -> None:
         self.stop_input_diagnostics()
         device = self._input.device()
         audio_format = device.preferredFormat()
         self._level_source = QAudioSource(device, audio_format, self)
+        self._level_source.setVolume(self._input_gain)
         self._level_stream = self._level_source.start()
         if self._level_stream is None:
             self.error_received.emit("Could not open the selected voice microphone")
@@ -127,9 +136,10 @@ class VoiceAudioEngine(QObject):
 
     def discard_recording(self) -> None:
         self.stop_recording()
-        if self._path:
-            Path(self._path).unlink(missing_ok=True)
-        self._path = ""
+        for path in {self._path, self._requested_path}:
+            if path:
+                Path(path).unlink(missing_ok=True)
+        self._path = self._requested_path = ""
 
     def play(self, path_value: str) -> None:
         self._player.setSource(QUrl.fromLocalFile(path_value))
@@ -162,10 +172,12 @@ class VoiceAudioEngine(QObject):
         )
         if path:
             self._path = path
+            self._requested_path = ""
             self.recording_ready.emit(path, self._mime)
         elif attempt < 20:
             QTimer.singleShot(100, lambda: self._finalize_recording(attempt + 1))
         else:
+            self._requested_path = ""
             self.error_received.emit("Voice recording could not be finalized; record again")
 
     def _read_input_level(self, audio_format: QAudioFormat) -> None:

@@ -515,10 +515,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About MercurySkyPulse",
-            "<b>MercurySkyPulse</b><br>"
-            "Supervised Mercury telemetry shell<br><br>"
-            "Displays modem status, SNR, bitrate, and station workflows, "
-            "with station-to-station text chat.",
+            f"MercurySkyPulse {self._app.applicationVersion()}",
         )
 
     def _show_license(self) -> None:
@@ -705,9 +702,15 @@ class MainWindow(QMainWindow):
             self.chat_page.voice_stop_requested.connect(audio.stop_recording)
             self.chat_page.voice_send_requested.connect(self._send_voice_recording)
             self.chat_page.voice_play_requested.connect(audio.play)
+            self.chat_page.voice_discard_requested.connect(self._clear_voice_draft)
             audio.recording_changed.connect(self.chat_page.set_voice_recording)
             audio.recording_ready.connect(self._voice_recording_ready)
             audio.error_received.connect(self.chat_page.show_error)
+            audio.error_received.connect(
+                lambda error: self.activity_panel.append_log(
+                    f"Voice audio error: {error}"
+                )
+            )
             voice.availability_changed.connect(self.chat_page.set_voice_availability)
             voice.messages_changed.connect(self.chat_page.set_voice_messages)
             voice.error_received.connect(self.chat_page.show_error)
@@ -722,6 +725,7 @@ class MainWindow(QMainWindow):
             )
             if self.setup_window:
                 self.setup_window.voice_devices_changed.connect(audio.configure)
+                self.setup_window.voice_gain_changed.connect(audio.set_input_gain)
                 self.setup_window.voice_diagnostics_changed.connect(
                     lambda active: (
                         audio.start_input_diagnostics()
@@ -738,20 +742,29 @@ class MainWindow(QMainWindow):
                     str(self._settings.value("voice/input_device", "")),
                     str(self._settings.value("voice/output_device", "")),
                 )
+                audio.set_input_gain(
+                    int(self._settings.value("voice/input_gain_percent", 100))
+                )
 
     def _start_voice_recording(self) -> None:
         if not self.voice_message_service or not self.voice_audio_engine:
             return
-        available, reason = self.voice_message_service.availability()
-        if not available:
-            self.chat_page.show_error(reason)
-            return
+        if self._voice_draft:
+            self._clear_voice_draft()
         self.chat_service.send_presence("recording_audio")
+        self.activity_panel.append_log("Voice audio: recording started")
         self.voice_audio_engine.start_recording()
 
     def _voice_recording_ready(self, path: str, mime_type: str) -> None:
         self._voice_draft = (path, mime_type)
-        self.chat_page.set_voice_draft(True)
+        self.chat_page.set_voice_draft(True, path)
+        try:
+            size = Path(path).stat().st_size
+        except OSError:
+            size = 0
+        self.activity_panel.append_log(
+            f"Voice audio: recording ready ({mime_type}, {size} bytes)"
+        )
 
     def _send_voice_recording(self) -> None:
         if not self._voice_draft or not self.voice_message_service:

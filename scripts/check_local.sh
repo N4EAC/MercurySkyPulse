@@ -33,7 +33,7 @@ MSP_SKIP_TESTS=1 ./build.app.sh
 
 APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"
 MERCURY="$APP/Contents/Frameworks/mercury/mercury"
-print "[6/7] Validating bundle identity, signature, icon, and Mercury runtime"
+print "[6/7] Validating bundle identity, signature, icon, voice audio, and Mercury runtime"
 test -x "$APP/Contents/MacOS/MercurySkyPulse"
 test -x "$MERCURY"
 test -f "$APP/Contents/Resources/mercuryskypulse.icns"
