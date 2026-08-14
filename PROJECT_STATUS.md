@@ -57,7 +57,9 @@ Mercury internals.
   Local recording, playback, discard, and replacement work while disconnected;
   transmission remains session/capability/link gated. Separate voice-device and
   microphone-level choices persist locally; Setup shows the active endpoints and
-  a non-transmitting live dBFS diagnostic. Beacons advertise `voice-chat` support.
+  a non-transmitting live dBFS diagnostic. Windows media-player file handles are
+  released before draft replacement, and cleanup failures cannot strand the UI.
+  Beacons advertise `voice-chat` support.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, and a dedicated download directory.
 - Capability beacons over Mercury KISS broadcast transport.

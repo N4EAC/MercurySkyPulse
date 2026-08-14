@@ -714,6 +714,18 @@ class MainWindow(QMainWindow):
             voice.availability_changed.connect(self.chat_page.set_voice_availability)
             voice.messages_changed.connect(self.chat_page.set_voice_messages)
             voice.error_received.connect(self.chat_page.show_error)
+            audio.playback_changed.connect(
+                lambda playing: self.activity_panel.append_log(
+                    "Voice audio: playback started" if playing
+                    else "Voice audio: playback stopped"
+                )
+            )
+            audio.devices_configured.connect(
+                lambda input_name, output_name: self.activity_panel.append_log(
+                    f"Voice audio endpoints: microphone={input_name or 'system default'}; "
+                    f"playback={output_name or 'system default'}"
+                )
+            )
             service.client.session_disconnected.connect(self._clear_voice_draft)
             if self.file_transfer_service:
                 self.file_transfer_service.set_external_busy_check(voice.transfer_busy)
@@ -774,10 +786,13 @@ class MainWindow(QMainWindow):
             self.chat_page.set_voice_draft(False)
 
     def _clear_voice_draft(self) -> None:
-        if self.voice_audio_engine:
-            self.voice_audio_engine.discard_recording()
-        self._voice_draft = None
-        self.chat_page.set_voice_draft(False)
+        try:
+            if self.voice_audio_engine:
+                self.voice_audio_engine.discard_recording()
+        finally:
+            # UI recovery must never depend on platform-specific temp-file cleanup.
+            self._voice_draft = None
+            self.chat_page.set_voice_draft(False)
 
     def _start_mercury(self) -> None:
         self.activity_panel.append_log(

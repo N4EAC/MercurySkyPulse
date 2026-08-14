@@ -2,6 +2,7 @@ import struct
 from tempfile import TemporaryDirectory
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from PySide6.QtMultimedia import QAudioFormat
 
@@ -67,6 +68,24 @@ class VoiceAudioLevelTests(unittest.TestCase):
         self.assertAlmostEqual(engine._input.volume(), 0.35, places=2)
         engine.set_input_gain(150)
         self.assertAlmostEqual(engine._input.volume(), 1.0, places=2)
+
+    def test_windows_file_lock_does_not_break_discard(self):
+        engine = VoiceAudioEngine()
+        engine._path = "locked-voice.m4a"
+        engine._requested_path = "locked-voice.m4a"
+        with patch.object(engine, "_delete_file") as delete_file:
+            engine.discard_recording()
+        delete_file.assert_called_once_with("locked-voice.m4a")
+        self.assertEqual(engine._path, "")
+        self.assertEqual(engine._requested_path, "")
+
+    def test_exhausted_windows_file_lock_is_reported_not_raised(self):
+        engine = VoiceAudioEngine()
+        errors = []
+        engine.error_received.connect(errors.append)
+        with patch("platform_runtime.voice_audio.Path.unlink", side_effect=PermissionError):
+            engine._delete_file("locked-voice.m4a", attempt=20)
+        self.assertIn("Windows did not release", errors[-1])
 
 
 if __name__ == "__main__":

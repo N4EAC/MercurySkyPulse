@@ -136,10 +136,15 @@ class VoiceAudioEngine(QObject):
 
     def discard_recording(self) -> None:
         self.stop_recording()
-        for path in {self._path, self._requested_path}:
-            if path:
-                Path(path).unlink(missing_ok=True)
+        self.stop_playback()
+        # QMediaPlayer holds its source file open on Windows even after playback
+        # stops. Clear the source before removing or replacing a voice draft.
+        self._player.setSource(QUrl())
+        paths = {self._path, self._requested_path}
         self._path = self._requested_path = ""
+        for path in paths:
+            if path:
+                self._delete_file(path)
 
     def play(self, path_value: str) -> None:
         self._player.setSource(QUrl.fromLocalFile(path_value))
@@ -147,6 +152,21 @@ class VoiceAudioEngine(QObject):
 
     def stop_playback(self) -> None:
         self._player.stop()
+
+    def _delete_file(self, path_value: str, attempt: int = 0) -> None:
+        """Remove a temporary draft after Windows releases media handles."""
+        try:
+            Path(path_value).unlink(missing_ok=True)
+        except PermissionError:
+            if attempt < 20:
+                QTimer.singleShot(
+                    100, lambda: self._delete_file(path_value, attempt + 1)
+                )
+            else:
+                self.error_received.emit(
+                    "Windows did not release the temporary voice recording; "
+                    "MSP cleared the draft and the temporary file can be removed after MSP exits"
+                )
 
     def _recorder_state(self, state) -> None:
         recording = state == QMediaRecorder.RecorderState.RecordingState
