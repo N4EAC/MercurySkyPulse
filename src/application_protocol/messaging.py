@@ -49,6 +49,7 @@ def encode_event(kind: str, event_id: str, timestamp: str, **values: object) -> 
         "bbs_auth_result", "bbs_access_denied",
         "presence",
         "voice_capability", "voice_offer", "voice_accept", "voice_chunk",
+        "voice_chunk_ack",
         "voice_complete", "voice_result",
     }
     if kind not in allowed:
@@ -107,6 +108,7 @@ class FrameDecoder:
             "bbs_auth_result", "bbs_access_denied",
             "presence",
             "voice_capability", "voice_offer", "voice_accept", "voice_chunk",
+            "voice_chunk_ack",
             "voice_complete", "voice_result",
         }
         if kind not in allowed or not isinstance(message_id, str) or not isinstance(timestamp, str):

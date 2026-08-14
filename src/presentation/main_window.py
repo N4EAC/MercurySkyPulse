@@ -103,6 +103,7 @@ class MainWindow(QMainWindow):
         self.voice_message_service = voice_message_service
         self.voice_audio_engine = voice_audio_engine
         self._voice_draft: tuple[str, str] | None = None
+        self._voice_log_snapshot: tuple[str, str, int] | None = None
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
         self.frequency_panel = FrequencyPanel()
@@ -713,7 +714,15 @@ class MainWindow(QMainWindow):
             )
             voice.availability_changed.connect(self.chat_page.set_voice_availability)
             voice.messages_changed.connect(self.chat_page.set_voice_messages)
+            voice.messages_changed.connect(self._log_voice_messages)
             voice.error_received.connect(self.chat_page.show_error)
+            self.chat_service.set_bulk_busy_check(
+                lambda: voice.transfer_busy()
+                or bool(
+                    self.file_transfer_service
+                    and self.file_transfer_service.transfer_busy()
+                )
+            )
             audio.playback_changed.connect(
                 lambda playing: self.activity_panel.append_log(
                     "Voice audio: playback started" if playing
@@ -763,7 +772,8 @@ class MainWindow(QMainWindow):
             return
         if self._voice_draft:
             self._clear_voice_draft()
-        self.chat_service.send_presence("recording_audio")
+        if not self.voice_message_service.transfer_busy():
+            self.chat_service.send_presence("recording_audio")
         self.activity_panel.append_log("Voice audio: recording started")
         self.voice_audio_engine.start_recording()
 
@@ -782,8 +792,32 @@ class MainWindow(QMainWindow):
         if not self._voice_draft or not self.voice_message_service:
             return
         if self.voice_message_service.send_recording(*self._voice_draft):
-            self._voice_draft = None
-            self.chat_page.set_voice_draft(False)
+            self.activity_panel.append_log(
+                "Voice message queued; keep the station connected until delivery is verified"
+            )
+
+    def _log_voice_messages(self, messages) -> None:
+        if not messages:
+            self._voice_log_snapshot = None
+            return
+        message = messages[-1]
+        snapshot = (message.id, message.status, message.progress)
+        if snapshot == self._voice_log_snapshot:
+            return
+        self._voice_log_snapshot = snapshot
+        if message.direction == "incoming" and message.status == "receiving" \
+                and message.progress == 0:
+            text = f"Incoming voice message offered ({message.size} bytes)"
+        elif message.direction == "incoming" and message.status == "received":
+            text = "Incoming voice message verified and ready to play"
+        elif message.direction == "outgoing" and message.status == "delivered":
+            text = "Voice message delivered and verified by receiving station"
+        else:
+            text = (
+                f"Voice message {message.direction}: {message.status} "
+                f"({message.progress}% receiver-confirmed)"
+            )
+        self.activity_panel.append_log(text)
 
     def _clear_voice_draft(self) -> None:
         try:

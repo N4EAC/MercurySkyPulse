@@ -112,6 +112,24 @@ class ChatServiceAutoListenTests(unittest.TestCase):
         self.assertTrue(self.service.send_presence("typing"))
         self.assertEqual(self.client.presence_calls, [("typing", 45)])
 
+    def test_presence_is_suppressed_during_bulk_transfer(self) -> None:
+        self.client.state_changed.emit("connected")
+        self.service.set_bulk_busy_check(lambda: True)
+        self.assertFalse(self.service.send_presence("recording_audio"))
+        self.assertEqual(self.client.presence_calls, [])
+
+    def test_text_is_suppressed_during_bulk_transfer(self) -> None:
+        errors = []
+        self.service.error_received.connect(errors.append)
+        conversation = self.repository.get_or_create_conversation(
+            "N4EAC", "K1ABC", "2026-08-14T12:00:00+00:00"
+        )
+        self.service.select_conversation(conversation.id)
+        self.service.set_bulk_busy_check(lambda: True)
+
+        self.assertFalse(self.service.send_text("wait for voice"))
+        self.assertIn("active voice or file transfer", errors[-1])
+
     def test_invalid_remote_presence_is_ignored_and_disconnect_clears_it(self) -> None:
         class Envelope:
             values = {"state": "typing", "ttl_seconds": 999}

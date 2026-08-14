@@ -240,6 +240,8 @@ class ChatPage(QWidget):
         self._voice_play_path = ""
         self._voice_available = False
         self._voice_draft_ready = False
+        self._voice_send_reason = "Connect to a station before sending voice"
+        self._voice_transfer_active = False
         self._cq_expiry_timer = QTimer(self)
         self._cq_expiry_timer.setInterval(30_000)
         self._cq_expiry_timer.timeout.connect(self._expire_cq_calls)
@@ -332,11 +334,10 @@ class ChatPage(QWidget):
 
     def set_voice_availability(self, available: bool, reason: str) -> None:
         self._voice_available = available
+        self._voice_send_reason = reason
         self.voice_send_button.setEnabled(self._voice_draft_ready and available)
-        if not self._voice_draft_ready:
-            self.voice_status.setText(
-                "Ready to record locally" if not available else reason
-            )
+        if not self._voice_transfer_active:
+            self._show_voice_readiness()
 
     def set_voice_recording(self, recording: bool, duration_ms: int) -> None:
         self.voice_record_button.setEnabled(not recording)
@@ -357,21 +358,55 @@ class ChatPage(QWidget):
         self.voice_play_button.setEnabled(ready and bool(self._voice_play_path))
         self.voice_discard_button.setEnabled(ready)
         if ready:
-            self.voice_status.setText("Voice recording ready to review or send")
+            self._show_voice_readiness()
         else:
-            self.voice_status.setText("Ready to record locally")
+            self._show_voice_readiness()
 
     def set_voice_messages(self, messages) -> None:
         if not messages:
-            self._voice_play_path = ""
+            self._voice_transfer_active = False
+            self._show_voice_readiness()
             return
         message = messages[-1]
+        active = message.status in {"queued", "transmitting", "receiving", "verifying"}
+        self._voice_transfer_active = active
+        labels = {
+            "queued": "Voice queued — waiting for receiving station",
+            "transmitting": f"Voice transmitting — {message.progress}% confirmed by receiver",
+            "receiving": f"Incoming voice message — {message.progress}% received",
+            "verifying": "Voice sent — waiting for receiver verification",
+            "delivered": "Voice delivered — verified by receiving station",
+            "received": "Incoming voice message ready to play",
+            "failed": "Voice message failed — recording retained for review",
+            "busy": "Receiving station was busy — recording retained",
+        }
         self.voice_status.setText(
-            f"Voice {message.direction} · {message.status} · {message.progress}%"
+            labels.get(message.status, f"Voice {message.direction} · {message.status}")
+        )
+        self.voice_record_button.setEnabled(not active)
+        self.voice_send_button.setEnabled(
+            not active and self._voice_draft_ready and self._voice_available
+        )
+        self.voice_discard_button.setEnabled(
+            not active and self._voice_draft_ready
         )
         if message.status in {"received", "delivered"}:
             self._voice_play_path = message.path
             self.voice_play_button.setEnabled(bool(message.path))
+        else:
+            self.voice_play_button.setEnabled(
+                not active and self._voice_draft_ready and bool(self._voice_play_path)
+            )
+
+    def _show_voice_readiness(self) -> None:
+        if self._voice_transfer_active:
+            return
+        if self._voice_available:
+            detail = "Peer voice compatible — ready to send"
+        else:
+            detail = f"Send unavailable: {self._voice_send_reason}"
+        prefix = "Voice recording ready" if self._voice_draft_ready else "Ready to record locally"
+        self.voice_status.setText(f"{prefix} · {detail}")
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""

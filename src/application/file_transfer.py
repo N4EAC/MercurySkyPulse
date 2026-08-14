@@ -18,6 +18,7 @@ from persistence.chat_repository import ChatRepository
 
 MAX_FILE_SIZE = 100 * 1024 * 1024
 CHUNK_SIZE = 4096
+ACTIVE_TRANSFER_STATES = {"offered", "transferring", "paused", "verifying"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +83,13 @@ class FileTransferService(QObject):
     def set_external_busy_check(self, callback) -> None:
         self._external_busy_check = callback
 
+    def transfer_busy(self) -> bool:
+        """Return whether any file transfer still owns the half-duplex session."""
+        return any(
+            transfer.status in ACTIVE_TRANSFER_STATES
+            for transfer in self._transfers.values()
+        )
+
     def send_file(self, path_value: str) -> None:
         self._begin_send(path_value, prepare_image=True)
 
@@ -96,7 +104,7 @@ class FileTransferService(QObject):
                 raise ValueError("File transfer is unavailable while a voice message is pending")
             if any(
                 transfer.direction == "outgoing"
-                and transfer.status in {"offered", "transferring", "paused", "verifying"}
+                and transfer.status in ACTIVE_TRANSFER_STATES
                 for transfer in self._transfers.values()
             ):
                 raise ValueError("Finish the current outgoing file before sending another")

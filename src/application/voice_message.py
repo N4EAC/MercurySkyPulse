@@ -13,9 +13,12 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 
 MAX_VOICE_BYTES = 256 * 1024
-VOICE_CHUNK_BYTES = 4096
+VOICE_CHUNK_BYTES = 384
+MERCURY_QUEUE_LOW_WATER_BYTES = 256
+VOICE_RESPONSE_TIMEOUT_MS = 90_000
 COOLDOWN_SECONDS = 120
-ACTIVE_TRANSFER_STATES = frozenset({"offered", "transferring", "paused", "verifying"})
+ACTIVE_TRANSFER_STATES = frozenset({"queued", "transmitting", "receiving", "verifying"})
+FILE_TRANSFER_BUSY_STATES = frozenset({"offered", "transferring", "paused", "verifying"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,15 +57,29 @@ class VoiceMessageService(QObject):
         self._outgoing_id: str | None = None
         self._cooldown_until: datetime | None = None
         self._capability_ack_sent = False
+        self._mercury_queued_bytes = 0
+        self._awaiting_ack_offset: int | None = None
         self._pump_timer = QTimer(self)
-        self._pump_timer.setInterval(10)
+        self._pump_timer.setInterval(250)
         self._pump_timer.timeout.connect(self._pump)
+        self._response_timer = QTimer(self)
+        self._response_timer.setSingleShot(True)
+        self._response_timer.setInterval(VOICE_RESPONSE_TIMEOUT_MS)
+        self._response_timer.timeout.connect(self._response_timeout)
         self._cooldown_timer = QTimer(self)
         self._cooldown_timer.setSingleShot(True)
         self._cooldown_timer.timeout.connect(self._publish_availability)
         client.session_connected.connect(self._session_connected)
         client.session_disconnected.connect(self._session_disconnected)
         client.voice_event_received.connect(self._on_event)
+        if hasattr(client, "queued_bytes_changed"):
+            client.queued_bytes_changed.connect(self.set_mercury_buffer)
+
+    def set_mercury_buffer(self, queued_bytes: int) -> None:
+        self._mercury_queued_bytes = max(0, int(queued_bytes))
+        if (self._outgoing_id and self._awaiting_ack_offset is None
+                and self._mercury_queued_bytes <= MERCURY_QUEUE_LOW_WATER_BYTES):
+            self._pump()
 
     def set_modem_bitrate(self, bitrate_bps: int) -> None:
         if int(bitrate_bps) >= 500:
@@ -78,7 +95,9 @@ class VoiceMessageService(QObject):
         self._publish_availability()
 
     def set_file_transfers(self, transfers) -> None:
-        self._file_busy = any(item.status in ACTIVE_TRANSFER_STATES for item in transfers)
+        self._file_busy = any(
+            item.status in FILE_TRANSFER_BUSY_STATES for item in transfers
+        )
         self._publish_availability()
 
     def send_recording(self, path_value: str, mime_type: str) -> bool:
@@ -95,7 +114,7 @@ class VoiceMessageService(QObject):
                 raise ValueError("Unsupported voice recording format")
             message_id = str(uuid4())
             message = VoiceMessage(
-                message_id, "outgoing", "offered", str(path), size,
+                message_id, "outgoing", "queued", str(path), size,
                 self._sha256(path), mime_type,
             )
             self._messages[message_id] = message
@@ -103,6 +122,7 @@ class VoiceMessageService(QObject):
             self._emit()
             self._send("voice_offer", message_id, size=size,
                        sha256=message.checksum, mime=mime_type, duration_ms=10_000)
+            self._response_timer.start()
             self._publish_availability()
             return True
         except (OSError, RuntimeError, ValueError) as error:
@@ -140,6 +160,8 @@ class VoiceMessageService(QObject):
     def _session_disconnected(self) -> None:
         self._connected = self._peer_compatible = self._link_usable = False
         self._pump_timer.stop()
+        self._response_timer.stop()
+        self._awaiting_ack_offset = None
         for message_id, message in list(self._messages.items()):
             if message.status in ACTIVE_TRANSFER_STATES:
                 self._delete(message.path)
@@ -157,7 +179,7 @@ class VoiceMessageService(QObject):
             if envelope.kind == "voice_capability":
                 mime_types = values.get("mime_types", [])
                 self._peer_compatible = (
-                    values.get("protocol") == 1 and isinstance(mime_types, list)
+                    values.get("protocol") == 2 and isinstance(mime_types, list)
                     and bool({"audio/mp4", "audio/ogg", "audio/webm"} & set(mime_types))
                 )
                 if self._peer_compatible and not bool(values.get("ack", False)) \
@@ -167,11 +189,19 @@ class VoiceMessageService(QObject):
             elif envelope.kind == "voice_offer":
                 self._receive_offer(envelope.message_id, values)
             elif envelope.kind == "voice_accept":
-                self._update(envelope.message_id, status="transferring")
+                message = self._messages.get(envelope.message_id)
+                if not message or message.direction != "outgoing" \
+                        or message.status != "queued":
+                    raise ValueError("unexpected voice acceptance")
+                self._response_timer.stop()
+                self._update(envelope.message_id, status="transmitting")
                 self._outgoing_id = envelope.message_id
                 self._pump_timer.start()
+                self._pump()
             elif envelope.kind == "voice_chunk":
                 self._receive_chunk(envelope.message_id, values)
+            elif envelope.kind == "voice_chunk_ack":
+                self._receive_chunk_ack(envelope.message_id, values)
             elif envelope.kind == "voice_complete":
                 self._receive_complete(envelope.message_id)
             elif envelope.kind == "voice_result":
@@ -197,7 +227,7 @@ class VoiceMessageService(QObject):
         path = self.storage_directory / f".{message_id}{suffix}.part"
         path.write_bytes(b"")
         self._messages[message_id] = VoiceMessage(
-            message_id, "incoming", "transferring", str(path), size, checksum, mime
+            message_id, "incoming", "receiving", str(path), size, checksum, mime
         )
         self._emit()
         self._send("voice_accept", message_id)
@@ -206,14 +236,30 @@ class VoiceMessageService(QObject):
         message = self._messages[message_id]
         chunk = base64.b64decode(str(values["data"]), validate=True)
         offset = int(values["offset"])
-        if (message.direction != "incoming" or message.status != "transferring"
+        if (message.direction != "incoming" or message.status != "receiving"
                 or offset != message.transferred or not chunk
                 or len(chunk) > VOICE_CHUNK_BYTES
                 or offset + len(chunk) > message.size):
             raise ValueError("unexpected voice chunk")
         with Path(message.path).open("ab") as stream:
             stream.write(chunk)
-        self._update(message_id, transferred=offset + len(chunk))
+        confirmed = offset + len(chunk)
+        self._update(message_id, transferred=confirmed)
+        self._send("voice_chunk_ack", message_id, offset=confirmed)
+
+    def _receive_chunk_ack(self, message_id: str, values: dict[str, object]) -> None:
+        message = self._messages.get(message_id)
+        confirmed = int(values["offset"])
+        if (not message or message.direction != "outgoing"
+                or message.status != "transmitting"
+                or self._awaiting_ack_offset is None
+                or confirmed != self._awaiting_ack_offset
+                or confirmed <= message.transferred or confirmed > message.size):
+            raise ValueError("unexpected voice chunk acknowledgement")
+        self._response_timer.stop()
+        self._awaiting_ack_offset = None
+        self._update(message_id, transferred=confirmed)
+        self._pump()
 
     def _receive_complete(self, message_id: str) -> None:
         message = self._messages[message_id]
@@ -235,6 +281,8 @@ class VoiceMessageService(QObject):
             return
         result = str(values.get("result", "failed"))
         self._pump_timer.stop()
+        self._response_timer.stop()
+        self._awaiting_ack_offset = None
         if result == "delivered":
             self._update(message_id, status="delivered", transferred=message.size)
             self._cooldown_until = datetime.now(UTC) + timedelta(seconds=COOLDOWN_SECONDS)
@@ -246,8 +294,12 @@ class VoiceMessageService(QObject):
 
     def _pump(self) -> None:
         message = self._messages.get(self._outgoing_id or "")
-        if not message or message.status != "transferring" or self._file_busy:
+        if not message or message.status != "transmitting" or self._file_busy:
             self._pump_timer.stop()
+            return
+        if self._awaiting_ack_offset is not None:
+            return
+        if self._mercury_queued_bytes > MERCURY_QUEUE_LOW_WATER_BYTES:
             return
         try:
             with Path(message.path).open("rb") as stream:
@@ -257,22 +309,36 @@ class VoiceMessageService(QObject):
                 self._pump_timer.stop()
                 self._update(message.id, status="verifying")
                 self._send("voice_complete", message.id)
+                self._response_timer.start()
                 return
             if not self.client.file_write_ready():
                 return
             self._send("voice_chunk", message.id, offset=message.transferred,
                        data=base64.b64encode(chunk).decode("ascii"))
-            self._update(message.id, transferred=message.transferred + len(chunk))
+            self._awaiting_ack_offset = message.transferred + len(chunk)
+            self._response_timer.start()
         except (OSError, RuntimeError) as error:
             self._pump_timer.stop()
             self._update(message.id, status="failed")
             self.error_received.emit(str(error))
 
+    def _response_timeout(self) -> None:
+        message = self._messages.get(self._outgoing_id or "")
+        if not message or message.status not in {"queued", "transmitting", "verifying"}:
+            return
+        self._pump_timer.stop()
+        self._awaiting_ack_offset = None
+        self._update(message.id, status="failed")
+        self._outgoing_id = None
+        self.error_received.emit(
+            "Voice message timed out before the receiving station confirmed delivery"
+        )
+
     def _send(self, kind: str, message_id: str, **values: object) -> None:
         self.client.send_file_event(kind, message_id, datetime.now(UTC).isoformat(), **values)
 
     def _send_capability(self, ack: bool) -> None:
-        self._send("voice_capability", str(uuid4()), protocol=1,
+        self._send("voice_capability", str(uuid4()), protocol=2,
                    mime_types=["audio/mp4", "audio/ogg", "audio/webm"],
                    maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES, ack=ack)
 

@@ -124,7 +124,7 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     "$PROJECT_ROOT/apps/desktop/main.py"
 
-printf 'Verifying Qt Multimedia voice recording and playback support...\n'
+printf 'Verifying Qt Multimedia and BUFFER-aware voice protocol 2 support...\n'
 "$BUILD_VENV/bin/python" tools/validate_voice_package.py dist/MercurySkyPulse
 
 mkdir -p dist/MercurySkyPulse/mercury

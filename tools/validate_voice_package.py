@@ -5,6 +5,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from application.voice_message import (
+    MERCURY_QUEUE_LOW_WATER_BYTES,
+    VOICE_CHUNK_BYTES,
+)
+from application_protocol.messaging import FrameDecoder, encode_event
+
 
 def validate(root: Path) -> list[str]:
     errors = []
@@ -15,6 +21,20 @@ def validate(root: Path) -> list[str]:
         errors.append("PySide6 QtMultimedia recording/playback library is missing")
     if not any("mediaplugin" in name for name in names):
         errors.append("Qt Multimedia native recording/playback backend is missing")
+    if VOICE_CHUNK_BYTES != 384:
+        errors.append("voice protocol 2 must use 384-byte stop-and-wait chunks")
+    if MERCURY_QUEUE_LOW_WATER_BYTES != 256:
+        errors.append("voice protocol 2 must wait for Mercury BUFFER <= 256")
+    try:
+        frame = encode_event(
+            "voice_chunk_ack", "package-check", "2026-01-01T00:00:00+00:00",
+            offset=384,
+        )
+        decoded = FrameDecoder().feed(frame)
+        if len(decoded) != 1 or decoded[0].kind != "voice_chunk_ack":
+            errors.append("voice protocol 2 chunk acknowledgement is unavailable")
+    except (TypeError, ValueError):
+        errors.append("voice protocol 2 chunk acknowledgement is unavailable")
     return errors
 
 
@@ -27,7 +47,10 @@ def main() -> int:
         print(f"ERROR: {error}")
     if errors:
         return 1
-    print(f"Voice recording/playback runtime verified: {args.package}")
+    print(
+        "Voice recording/playback runtime and BUFFER-aware protocol 2 verified: "
+        f"{args.package}"
+    )
     return 0
 
 

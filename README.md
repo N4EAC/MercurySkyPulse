@@ -81,6 +81,10 @@ review playback, discard, and replacement without requiring a station connection
 after three usable bitrate reports, and while no file transfer is pending—including
 paused transfers. One voice message may be outstanding, and successful delivery
 starts a 120-second sending cooldown. Disconnecting discards incomplete session audio.
+Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
+chunk acknowledgements. Both operators see local incoming/transmitting progress;
+the sender sees **delivered** only after receiver checksum verification. While
+voice or file data is pending, MSP suppresses competing chat and presence traffic.
 Sparse `is typing…` and `is recording audio…` indicators use one expiring event
 per activity period rather than continuous RF presence traffic.
 The Audio tab confirms the active voice endpoints, saves a voice-only microphone

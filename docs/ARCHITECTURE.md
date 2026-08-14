@@ -828,12 +828,17 @@ transitions; `src/persistence/chat_repository.py` owns the SQLite schema; and
 application delivery, not human reading.
 
 `src/application/voice_message.py` owns session capability negotiation, bitrate
-and transfer gating, bounded chunk transfer, checksum completion, and cooldown.
+and transfer gating, BUFFER-aware stop-and-wait chunk transfer, peer-confirmed
+progress, checksum completion, response timeouts, and cooldown.
 `src/platform_runtime/voice_audio.py` owns separate Qt Multimedia capture,
 playback, voice-only microphone level, and local diagnostics. Voice recording and
 review are local operations; only sending requires a compatible ARQ session.
 Connectionless beacons advertise `voice-chat`, but the session event remains the
 authoritative compatibility negotiation.
+Presentation derives incoming, progress, verification, and delivered snapshots
+from those existing protocol transitions and does not send separate notification
+traffic. Chat text and disposable presence are suppressed while voice or file
+data owns the half-duplex session.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral

@@ -1,5 +1,6 @@
 import os
 import unittest
+from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -48,6 +49,30 @@ class ChatVoiceControlTests(unittest.TestCase):
         self.assertTrue(self.page.voice_record_button.isEnabled())
         self.assertFalse(self.page.voice_play_button.isEnabled())
         self.assertFalse(self.page.voice_discard_button.isEnabled())
+
+    def test_incoming_transfer_shows_local_progress_snapshot(self):
+        message = SimpleNamespace(
+            id="voice", direction="incoming", status="receiving",
+            progress=42, path="", size=1000,
+        )
+        self.page.set_voice_messages([message])
+        self.assertIn("Incoming voice message", self.page.voice_status.text())
+        self.assertIn("42%", self.page.voice_status.text())
+        self.assertFalse(self.page.voice_record_button.isEnabled())
+
+    def test_sender_distinguishes_sent_from_delivered(self):
+        sent = SimpleNamespace(
+            id="voice", direction="outgoing", status="verifying",
+            progress=100, path="/tmp/voice.m4a", size=1000,
+        )
+        delivered = SimpleNamespace(
+            id="voice", direction="outgoing", status="delivered",
+            progress=100, path="/tmp/voice.m4a", size=1000,
+        )
+        self.page.set_voice_messages([sent])
+        self.assertIn("Voice sent", self.page.voice_status.text())
+        self.page.set_voice_messages([delivered])
+        self.assertIn("Voice delivered", self.page.voice_status.text())
 
 
 if __name__ == "__main__":

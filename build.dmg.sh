@@ -35,6 +35,8 @@ fi
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "MercurySkyPulse" ]]
 test -x "$APP/Contents/Frameworks/mercury/mercury"
+"$PROJECT_ROOT/.venv-build-macos/bin/python" \
+    tools/validate_voice_package.py "$APP"
 
 ditto "$APP" "$STAGING/MercurySkyPulse.app"
 ln -s /Applications "$STAGING/Applications"

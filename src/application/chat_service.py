@@ -28,6 +28,7 @@ class ChatService(QObject):
         self.local_call = ""
         self._auto_listen_call = ""
         self._client_state = "disconnected"
+        self._bulk_busy_check = lambda: False
         self.active: Conversation | None = None
         client.state_changed.connect(self._on_client_state)
         client.session_connected.connect(self._on_session_connected)
@@ -123,6 +124,11 @@ class ChatService(QObject):
         if not self.active:
             self.error_received.emit("Select or connect to a station first")
             return False
+        if self._bulk_busy_check():
+            self.error_received.emit(
+                "Wait for the active voice or file transfer to finish before sending text"
+            )
+            return False
         message = ChatMessage(
             id=str(uuid4()),
             conversation_id=self.active.id,
@@ -144,7 +150,8 @@ class ChatService(QObject):
     def send_presence(self, state: str) -> bool:
         """Send one bounded, disposable presence transition over an active ARQ session."""
         ttl_by_state = {"typing": 45, "recording_audio": 20, "idle": 0}
-        if state not in ttl_by_state or self._client_state != "connected":
+        if (state not in ttl_by_state or self._client_state != "connected"
+                or self._bulk_busy_check()):
             return False
         try:
             self.client.send_presence(
@@ -155,6 +162,10 @@ class ChatService(QObject):
             # retry stale activity over a constrained RF link.
             return False
         return True
+
+    def set_bulk_busy_check(self, callback) -> None:
+        """Suppress competing application traffic during half-duplex bulk transfer."""
+        self._bulk_busy_check = callback or (lambda: False)
 
     def _on_session_connected(self, source: str, destination: str, _bandwidth: int) -> None:
         source = source.upper()

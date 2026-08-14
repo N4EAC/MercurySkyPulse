@@ -87,6 +87,15 @@ class ChatProtocolTests(unittest.TestCase):
         self.assertEqual(envelope.kind, "presence")
         self.assertEqual(envelope.values, {"state": "typing", "ttl_seconds": 45})
 
+    def test_voice_chunk_ack_is_bounded_application_data(self) -> None:
+        frame = encode_event(
+            "voice_chunk_ack", "voice-1", datetime.now(UTC).isoformat(),
+            offset=384,
+        )
+        envelope = FrameDecoder().feed(frame)[0]
+        self.assertEqual(envelope.kind, "voice_chunk_ack")
+        self.assertEqual(envelope.values, {"offset": 384})
+
     def test_decoder_recovers_from_garbage_before_valid_frame(self) -> None:
         now = datetime.now(UTC).isoformat()
         decoder = FrameDecoder()
