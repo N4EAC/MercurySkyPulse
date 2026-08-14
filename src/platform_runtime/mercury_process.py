@@ -246,6 +246,8 @@ class MercuryProcessSupervisor(QObject):
         self._set_state("running")
 
     def _on_error(self, error: QProcess.ProcessError) -> None:
+        if not self._intended_running or self._state == "stopping":
+            return
         self.output_received.emit(f"Mercury process error: {error.name}")
 
     def _on_finished(self, exit_code: int, exit_status: QProcess.ExitStatus) -> None:

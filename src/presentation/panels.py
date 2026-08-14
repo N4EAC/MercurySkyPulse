@@ -35,7 +35,7 @@ class ActivityPanel(QWidget):
         self.output.setReadOnly(True)
         self.output.setMaximumBlockCount(1000)
         self.output.setPlaceholderText("Mercury process events will appear here.")
-        self.output.setPlainText("MercurySkyPulse initialized")
+        self.output.setPlainText("Mercury SkyPulse initialized")
         layout.addWidget(self.output)
 
     def append_log(self, line: str) -> None:

@@ -1,8 +1,8 @@
-#define MyAppName "MercurySkyPulse"
+#define MyAppName "Mercury SkyPulse"
 #ifndef MyAppVersion
   #define MyAppVersion "0.1.0"
 #endif
-#define MyAppPublisher "MercurySkyPulse contributors"
+#define MyAppPublisher "Mercury SkyPulse contributors"
 #define MyAppExeName "MercurySkyPulse.exe"
 
 [Setup]
@@ -28,7 +28,7 @@ CloseApplications=yes
 RestartApplications=no
 VersionInfoVersion={#MyAppVersion}
 VersionInfoProductName={#MyAppName}
-VersionInfoDescription=MercurySkyPulse Windows installer
+VersionInfoDescription=Mercury SkyPulse Windows installer
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

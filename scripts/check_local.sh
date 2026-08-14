@@ -42,7 +42,8 @@ test -f "$APP/Contents/Resources/mercury/LICENSE-freedv"
 test -f "$APP/Contents/Resources/mercury/SOURCE.txt"
 "$LOCAL_PYTHON" tools/validate_voice_package.py "$APP"
 codesign --verify --deep --strict "$APP"
-[[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "MercurySkyPulse" ]]
+[[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
+[[ "$(plutil -extract CFBundleDisplayName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 [[ -n "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 

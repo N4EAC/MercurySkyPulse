@@ -50,7 +50,7 @@ class PskReporterService(QObject):
         self.repository = repository
         self.uploader = uploader
         self.telemetry = telemetry
-        self.software = f"MercurySkyPulse {software_version}"[:254]
+        self.software = f"Mercury SkyPulse {software_version}"[:254]
         self.config = self._load_config()
         self._reports: list[PskReception] = []
         self._last_seen: dict[tuple[str, int], float] = {}

@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-MercurySkyPulse needs repeatable modem, protocol, transfer, and GUI verification
+Mercury SkyPulse needs repeatable modem, protocol, transfer, and GUI verification
 without requiring radio hardware, a running Mercury instance, or a display.
 
 ## Decision

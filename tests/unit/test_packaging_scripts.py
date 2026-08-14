@@ -17,6 +17,7 @@ class PackagingScriptTests(unittest.TestCase):
         builder = (ROOT / "build.exe.bat").read_text(encoding="utf-8")
         self.assertIn("SetupIconFile=", installer)
         self.assertIn('Source: "..\\..\\dist\\MercurySkyPulse\\*"', installer)
+        self.assertIn('#define MyAppName "Mercury SkyPulse"', installer)
         self.assertIn("recursesubdirs createallsubdirs", installer)
         self.assertIn("call :build_installer", builder)
         self.assertIn("Inno Setup 6", builder)
@@ -54,6 +55,7 @@ class PackagingScriptTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("Exec=/opt/mercuryskypulse/MercurySkyPulse", desktop)
+        self.assertIn("Name=Mercury SkyPulse", desktop)
         self.assertIn("Icon=mercuryskypulse", desktop)
 
 

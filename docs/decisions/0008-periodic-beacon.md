@@ -6,14 +6,14 @@ Accepted.
 
 ## Decision
 
-MercurySkyPulse supports an opt-in connectionless application beacon over
+Mercury SkyPulse supports an opt-in connectionless application beacon over
 Mercury's documented KISS-over-TCP broadcast interface (default port 8100). It is
 not an APRS packet. The default interval is Off; selectable intervals are 1, 5,
 10, 15, 30, and 60 minutes. The persisted profile contains callsign, Maidenhead
 grid, interval, and whether GPS may be included.
 
 Every compact binary beacon carries a validated callsign, 4/6/8-character Maidenhead locator,
-MercurySkyPulse software version, and a bounded normalized capability list.
+Mercury SkyPulse software version, and a bounded normalized capability list.
 Optional coordinates are included only when the operator enables GPS inclusion
 and a valid GPS-source fix has been observed. Coordinates include their fix
 timestamp separately from the beacon timestamp.

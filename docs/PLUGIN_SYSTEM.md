@@ -1,4 +1,4 @@
-# MercurySkyPulse plugin system
+# Mercury SkyPulse plugin system
 
 ## Current scope
 

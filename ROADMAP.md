@@ -1,4 +1,4 @@
-# MercurySkyPulse Roadmap
+# Mercury SkyPulse Roadmap
 
 This roadmap records the completed vertical-slice work and sequences the
 architecture hardening required before a production release. Dates remain
@@ -42,7 +42,7 @@ license is established by ADR 0027.
 - TNC commands, notifications, application framing, and connection lifecycle used
   by the current slice have executable contracts.
 - WebSocket JSON status, cached read-only CAT frequency, and binary-spectrum
-  schemas used by MercurySkyPulse have bounded parsers and contract tests.
+  schemas used by Mercury SkyPulse have bounded parsers and contract tests.
 - Protocol parser/serializer unit tests use generated, non-sensitive fixtures.
 - Add compatibility checks against a separately built Mercury executable.
 - Define capability negotiation and behavior for unsupported Mercury versions.
@@ -100,7 +100,7 @@ Exit criteria: managed and unmanaged Mercury instances implement the same applic
   tabs are reorderable, and their per-user layout plus appearance and Setup geometry
   are restored across launches.
 - Validate the new named macOS `.app` bundle and replace the interpreter-launch **Python** menu label through a
-  packaged MercurySkyPulse application bundle with verified bundle metadata.
+  packaged Mercury SkyPulse application bundle with verified bundle metadata.
 - Continue moving process/connection lifecycle out of `MainWindow` and expose
   endpoint configuration and actionable connection errors.
 

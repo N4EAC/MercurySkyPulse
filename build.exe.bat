@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-echo MercurySkyPulse Windows test build
+echo Mercury SkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
@@ -57,7 +57,7 @@ if errorlevel 1 (
     goto failed
 )
 
-echo Installing MercurySkyPulse and PyInstaller...
+echo Installing Mercury SkyPulse and PyInstaller...
 "%MSP_PYTHON%" -m pip install -e . pyinstaller
 if errorlevel 1 (
     echo ERROR: Project dependencies or PyInstaller could not be installed.
@@ -87,7 +87,7 @@ if errorlevel 1 (
     goto failed
 )
 
-echo Verifying Qt Multimedia and BUFFER-aware voice protocol 2 support...
+echo Verifying Qt Multimedia and bidirectional-gated voice protocol 2 support...
 "%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
 if errorlevel 1 (
     echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice recording and playback.
@@ -107,7 +107,7 @@ if errorlevel 1 (
 ) > "dist\MercurySkyPulse\mercury\SOURCE.txt"
 copy /Y LICENSE "dist\MercurySkyPulse\LICENSE" >nul
 if errorlevel 1 (
-    echo ERROR: The MercurySkyPulse GPL license could not be copied into the package.
+    echo ERROR: The Mercury SkyPulse GPL license could not be copied into the package.
     goto failed
 )
 

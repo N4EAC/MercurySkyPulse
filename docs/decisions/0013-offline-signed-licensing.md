@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-MercurySkyPulse needs edition and feature entitlements that work without a
+Mercury SkyPulse needs edition and feature entitlements that work without a
 network service and can be deployed centrally. This phase excludes copy
 protection and machine binding.
 

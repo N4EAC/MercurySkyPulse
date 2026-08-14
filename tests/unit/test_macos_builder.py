@@ -17,6 +17,8 @@ class MacosBuilderContractTests(unittest.TestCase):
         self.assertIn("--osx-bundle-identifier org.mercuryskypulse.desktop", script)
         self.assertIn("NSMicrophoneUsageDescription", script)
         self.assertIn("tools/validate_voice_package.py", script)
+        self.assertIn("Set :CFBundleName Mercury SkyPulse", script)
+        self.assertIn("CFBundleDisplayName string Mercury SkyPulse", script)
         self.assertIn("codesign --force --deep --sign -", script)
         self.assertIn("dist/MercurySkyPulse.app", script)
 

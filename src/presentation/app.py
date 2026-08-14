@@ -53,7 +53,7 @@ from platform_runtime.voice_audio import VoiceAudioEngine
 def create_application(argv: list[str] | None = None) -> QApplication:
     """Create the Qt application without starting its event loop."""
     os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
-    set_macos_program_name("MercurySkyPulse")
+    set_macos_program_name("Mercury SkyPulse")
 
     QCoreApplication.setOrganizationName("MercurySkyPulse")
     QCoreApplication.setApplicationName("MercurySkyPulse")
@@ -61,12 +61,12 @@ def create_application(argv: list[str] | None = None) -> QApplication:
 
     existing = QApplication.instance()
     if existing is not None:
-        existing.setApplicationDisplayName("MercurySkyPulse")
+        existing.setApplicationDisplayName("Mercury SkyPulse")
         _set_application_icon(existing)
         return existing
 
     app = QApplication(argv if argv is not None else sys.argv)
-    app.setApplicationDisplayName("MercurySkyPulse")
+    app.setApplicationDisplayName("Mercury SkyPulse")
     _set_application_icon(app)
 
     font = QFont(app.font())
@@ -249,8 +249,8 @@ def main() -> int:
     window.activity_panel.append_log(f"Persistent diagnostic log: {diagnostic_log.path}")
     app.aboutToQuit.connect(diagnostic_log.close)
     window.show()
-    set_macos_application_menu_name("MercurySkyPulse")
+    set_macos_application_menu_name("Mercury SkyPulse")
     QTimer.singleShot(
-        0, lambda: set_macos_application_menu_name("MercurySkyPulse")
+        0, lambda: set_macos_application_menu_name("Mercury SkyPulse")
     )
     return app.exec()

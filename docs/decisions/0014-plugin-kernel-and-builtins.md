@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-MercurySkyPulse needs replaceable providers for transport, presentation,
+Mercury SkyPulse needs replaceable providers for transport, presentation,
 positioning, mapping, BBS, web, logging, and future encryption. Rewriting all
 working components at once would introduce unnecessary operational risk.
 

@@ -17,7 +17,7 @@ after 15 seconds. Late or unmatched responses are ignored; numeric ranges,
 finiteness, mode length, and correlation are validated before presentation.
 
 Mercury's current status JSON does not publish the specific FreeDV modulation
-identifier. MercurySkyPulse accepts a future `modem_mode` or `mode` field when
+identifier. Mercury SkyPulse accepts a future `modem_mode` or `mode` field when
 present and otherwise reports the truthful operating family `ARQ` when linked or
 `idle` when not linked. It does not infer private mode mappings from Mercury
 source code.

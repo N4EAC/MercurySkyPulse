@@ -60,7 +60,7 @@ class PskReporterTests(unittest.TestCase):
         self.assertEqual(SENDER_TEMPLATE[8:16], bytes.fromhex("8001ffff0000768f"))
         report = PskReception("K1ABC", "FN31", 14_105_000, "OFDM", 1_700_000_000)
         packet = encode_ipfix(
-            "N4EAC", "EL98", "MercurySkyPulse 0.1.0", "Dipole", (report,),
+            "N4EAC", "EL98", "Mercury SkyPulse 0.1.0", "Dipole", (report,),
             7, 0x12345678, True, 1_700_000_100,
         )
         version, length, exported, sequence, observation = struct.unpack_from(
@@ -95,7 +95,7 @@ class PskReporterTests(unittest.TestCase):
         self.service._timer.stop()
         self.assertEqual(len(self.uploader.uploads), 1)
         values = self.uploader.uploads[0]
-        self.assertEqual(values[:4], ("N4EAC", "EL98", "MercurySkyPulse 0.1.0", "Loop"))
+        self.assertEqual(values[:4], ("N4EAC", "EL98", "Mercury SkyPulse 0.1.0", "Loop"))
         self.assertEqual(values[4][0].mode, "OFDM")
         self.assertTrue(values[5])
         self.assertTrue(any("receiver_callsign=N4EAC" in line for line in activity))

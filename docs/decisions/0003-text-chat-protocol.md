@@ -6,7 +6,7 @@ Accepted.
 
 ## Decision
 
-MercurySkyPulse uses Mercury's documented VARA-style control socket (port 8300)
+Mercury SkyPulse uses Mercury's documented VARA-style control socket (port 8300)
 and reliable application-data socket (port 8301). Mercury remains an independent
 process and is not modified.
 
@@ -27,7 +27,7 @@ the original chat-only schema.
 
 ## Consequences
 
-- Both stations need a compatible MercurySkyPulse text protocol implementation.
+- Both stations need a compatible Mercury SkyPulse text protocol implementation.
 - Chat inherits the confidentiality properties of the radio link; content is not
   end-to-end encrypted by this first protocol version.
 - Framing is independent of TCP packet boundaries and can evolve through its

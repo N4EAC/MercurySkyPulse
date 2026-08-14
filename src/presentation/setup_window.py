@@ -23,7 +23,7 @@ class SetupWindow(QDialog):
                  tx_level_service=None, psk_reporter_service=None,
                  weather_service=None, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("MercurySkyPulse Setup")
+        self.setWindowTitle("Mercury SkyPulse Setup")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
         self.setMinimumSize(760, 600)
         self.resize(940, 760)

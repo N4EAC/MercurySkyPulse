@@ -1,4 +1,4 @@
-# ADR 0027: License MercurySkyPulse under GPL-3.0-or-later
+# ADR 0027: License Mercury SkyPulse under GPL-3.0-or-later
 
 ## Status
 
@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-MercurySkyPulse is intended to be open-source software that anyone may use,
+Mercury SkyPulse is intended to be open-source software that anyone may use,
 study, copy, modify, redistribute, and improve. The project owner also wants
 distributed derivatives to preserve those freedoms. Mercury is separately
 versioned and process-isolated, but the engineering packages include a GPL
@@ -14,12 +14,12 @@ Mercury runtime with its own license and corresponding-source notice.
 
 ## Decision
 
-License MercurySkyPulse under the GNU General Public License, version 3 or any
+License Mercury SkyPulse under the GNU General Public License, version 3 or any
 later version (`GPL-3.0-or-later`). The repository carries the complete GPLv3
 text in `LICENSE`, declares the SPDX expression in package metadata, and states
 the license in operator and contributor documentation.
 
-Copyright notices identify Eduardo A. de Carvalho and MercurySkyPulse
+Copyright notices identify Eduardo A. de Carvalho and Mercury SkyPulse
 contributors. Contributions are accepted for distribution under the same
 project license.
 

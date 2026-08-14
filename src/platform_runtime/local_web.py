@@ -140,9 +140,9 @@ def _page(title: str, current: str, content: str) -> str:
     nav = "".join(f'<a class="{"active" if path == current else ""}" href="{path}">{label}</a>'
                   for path, label in NAV)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} · MercurySkyPulse</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} · Mercury SkyPulse</title>
 <style>:root{{color-scheme:dark light;--bg:#0c1118;--card:#151d28;--text:#e9eff8;--muted:#91a0b5;--accent:#68a4ff;--line:#293547}}*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,"Segoe UI",sans-serif}}header{{padding:24px clamp(18px,5vw,64px);border-bottom:1px solid var(--line)}}h1{{margin:0 0 6px;font-size:24px}}small{{color:var(--muted)}}nav{{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}}nav a{{color:var(--muted);text-decoration:none;padding:8px 12px;border-radius:9px}}nav a.active,nav a:hover{{background:var(--card);color:var(--text)}}main{{padding:28px clamp(18px,5vw,64px);max-width:1400px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}}.card{{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;overflow:auto}}.metric{{font-size:25px;font-weight:650;margin-top:8px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:11px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}}th{{color:var(--muted);font-size:12px;text-transform:uppercase}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--text)}}.muted{{color:var(--muted)}}@media(prefers-color-scheme:light){{:root{{--bg:#f4f6f9;--card:#fff;--text:#17202c;--muted:#667487;--accent:#1769d1;--line:#dce2ea}}}}</style></head>
-<body><header><h1>MercurySkyPulse</h1><small>Local read-only interface · 127.0.0.1</small><nav>{nav}</nav></header><main><h2>{title}</h2>{content}</main></body></html>"""
+<body><header><h1>Mercury SkyPulse</h1><small>Local read-only interface · 127.0.0.1</small><nav>{nav}</nav></header><main><h2>{title}</h2>{content}</main></body></html>"""
 
 
 def _value(value, suffix="") -> str:

@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEventLoop, QProcess, QTimer
 from PySide6.QtWidgets import QApplication
 
 from platform_runtime.mercury_process import (
@@ -102,6 +102,17 @@ class MercurySupervisorTests(unittest.TestCase):
         supervisor.stop()
         self.assertFalse(supervisor._restart_timer.isActive())
         self.assertEqual(supervisor.state, "stopped")
+
+    def test_expected_shutdown_suppresses_qprocess_crash_error(self) -> None:
+        supervisor = MercuryProcessSupervisor()
+        output = []
+        supervisor.output_received.connect(output.append)
+        supervisor._intended_running = False
+        supervisor._set_state("stopping")
+
+        supervisor._on_error(QProcess.ProcessError.Crashed)
+
+        self.assertEqual(output, [])
 
     def test_missing_modem_reports_missing_without_retry_loop(self) -> None:
         supervisor = MercuryProcessSupervisor(

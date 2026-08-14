@@ -44,11 +44,11 @@ class LocationExporter:
         root = ET.Element(
             "gpx",
             version="1.1",
-            creator="MercurySkyPulse",
+            creator="Mercury SkyPulse",
             xmlns="http://www.topografix.com/GPX/1/1",
         )
         track = ET.SubElement(root, "trk")
-        ET.SubElement(track, "name").text = "MercurySkyPulse GPS Track"
+        ET.SubElement(track, "name").text = "Mercury SkyPulse GPS Track"
         segment = ET.SubElement(track, "trkseg")
         for location in locations:
             point = ET.SubElement(
@@ -74,7 +74,7 @@ class LocationExporter:
         document = ET.SubElement(root, f"{{{namespace}}}Document")
         placemark = ET.SubElement(document, f"{{{namespace}}}Placemark")
         ET.SubElement(placemark, f"{{{namespace}}}name").text = (
-            "MercurySkyPulse GPS Track"
+            "Mercury SkyPulse GPS Track"
         )
         line = ET.SubElement(placemark, f"{{{namespace}}}LineString")
         ET.SubElement(line, f"{{{namespace}}}tessellate").text = "1"
@@ -93,7 +93,7 @@ class LocationExporter:
                 {
                     "type": "Feature",
                     "properties": {
-                        "name": "MercurySkyPulse GPS Track",
+                        "name": "Mercury SkyPulse GPS Track",
                         "timestamps": [location.timestamp for location in locations],
                         "accuracy_m": [location.accuracy_m for location in locations],
                     },

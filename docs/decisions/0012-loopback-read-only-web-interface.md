@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Operators need a local browser view of MercurySkyPulse state without creating a
+Operators need a local browser view of Mercury SkyPulse state without creating a
 second control surface or exposing application data to the LAN.
 
 ## Decision

@@ -1,6 +1,6 @@
-# MercurySkyPulse
+# Mercury SkyPulse
 
-![MercurySkyPulse amateur-radio OFDM field communications banner](assets/banners/mercuryskypulse-field-ofdm-banner-v1.png)
+![Mercury SkyPulse amateur-radio OFDM field communications banner](assets/banners/mercuryskypulse-field-ofdm-banner-v1.png)
 
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4.svg)
@@ -8,11 +8,16 @@
 ![Linux engineering packages](https://img.shields.io/badge/Linux-Fedora%20%7C%20Ubuntu%20engineering-FCC624.svg)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)
 
-MercurySkyPulse is a cross-platform, local-first station application built around
+Mercury SkyPulse is a cross-platform, local-first station application built around
 the independent [Mercury](https://github.com/Rhizomatica/mercury) HF modem
 transport engine.
 
-Mercury runs as its own process-isolated transport engine; MercurySkyPulse
+The user-facing product name includes the space shown above. Stable technical
+identifiers retain `MercurySkyPulse` in repository URLs, executable and bundle
+filenames, Python packages, and existing application-data paths so upgrades do
+not break installations or saved configuration.
+
+Mercury runs as its own process-isolated transport engine; Mercury SkyPulse
 communicates with it through documented interfaces. A small public
 [MSP compatibility fork](https://github.com/N4EAC/mercury) adds conservative,
 read-only Hamlib frequency telemetry while preserving this boundary:
@@ -54,7 +59,7 @@ macOS is not part of the presently validated build matrix.
 
 ### Alpha downloads
 
-[MercurySkyPulse 0.1.0 Alpha 1](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.1)
+[Mercury SkyPulse 0.1.0 Alpha 1](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.1)
 provides unsigned engineering installers and SHA-256 checksum files for:
 
 - Apple Silicon macOS (`.dmg`, drag to Applications);
@@ -73,18 +78,23 @@ sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
 
 Compatible MSP peers can also exchange compressed voice messages of up to 10
-seconds. Voice uses separate system microphone/playback devices selected under
+seconds and 8 KiB. Voice uses separate system microphone/playback devices selected under
 **Setup → Audio** and is transferred as verified application data over the active
 Mercury ARQ session; it is not live FreeDV audio. MSP permits local recording,
 review playback, discard, and replacement without requiring a station connection.
 **Send Voice** is enabled only after the connected peer advertises `voice-chat`,
-after three usable bitrate reports, and while no file transfer is pending—including
+after three usable local bitrate reports, and while no file transfer is pending—including
 paused transfers. One voice message may be outstanding, and successful delivery
 starts a 120-second sending cooldown. Disconnecting discards incomplete session audio.
+The receiver independently rejects voice when its inbound bitrate is below the
+same threshold, protecting asymmetric links that look good only to the sender.
 Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
 chunk acknowledgements. Both operators see local incoming/transmitting progress;
 the sender sees **delivered** only after receiver checksum verification. While
-voice or file data is pending, MSP suppresses competing chat and presence traffic.
+voice or file data is pending, MSP displays new text locally as **queued**, sends
+it after the bulk transfer releases the session, and suppresses disposable
+presence traffic. The Station Status Transfer card shows voice as well as file
+activity.
 Sparse `is typing…` and `is recording audio…` indicators use one expiring event
 per activity period rather than continuous RF presence traffic.
 The Audio tab confirms the active voice endpoints, saves a voice-only microphone
@@ -96,7 +106,7 @@ Conversation history is stored locally in the platform application-data director
 The same connected station can receive files through **Send File…**. Transfers
 may be paused or resumed. Every new incoming file requires operator acceptance.
 Received content is stored under the
-platform Downloads directory in `MercurySkyPulse`, after SHA-256 verification.
+platform Downloads directory in `Mercury SkyPulse`, after SHA-256 verification.
 Previously received identical content is detected by checksum and not written a
 second time. **Open Folder** reveals completed content. Outgoing progress remains
 indeterminate while bytes are queued through Mercury and reaches 100% only after
@@ -125,7 +135,7 @@ or opening an unrelated COM port. Choosing **Stop GPS** disables automatic start
 **Share Location** sends the current validated position to the connected station.
 Location is never transmitted automatically. Received locations are range-checked
 and their APRS and decimal representations must agree before display. This is
-coordinate compatibility only; MercurySkyPulse does not transmit APRS packets or
+coordinate compatibility only; Mercury SkyPulse does not transmit APRS packets or
 connect to APRS-IS.
 
 GPS track retention is disabled by default. Enable **Retain GPS location updates**
@@ -205,7 +215,7 @@ the mode is reported as `ARQ` or `idle` unless Mercury supplies a future `mode` 
 
 Edit → **Setup…** opens a separate window with **Radio**, **Audio**, **User**,
 **GPS**, and **Reporting** tabs. The main window remains focused on operating views. Radio configures
-CAT and PTT without making MercurySkyPulse a second
+CAT and PTT without making Mercury SkyPulse a second
 radio controller. For a managed local engine, it asks the selected Mercury
 executable for its complete compiled Hamlib catalog with `mercury -K`; the list is
 scrollable and searchable by manufacturer or model. Select a model, a discovered
@@ -296,10 +306,10 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 ## Design principles
 
 - Mercury remains independently buildable, runnable, upgradeable, and testable.
-- MercurySkyPulse depends on documented wire contracts, not Mercury globals or private source internals.
+- Mercury SkyPulse depends on documented wire contracts, not Mercury globals or private source internals.
 - Transport-specific code remains behind adapter interfaces.
 - Mercury TNC and KISS adapters carry opaque application bytes; message framing, chunking, authentication, and feature protocols live above them in `application_protocol`.
-- Chat, files, BBS, mapping, web, logging, licensing, and encryption policy are MercurySkyPulse features, never Mercury modem responsibilities.
+- Chat, files, BBS, mapping, web, logging, licensing, and encryption policy are Mercury SkyPulse features, never Mercury modem responsibilities.
 - Domain and application layers do not depend on TCP, WebSocket, UI, or operating-system details.
 - A managed local Mercury process and a remote Mercury service should look equivalent to the application layer.
 - New behavior is introduced with tests and documentation before crossing module boundaries.
@@ -374,7 +384,7 @@ Alternatively, after installation, run `python -m presentation`.
 
 An interpreter launch can still display **Python** in the macOS menu bar because
 macOS identifies the Python host bundle. Build and launch the named application
-bundle for the correct **MercurySkyPulse** menu:
+bundle for the correct **Mercury SkyPulse** menu:
 
 ```bash
 ./build.app.sh
@@ -382,7 +392,7 @@ open dist/MercurySkyPulse.app
 ```
 
 The script creates an isolated build environment, runs the aggregate tests, and
-produces an unsigned engineering `.app` with MercurySkyPulse bundle metadata.
+produces an unsigned engineering `.app` with Mercury SkyPulse bundle metadata.
 The bundle uses the project MSP radar icon rather than the Python host icon.
 It also copies the runnable Mercury binary and license from the sibling Mercury
 checkout into the app automatically. Set `MERCURY_EXECUTABLE` only when building
@@ -534,7 +544,7 @@ preparation do not depend on it, while TIFF input remains backend-dependent.
 
 ### Mercury executable
 
-MercurySkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:
+Mercury SkyPulse automatically starts Mercury with UI communication enabled. It looks for an executable in this order:
 
 1. the explicitly configured executable, when endpoint-profile persistence is implemented;
 2. `MERCURY_EXECUTABLE`;
@@ -561,7 +571,7 @@ UI scale, and the selected GPS port are restored for the current OS user. Use
 
 ### Field-test diagnostic log
 
-MercurySkyPulse writes a persistent UTF-8 diagnostic log in the per-user
+Mercury SkyPulse writes a persistent UTF-8 diagnostic log in the per-user
 application-data directory under `logs/mercuryskypulse.log`. It records session
 and platform details, Mercury output, TNC control events, ARQ and telemetry state
 changes, errors, and file-transfer byte/status transitions. It intentionally
@@ -579,7 +589,7 @@ Use **Mercury → Open Diagnostic Log Folder** to locate it. Logs rotate at 10 M
 with ten retained backups. For radio-to-radio fault reports, collect logs from
 both stations; timestamps are UTC so the two sides can be correlated.
 
-Mercury itself owns audio and radio configuration. MercurySkyPulse consumes its telemetry and uses its documented ARQ TNC interface for text chat.
+Mercury itself owns audio and radio configuration. Mercury SkyPulse consumes its telemetry and uses its documented ARQ TNC interface for text chat.
 
 ### Local web interface
 
@@ -595,7 +605,7 @@ before launch to select another local port; `0` chooses an available port.
 
 ### Offline licensing
 
-MercurySkyPulse starts in Community edition when no license is installed. The
+Mercury SkyPulse starts in Community edition when no license is installed. The
 framework accepts offline Ed25519-signed JSON files with editions, feature flags,
 expiration, and individual or organizational deployment metadata. Status appears
 in the status bar, **Help → License Information**, and local dashboard. Existing
@@ -676,13 +686,13 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before mak
 
 ## License
 
-MercurySkyPulse is free software licensed under the
+Mercury SkyPulse is free software licensed under the
 [GNU General Public License, version 3 or later](LICENSE). You may use, study,
 copy, modify, redistribute, and sell it under those terms. A distributor must
 preserve the license and provide the corresponding source and the same freedoms
 to recipients.
 
-Copyright © 2026 Eduardo A. de Carvalho and MercurySkyPulse contributors.
+Copyright © 2026 Eduardo A. de Carvalho and Mercury SkyPulse contributors.
 
 Mercury is a separately maintained process and is distributed under its own
 GPL-3.0-or-later terms. Packaged MSP builds retain Mercury's license and exact

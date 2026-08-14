@@ -7,7 +7,7 @@ Accepted
 ## Context
 
 Application features had begun depending on a `MercuryChatClient`, and the
-Mercury adapter directory contained MercurySkyPulse message and beacon codecs.
+Mercury adapter directory contained Mercury SkyPulse message and beacon codecs.
 That naming and dependency direction risked making the modem responsible for
 collaboration behavior.
 
@@ -19,7 +19,7 @@ compression, application chunking, or encryption semantics.
 
 `MercuryTncTransport` exposes documented control/session events and opaque
 reliable byte reads/writes. `MercuryBroadcastTransport` exposes opaque KISS
-broadcast payloads. `application_protocol` owns MercurySkyPulse framing, event
+broadcast payloads. `application_protocol` owns Mercury SkyPulse framing, event
 demultiplexing, acknowledgements, bounded application payloads, and beacon codec.
 Application services own workflows, persistence, checksums, roles, and access
 policy. Presentation consumes application projections only.

@@ -104,6 +104,9 @@ class MainWindow(QMainWindow):
         self.voice_audio_engine = voice_audio_engine
         self._voice_draft: tuple[str, str] | None = None
         self._voice_log_snapshot: tuple[str, str, int] | None = None
+        self._file_transfer_snapshot = []
+        self._voice_transfer_snapshot = []
+        self._last_transfer_kind = ""
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
         self.frequency_panel = FrequencyPanel()
@@ -133,7 +136,7 @@ class MainWindow(QMainWindow):
             self.telemetry.setParent(self)
 
         self.setObjectName("MercurySkyPulseMainWindow")
-        self.setWindowTitle("MercurySkyPulse")
+        self.setWindowTitle("Mercury SkyPulse")
         self.setMinimumSize(860, 600)
         self.resize(1280, 820)
         self.setDockOptions(
@@ -397,7 +400,7 @@ class MainWindow(QMainWindow):
             window_menu.addAction(dock.toggleViewAction())
 
         help_menu = self.menuBar().addMenu("&Help")
-        about = QAction("About MercurySkyPulse", self)
+        about = QAction("About Mercury SkyPulse", self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
         licensing = QAction("License Information", self)
@@ -515,8 +518,8 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         QMessageBox.about(
             self,
-            "About MercurySkyPulse",
-            f"MercurySkyPulse {self._app.applicationVersion()}",
+            "About Mercury SkyPulse",
+            f"Mercury SkyPulse {self._app.applicationVersion()}",
         )
 
     def _show_license(self) -> None:
@@ -688,6 +691,9 @@ class MainWindow(QMainWindow):
             transfers.transfers_changed.connect(self.chat_page.set_transfers)
             transfers.transfers_changed.connect(self._log_transfers)
             transfers.transfers_changed.connect(self._update_transfer_summary)
+            transfers.transfers_changed.connect(
+                lambda _values: self.chat_service.flush_deferred_messages()
+            )
             transfers.incoming_offer.connect(self._confirm_incoming_file)
             transfers.transfer_completed.connect(self._transfer_completed)
             transfers.error_received.connect(self.chat_page.show_error)
@@ -715,7 +721,16 @@ class MainWindow(QMainWindow):
             voice.availability_changed.connect(self.chat_page.set_voice_availability)
             voice.messages_changed.connect(self.chat_page.set_voice_messages)
             voice.messages_changed.connect(self._log_voice_messages)
+            voice.messages_changed.connect(self._update_voice_transfer_summary)
+            voice.messages_changed.connect(
+                lambda _values: self.chat_service.flush_deferred_messages()
+            )
             voice.error_received.connect(self.chat_page.show_error)
+            voice.error_received.connect(
+                lambda error: self.activity_panel.append_log(
+                    f"Voice protocol error: {error}"
+                )
+            )
             self.chat_service.set_bulk_busy_check(
                 lambda: voice.transfer_busy()
                 or bool(
@@ -1149,14 +1164,77 @@ class MainWindow(QMainWindow):
             )
 
     def _update_transfer_summary(self, transfers) -> None:
-        if not transfers:
-            self.station_summary.set_value("transfer", "Idle")
+        self._file_transfer_snapshot = list(transfers)
+        self._last_transfer_kind = "file"
+        self._refresh_transfer_summary()
+
+    def _update_voice_transfer_summary(self, messages) -> None:
+        self._voice_transfer_snapshot = list(messages)
+        self._last_transfer_kind = "voice"
+        self._refresh_transfer_summary()
+
+    def _refresh_transfer_summary(self) -> None:
+        active_voice = next(
+            (
+                message for message in reversed(self._voice_transfer_snapshot)
+                if message.status in {
+                    "queued", "offered", "transmitting", "receiving", "verifying",
+                }
+            ),
+            None,
+        )
+        if active_voice:
+            labels = {
+                "queued": "Voice: waiting for Mercury",
+                "offered": "Voice: awaiting receiver",
+                "transmitting": f"Voice: {active_voice.progress}% confirmed",
+                "receiving": f"Voice: receiving {active_voice.progress}%",
+                "verifying": "Voice: verifying",
+            }
+            self.station_summary.set_value("transfer", labels[active_voice.status])
             return
-        transfer = transfers[-1]
-        label = str(transfer.status).replace("_", " ").title()
-        if transfer.size and transfer.status not in {"received", "duplicate"}:
-            label = f"{label} {transfer.progress}%"
-        self.station_summary.set_value("transfer", label)
+        active_file = next(
+            (
+                transfer for transfer in reversed(self._file_transfer_snapshot)
+                if transfer.status in {"offered", "transferring", "paused", "verifying"}
+            ),
+            None,
+        )
+        if active_file:
+            label = str(active_file.status).replace("_", " ").title()
+            if active_file.size:
+                label = f"File: {label} {active_file.progress}%"
+            self.station_summary.set_value("transfer", label)
+            return
+        terminal_voice = (
+            self._voice_transfer_snapshot[-1]
+            if self._last_transfer_kind == "voice" and self._voice_transfer_snapshot
+            else None
+        )
+        if terminal_voice and terminal_voice.status in {
+            "failed", "busy", "link-poor", "delivered", "received",
+        }:
+            label = {
+                "failed": "Voice: failed",
+                "busy": "Voice: receiver busy",
+                "link-poor": "Voice: link too weak",
+                "delivered": "Voice: delivered",
+                "received": "Voice: ready to play",
+            }[terminal_voice.status]
+            self.station_summary.set_value("transfer", label)
+            return
+        terminal_file = (
+            self._file_transfer_snapshot[-1]
+            if self._last_transfer_kind == "file" and self._file_transfer_snapshot
+            else None
+        )
+        if terminal_file and terminal_file.status in {
+            "failed", "rejected", "received", "duplicate",
+        }:
+            label = str(terminal_file.status).replace("_", " ").title()
+            self.station_summary.set_value("transfer", f"File: {label}")
+            return
+        self.station_summary.set_value("transfer", "Idle")
 
     def _confirm_incoming_file(self, transfer) -> None:
         size = f"{transfer.size:,} bytes"

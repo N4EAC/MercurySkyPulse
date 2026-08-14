@@ -50,7 +50,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.app.processEvents()
 
     def test_main_window_has_required_shell_components(self) -> None:
-        self.assertEqual(self.app.applicationDisplayName(), "MercurySkyPulse")
+        self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)

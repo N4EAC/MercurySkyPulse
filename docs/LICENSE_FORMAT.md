@@ -1,4 +1,4 @@
-# MercurySkyPulse license format
+# Mercury SkyPulse license format
 
 License documents are UTF-8 JSON and limited to 64 KiB. Version 1 has exactly
 four top-level fields:
@@ -48,7 +48,7 @@ signature = private_key.sign(message)
 ```
 
 Private keys belong in the external issuance environment and must never be
-installed with MercurySkyPulse. Deploy raw 32-byte Ed25519 public keys through
+installed with Mercury SkyPulse. Deploy raw 32-byte Ed25519 public keys through
 the trusted-key registry documented in the README. Signing-key rotation is done
 by adding the new public key before issuing licenses with its `key_id`, then
 removing retired keys after their licenses are no longer accepted.

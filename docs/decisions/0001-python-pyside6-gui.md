@@ -4,7 +4,7 @@ Status: Accepted for the GUI skeleton
 
 ## Context
 
-MercurySkyPulse needs a cross-platform desktop shell with native macOS and Windows behavior, runtime dark/light themes, scalable controls, docking, resizing, menus, and a status bar. The current task explicitly excludes modem, networking, and database behavior.
+Mercury SkyPulse needs a cross-platform desktop shell with native macOS and Windows behavior, runtime dark/light themes, scalable controls, docking, resizing, menus, and a status bar. The current task explicitly excludes modem, networking, and database behavior.
 
 ## Decision
 

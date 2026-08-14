@@ -49,7 +49,7 @@ def _manifest(plugin_id: str, name: str, permission: str,
               point: ExtensionPoint, export: str,
               dependencies: tuple[str, ...] = ()) -> PluginManifest:
     return PluginManifest(
-        plugin_id, name, "0.1.0", "MercurySkyPulse", built_in=True,
+        plugin_id, name, "0.1.0", "Mercury SkyPulse", built_in=True,
         dependencies=dependencies, permissions=frozenset({permission}),
         extensions=(ExtensionContribution(point, export),),
     )

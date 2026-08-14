@@ -33,8 +33,9 @@ if [[ ! -d "$APP" ]]; then
 fi
 
 codesign --verify --deep --strict "$APP"
-[[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "MercurySkyPulse" ]]
+[[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 test -x "$APP/Contents/Frameworks/mercury/mercury"
+print "Verifying bidirectional-gated voice protocol 2 in the DMG payload..."
 "$PROJECT_ROOT/.venv-build-macos/bin/python" \
     tools/validate_voice_package.py "$APP"
 
@@ -45,7 +46,7 @@ cp LICENSE "$STAGING/LICENSE.txt"
 mkdir -p "$OUTPUT_DIR"
 rm -f "$OUTPUT"
 hdiutil create \
-    -volname "MercurySkyPulse $VERSION" \
+    -volname "Mercury SkyPulse $VERSION" \
     -srcfolder "$STAGING" \
     -format UDZO \
     -imagekey zlib-level=9 \

@@ -1,10 +1,10 @@
 # Agent Instructions
 
-These instructions apply to the entire MercurySkyPulse repository.
+These instructions apply to the entire Mercury SkyPulse repository.
 
 ## Project intent
 
-MercurySkyPulse integrates with Mercury as a process-isolated transport engine.
+Mercury SkyPulse integrates with Mercury as a process-isolated transport engine.
 Windows engineering packages bundle a pinned, checksum-verified MSP-compatible
 Mercury runtime from the public `N4EAC/mercury` fork as required by ADR 0020,
 while source trees and implementation boundaries remain separate. Never modify a Mercury checkout as part of work in this

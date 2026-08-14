@@ -3,8 +3,8 @@ Version: @VERSION@
 Section: hamradio
 Priority: optional
 Architecture: amd64
-Maintainer: MercurySkyPulse contributors
+Maintainer: Mercury SkyPulse contributors
 Depends: libc6, libegl1, libgl1, libxkbcommon-x11-0, libasound2, libpulse0, libpipewire-0.3-0, libhamlib4 | libhamlib4t64
 Description: Mercury-based amateur-radio digital communications station
- MercurySkyPulse provides chat, short voice messages, beacon, ping, file transfer,
+ Mercury SkyPulse provides chat, short voice messages, beacon, ping, file transfer,
  BBS, location, reporting, and station controls through a bundled Mercury modem runtime.

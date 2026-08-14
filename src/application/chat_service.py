@@ -29,6 +29,7 @@ class ChatService(QObject):
         self._auto_listen_call = ""
         self._client_state = "disconnected"
         self._bulk_busy_check = lambda: False
+        self._deferred_messages: list[ChatMessage] = []
         self.active: Conversation | None = None
         client.state_changed.connect(self._on_client_state)
         client.session_connected.connect(self._on_session_connected)
@@ -124,11 +125,6 @@ class ChatService(QObject):
         if not self.active:
             self.error_received.emit("Select or connect to a station first")
             return False
-        if self._bulk_busy_check():
-            self.error_received.emit(
-                "Wait for the active voice or file transfer to finish before sending text"
-            )
-            return False
         message = ChatMessage(
             id=str(uuid4()),
             conversation_id=self.active.id,
@@ -139,8 +135,23 @@ class ChatService(QObject):
         )
         self.repository.save_message(message)
         self._publish_all()
+        if self._bulk_busy_check():
+            self._deferred_messages.append(message)
+            return True
+        return self._submit_message(message)
+
+    def flush_deferred_messages(self) -> None:
+        """Submit locally queued chat after bulk traffic releases the RF session."""
+        if self._bulk_busy_check() or self._client_state != "connected":
+            return
+        pending, self._deferred_messages = self._deferred_messages, []
+        for message in pending:
+            if not self._submit_message(message):
+                break
+
+    def _submit_message(self, message: ChatMessage) -> bool:
         try:
-            self.client.send_message(message.id, message.sent_at, body)
+            self.client.send_message(message.id, message.sent_at, message.body)
         except RuntimeError as error:
             self._set_status(message.id, MessageStatus.FAILED)
             self.error_received.emit(str(error))
@@ -180,6 +191,7 @@ class ChatService(QObject):
         self._activate(self.local_call, remote)
 
     def _on_session_disconnected(self) -> None:
+        self._deferred_messages.clear()
         self.peer_presence_changed.emit("idle", 0)
         if self.active:
             self.repository.fail_unsettled(self.active.id)

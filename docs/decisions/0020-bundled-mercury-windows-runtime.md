@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Windows operators expect the generated MercurySkyPulse test folder to run without
+Windows operators expect the generated Mercury SkyPulse test folder to run without
 manually locating or copying Mercury. Local-executable discovery repeatedly
 produced incomplete packages and startup errors. Mercury publishes an official
 portable Windows archive, while its documented integration remains process and
@@ -26,8 +26,8 @@ runtime, and places it under `dist\MercurySkyPulse\mercury`. The archive contain
 the GPL license and the builder writes the exact corresponding-source commit URL
 into the package.
 
-Mercury is bundled as a required MercurySkyPulse runtime component for Windows,
-but remains an independently supervised child process. MercurySkyPulse continues
+Mercury is bundled as a required Mercury SkyPulse runtime component for Windows,
+but remains an independently supervised child process. Mercury SkyPulse continues
 to use only documented command-line, TNC/KISS, and WebSocket interfaces. No
 Mercury source is copied into this repository or linked into the Python process.
 
@@ -47,6 +47,6 @@ fails the build rather than producing an incomplete application folder.
 - Generated Mercury binaries remain excluded from Git; only the builder policy and
   integrity metadata are committed.
 - Any distribution beyond controlled engineering tests requires legal review of
-  Mercury GPL obligations and the still-undecided MercurySkyPulse license.
+  Mercury GPL obligations and the still-undecided Mercury SkyPulse license.
 - Managed Mercury remains process-isolated; this decision does not authorize
   importing Mercury internals or moving application features into Mercury.

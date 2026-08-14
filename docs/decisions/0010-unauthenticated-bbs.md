@@ -6,7 +6,7 @@ Accepted.
 
 ## Decision
 
-MercurySkyPulse provides a persistent BBS over an established Mercury ARQ
+Mercury SkyPulse provides a persistent BBS over an established Mercury ARQ
 application session. The SQLite version 4 schema adds system folders (`Inbox`,
 `Outbox`, `Bulletins`, and `Files`), mailbox messages, and a file catalog.
 

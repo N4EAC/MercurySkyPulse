@@ -7,6 +7,7 @@ from pathlib import Path
 import unittest
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication
 
 from application.voice_message import (
     MAX_VOICE_BYTES, VOICE_CHUNK_BYTES, VoiceMessageService,
@@ -40,6 +41,10 @@ class Transfer:
 
 
 class VoiceMessageTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.client = FakeClient()
@@ -116,6 +121,7 @@ class VoiceMessageTests(unittest.TestCase):
 
     def test_sender_waits_for_receiver_ack_and_mercury_low_water(self):
         self.make_available()
+        self.client.queued_bytes_changed.emit(500)
         path = Path(self.temp.name) / "draft.m4a"
         path.write_bytes(b"v" * (VOICE_CHUNK_BYTES * 2))
         updates = []
@@ -123,6 +129,11 @@ class VoiceMessageTests(unittest.TestCase):
         self.assertTrue(self.service.send_recording(str(path), "audio/mp4"))
         message_id = updates[-1].id
         self.assertEqual(updates[-1].status, "queued")
+        self.assertFalse(any(event[0] == "voice_offer" for event in self.client.events))
+
+        self.client.queued_bytes_changed.emit(0)
+        self.assertEqual(updates[-1].status, "offered")
+        self.assertEqual(self.client.events[-1][0], "voice_offer")
 
         self.client.voice_event_received.emit(Envelope("voice_accept", message_id))
         chunks = [event for event in self.client.events if event[0] == "voice_chunk"]
@@ -141,11 +152,26 @@ class VoiceMessageTests(unittest.TestCase):
         chunks = [event for event in self.client.events if event[0] == "voice_chunk"]
         self.assertEqual(len(chunks), 2)
 
+    def test_peer_timeout_starts_only_after_mercury_queue_drains(self):
+        self.make_available()
+        path = Path(self.temp.name) / "draft.m4a"
+        path.write_bytes(b"voice")
+        self.assertTrue(self.service.send_recording(str(path), "audio/mp4"))
+        self.assertTrue(self.service._response_timer.isActive())
+
+        self.client.queued_bytes_changed.emit(400)
+        self.assertFalse(self.service._response_timer.isActive())
+
+        self.client.queued_bytes_changed.emit(0)
+        self.assertTrue(self.service._response_timer.isActive())
+
     def test_receiver_reports_progress_with_existing_chunk_ack(self):
         payload = b"voice"
         checksum = hashlib.sha256(payload).hexdigest()
         updates = []
         self.service.messages_changed.connect(lambda values: updates.append(values[-1]))
+        for _ in range(3):
+            self.service.set_modem_bitrate(600)
         self.client.voice_event_received.emit(Envelope(
             "voice_offer", "voice-id", size=len(payload), sha256=checksum,
             mime="audio/mp4", duration_ms=1_000,
@@ -158,6 +184,34 @@ class VoiceMessageTests(unittest.TestCase):
         self.assertEqual(updates[-1].transferred, len(payload))
         self.assertEqual(self.client.events[-1][0], "voice_chunk_ack")
         self.assertEqual(self.client.events[-1][2]["offset"], len(payload))
+
+    def test_receiver_rejects_voice_when_its_inbound_link_is_poor(self):
+        payload = b"voice"
+        self.service.set_modem_bitrate(87)
+        self.client.voice_event_received.emit(Envelope(
+            "voice_offer", "voice-id", size=len(payload),
+            sha256=hashlib.sha256(payload).hexdigest(), mime="audio/mp4",
+            duration_ms=1_000,
+        ))
+        self.assertEqual(self.client.events[-1][0], "voice_result")
+        self.assertEqual(self.client.events[-1][2]["result"], "link-poor")
+        self.assertFalse(self.service.transfer_busy())
+
+    def test_late_result_does_not_change_terminal_failure(self):
+        self.make_available()
+        path = Path(self.temp.name) / "draft.m4a"
+        path.write_bytes(b"voice")
+        updates = []
+        self.service.messages_changed.connect(lambda values: updates.append(values[-1]))
+        self.assertTrue(self.service.send_recording(str(path), "audio/mp4"))
+        message_id = updates[-1].id
+        self.service._response_timeout()
+        self.assertEqual(updates[-1].status, "failed")
+
+        self.client.voice_event_received.emit(Envelope(
+            "voice_result", message_id, result="busy"
+        ))
+        self.assertEqual(updates[-1].status, "failed")
 
 
 if __name__ == "__main__":

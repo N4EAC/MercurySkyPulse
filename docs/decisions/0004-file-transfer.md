@@ -12,7 +12,7 @@ name, byte count, and SHA-256 digest. Accepted files are streamed in ordered 4 K
 chunks. Pause and resume exchange the receiver's byte offset; neither operation
 depends on TCP packet boundaries.
 
-Receivers write to a hidden partial file in the MercurySkyPulse downloads
+Receivers write to a hidden partial file in the Mercury SkyPulse downloads
 directory. The partial file is atomically renamed only after its byte count and
 SHA-256 digest match the offer. Existing verified checksums are recorded in local
 settings and checked against the actual file before a duplicate is suppressed.

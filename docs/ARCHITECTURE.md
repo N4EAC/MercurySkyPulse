@@ -1,4 +1,4 @@
-# MercurySkyPulse Software Design Specification
+# Mercury SkyPulse Software Design Specification
 
 Status: Proposed architecture
 
@@ -8,11 +8,11 @@ Audience: Maintainers, contributors, security reviewers, UI designers, plugin au
 
 ## 1. Purpose and scope
 
-MercurySkyPulse is a cross-platform desktop application built around the independent Mercury HF modem engine. Mercury owns modem DSP, audio and radio I/O, PTT, ARQ, broadcast framing, and its published transport interfaces. MercurySkyPulse owns operator workflows, connection orchestration, durable application state, diagnostics, optional Mercury process supervision, and a safe extension model.
+Mercury SkyPulse is a cross-platform desktop application built around the independent Mercury HF modem engine. Mercury owns modem DSP, audio and radio I/O, PTT, ARQ, broadcast framing, and its published transport interfaces. Mercury SkyPulse owns operator workflows, connection orchestration, durable application state, diagnostics, optional Mercury process supervision, and a safe extension model.
 
 This specification defines the intended software boundaries before an implementation language, UI toolkit, or package system is selected. It does not authorize application logic yet. Technology selections and material changes to this design require architecture decision records (ADRs) in `docs/decisions/`.
 
-The primary integration boundary is a process boundary. MercurySkyPulse does not
+The primary integration boundary is a process boundary. Mercury SkyPulse does not
 vendor or link Mercury internals. Its separately maintained public compatibility
 fork adds only bounded read-only telemetry required by MSP and preserves the
 documented TCP and WebSocket boundary. This permits independent upgrades, remote
@@ -46,7 +46,7 @@ roles, maps, web routes, or encryption policy.
 
 ### 2.1 Product objectives
 
-MercurySkyPulse should:
+Mercury SkyPulse should:
 
 1. Provide a coherent operator experience for configuring, observing, and using a Mercury transport engine.
 2. Work with Mercury running locally, on another machine, or as an optionally supervised local sidecar.
@@ -68,7 +68,7 @@ MercurySkyPulse should:
 
 ### 2.3 Non-objectives
 
-MercurySkyPulse will not:
+Mercury SkyPulse will not:
 
 - implement, replace, or modify Mercury modem DSP or ARQ;
 - directly control audio devices or radio PTT when Mercury owns those resources;
@@ -101,7 +101,7 @@ Target architectural qualities:
  Operator
     |
     v
-+------------------------- MercurySkyPulse --------------------------+
++------------------------- Mercury SkyPulse --------------------------+
 | Presentation -> Application services -> Domain model               |
 |                         ^                |                          |
 |                         | ports          | domain events            |
@@ -130,7 +130,7 @@ External actors and systems are:
 
 ## 4. Architectural style
 
-MercurySkyPulse uses a ports-and-adapters architecture with unidirectional dependencies and event-driven integration at I/O boundaries.
+Mercury SkyPulse uses a ports-and-adapters architecture with unidirectional dependencies and event-driven integration at I/O boundaries.
 
 Native engineering packages preserve the process boundary: PyInstaller packages
 MSP while a compatible Mercury executable and its license/source provenance are
@@ -166,9 +166,9 @@ The runtime is conceptually a single-user desktop process plus an independent Me
 
 | Topology | Description |
 | --- | --- |
-| Remote engine | MercurySkyPulse connects to Mercury on another trusted host. Mercury lifecycle is external. |
-| Local unmanaged | The operator starts Mercury independently; MercurySkyPulse connects over loopback. |
-| Local managed sidecar | MercurySkyPulse starts a configured Mercury executable, waits for readiness, monitors it, and requests orderly shutdown. |
+| Remote engine | Mercury SkyPulse connects to Mercury on another trusted host. Mercury lifecycle is external. |
+| Local unmanaged | The operator starts Mercury independently; Mercury SkyPulse connects over loopback. |
+| Local managed sidecar | Mercury SkyPulse starts a configured Mercury executable, waits for readiness, monitors it, and requests orderly shutdown. |
 
 All topologies implement the same `MercuryEndpoint` application port. Application use cases must not branch on local versus remote except when presenting lifecycle capabilities.
 
@@ -417,7 +417,7 @@ Primary UI terms should be understandable without exposing implementation detail
 
 The default design is one embedded SQLite database per OS user profile. The final driver and binding require an ADR, but the logical choice is justified by offline operation, transactional migrations, portability, mature recovery tooling, and no server requirement.
 
-The database stores MercurySkyPulse application state. It does not replace Mercury configuration or store Mercury's live protocol state as authoritative.
+The database stores Mercury SkyPulse application state. It does not replace Mercury configuration or store Mercury's live protocol state as authoritative.
 
 ### 8.2 Logical data model
 
@@ -486,7 +486,7 @@ All endpoints are configurable. Defaults are:
 | Broadcast | TCP `8100` | Optional | KISS broadcast payloads. |
 | UI WebSocket | WS/WSS `10000`, `/websocket` | Optional | Status, spectrum, devices, supported controls. |
 
-MercurySkyPulse must not assume these ports are adjacent except where a profile explicitly derives data from control. IPv4/IPv6 and DNS behavior depend on the future network library but should use system resolution and happy-eyeballs behavior where available.
+Mercury SkyPulse must not assume these ports are adjacent except where a profile explicitly derives data from control. IPv4/IPv6 and DNS behavior depend on the future network library but should use system resolution and happy-eyeballs behavior where available.
 
 ### 9.3 Capability discovery
 
@@ -581,13 +581,13 @@ dynamic import are intentionally absent. ADR 0014 defines the migration boundary
 
 ### 11.1 Security objectives
 
-- Prevent unauthorized control of MercurySkyPulse or its Mercury endpoint.
+- Prevent unauthorized control of Mercury SkyPulse or its Mercury endpoint.
 - Prevent accidental or malicious unsafe radio operations through the UI/plugin layer.
 - Protect credentials, endpoint identity, private operational metadata, and payload confidentiality where the underlying transport supports it.
 - Contain compromised plugins and malformed remote inputs.
 - Produce verifiable software updates and useful, privacy-preserving audit data.
 
-MercurySkyPulse cannot make HF radio traffic confidential by itself. Application-layer encryption/authentication, if added, must be an explicit protocol above Mercury's byte transport and must not be implied by a WSS control connection.
+Mercury SkyPulse cannot make HF radio traffic confidential by itself. Application-layer encryption/authentication, if added, must be an explicit protocol above Mercury's byte transport and must not be implied by a WSS control connection.
 
 ### 11.2 Trust boundaries
 
@@ -607,7 +607,7 @@ Inputs from Mercury, plugins, imported files, database recovery, command-line ar
 
 ### 11.3 Network security
 
-- Bind/listen behavior belongs to Mercury; MercurySkyPulse is normally a client.
+- Bind/listen behavior belongs to Mercury; Mercury SkyPulse is normally a client.
 - Default local profiles use loopback. Remote plaintext TCP/WS profiles display a persistent warning and require explicit enablement.
 - Prefer a trusted private network, OS-level tunnel/VPN, or authenticated TLS proxy for remote TNC sockets until Mercury provides native secured TNC transport.
 - WSS validates hostname, certificate chain, validity, key usage, and configured trust roots. No `InsecureSkipVerify` equivalent is allowed in production defaults.
@@ -663,7 +663,7 @@ Configuration has three layers:
 
 Higher layers override lower ones only for explicitly overridable fields. Configuration is parsed into typed values, validated completely, and applied atomically. Invalid settings do not partially mutate a live endpoint.
 
-Mercury's `mercury.ini` is Mercury-owned. A managed-process profile may reference a file and structured arguments but MercurySkyPulse does not mirror or rewrite its schema. UI conveniences for supported Mercury runtime controls call documented WebSocket/TNC commands and make persistence behavior explicit.
+Mercury's `mercury.ini` is Mercury-owned. A managed-process profile may reference a file and structured arguments but Mercury SkyPulse does not mirror or rewrite its schema. UI conveniences for supported Mercury runtime controls call documented WebSocket/TNC commands and make persistence behavior explicit.
 
 ## 13. Error handling and resilience
 
@@ -687,7 +687,7 @@ Three levels are planned:
 - **Support diagnostics:** component state, versions, capabilities, timings, counts, and sanitized recent events.
 - **Developer tracing:** explicitly enabled, time-bounded detailed events without payload content.
 
-A diagnostic snapshot should include MercurySkyPulse version/build, OS/architecture, database schema version, endpoint capability summary, Mercury-reported version when available, plugin inventory and grants, recent state transitions, queue metrics, and redacted configuration. Export requires preview and confirmation.
+A diagnostic snapshot should include Mercury SkyPulse version/build, OS/architecture, database schema version, endpoint capability summary, Mercury-reported version when available, plugin inventory and grants, recent state transitions, queue metrics, and redacted configuration. Export requires preview and confirmation.
 
 No telemetry service is required. Any future opt-in remote telemetry requires a privacy ADR, minimal schema, explicit consent, deletion policy, and disabled-by-default implementation.
 
@@ -837,8 +837,13 @@ Connectionless beacons advertise `voice-chat`, but the session event remains the
 authoritative compatibility negotiation.
 Presentation derives incoming, progress, verification, and delivered snapshots
 from those existing protocol transitions and does not send separate notification
-traffic. Chat text and disposable presence are suppressed while voice or file
-data owns the half-duplex session.
+traffic. A voice offer waits locally for Mercury BUFFER 0, and response timeouts
+run only after Mercury drains the corresponding local write. Chat text is stored
+and rendered as queued while voice or file data owns the half-duplex session,
+then submitted in order; disposable presence is suppressed.
+Both endpoints independently qualify their received bitrate; an inbound endpoint
+below threshold rejects the offer before allocating a transfer. Compressed voice
+is capped at 8 KiB, and late peer results cannot rewrite terminal state.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral

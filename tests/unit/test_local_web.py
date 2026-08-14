@@ -45,7 +45,7 @@ class LocalWebTests(unittest.TestCase):
             response = self.connection.getresponse()
             body = response.read().decode()
             self.assertEqual(response.status, 200)
-            self.assertIn("MercurySkyPulse", body)
+            self.assertIn("Mercury SkyPulse", body)
             self.assertEqual(response.getheader("Cache-Control"), "no-store")
 
     def test_json_api_contains_plain_snapshot_values(self) -> None:

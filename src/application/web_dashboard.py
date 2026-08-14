@@ -44,7 +44,7 @@ class WebDashboardSnapshot:
         self._license = {"status": "community", "edition": "community",
                          "organization": None, "expires_at": None, "features": []}
         self._plugins: list[dict] = []
-        self._logs: deque[str] = deque(["MercurySkyPulse initialized"], maxlen=500)
+        self._logs: deque[str] = deque(["Mercury SkyPulse initialized"], maxlen=500)
 
     def update_station(self, **values) -> None:
         allowed = set(self._station)

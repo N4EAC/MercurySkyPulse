@@ -1,6 +1,6 @@
-# Contributing to MercurySkyPulse
+# Contributing to Mercury SkyPulse
 
-MercurySkyPulse is an active vertical-slice prototype with desktop, protocol,
+Mercury SkyPulse is an active vertical-slice prototype with desktop, protocol,
 persistence, platform, and Mercury-adapter implementations. Contributions should
 harden or extend the existing application without redesigning it, while preserving
 Mercury as an independent engine and keeping module boundaries explicit.
@@ -13,7 +13,7 @@ submit it.
 ## Before contributing
 
 1. Read `README.md`, `docs/ARCHITECTURE.md`, `ROADMAP.md`, and `AGENTS.md`.
-2. Confirm that the change belongs in MercurySkyPulse. Mercury engine bugs and
+2. Confirm that the change belongs in Mercury SkyPulse. Mercury engine bugs and
    protocol changes belong in the separate public Mercury fork and require an
    explicit Mercury task.
 3. For a new dependency, language, framework, build system, or cross-cutting convention, add or update an ADR first.

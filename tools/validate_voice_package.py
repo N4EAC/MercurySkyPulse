@@ -6,7 +6,9 @@ import argparse
 from pathlib import Path
 
 from application.voice_message import (
+    MAX_VOICE_BYTES,
     MERCURY_QUEUE_LOW_WATER_BYTES,
+    VOICE_RESPONSE_TIMEOUT_MS,
     VOICE_CHUNK_BYTES,
 )
 from application_protocol.messaging import FrameDecoder, encode_event
@@ -25,6 +27,10 @@ def validate(root: Path) -> list[str]:
         errors.append("voice protocol 2 must use 384-byte stop-and-wait chunks")
     if MERCURY_QUEUE_LOW_WATER_BYTES != 256:
         errors.append("voice protocol 2 must wait for Mercury BUFFER <= 256")
+    if MAX_VOICE_BYTES != 8 * 1024:
+        errors.append("voice protocol 2 must enforce the RF-safe 8-KiB ceiling")
+    if VOICE_RESPONSE_TIMEOUT_MS != 180_000:
+        errors.append("voice protocol 2 must use the drain-aware 180-second timeout")
     try:
         frame = encode_event(
             "voice_chunk_ack", "package-check", "2026-01-01T00:00:00+00:00",
@@ -48,7 +54,7 @@ def main() -> int:
     if errors:
         return 1
     print(
-        "Voice recording/playback runtime and BUFFER-aware protocol 2 verified: "
+        "Voice runtime and bidirectional-gated BUFFER-aware protocol 2 verified: "
         f"{args.package}"
     )
     return 0

@@ -7,6 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication
 
 from presentation.chat_page import ChatPage
+from application.messaging import ChatMessage, MessageDirection, MessageStatus
 
 
 class ChatVoiceControlTests(unittest.TestCase):
@@ -73,6 +74,17 @@ class ChatVoiceControlTests(unittest.TestCase):
         self.assertIn("Voice sent", self.page.voice_status.text())
         self.page.set_voice_messages([delivered])
         self.assertIn("Voice delivered", self.page.voice_status.text())
+
+    def test_text_status_distinguishes_local_queue_from_mercury_submission(self):
+        base = dict(
+            id="message", conversation_id=1,
+            direction=MessageDirection.OUTGOING, body="hello",
+            sent_at="2026-08-14T12:00:00+00:00",
+        )
+        self.page.set_messages([ChatMessage(status=MessageStatus.QUEUED, **base)])
+        self.assertIn("queued locally", self.page.messages.item(0).text())
+        self.page.set_messages([ChatMessage(status=MessageStatus.SENT, **base)])
+        self.assertIn("submitted to Mercury", self.page.messages.item(0).text())
 
 
 if __name__ == "__main__":

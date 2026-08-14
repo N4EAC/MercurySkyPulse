@@ -1,11 +1,14 @@
-# MercurySkyPulse Project Status
+# Mercury SkyPulse Project Status
 
 ## Current stage
 
-MercurySkyPulse (MSP) is a cross-platform PySide6 communications application built
+Mercury SkyPulse (MSP) is a cross-platform PySide6 communications application built
 around the independent Mercury HF modem. The implemented vertical slice supports
 controlled live-radio testing on macOS and Windows. More station-to-station RF
 validation is required before a production release.
+
+The display name is **Mercury SkyPulse**. Stable technical identifiers and
+artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
 
 The source tree, tests, documentation, and packaging are maintained in this
 repository. Mercury remains a separate process and implementation boundary.
@@ -51,8 +54,8 @@ Mercury internals.
   cleanup of 30-day-old empty attempts, and automatic incoming ARQ listening
   under the saved station callsign.
 - Session-scoped compressed voice messages with separate system audio devices,
-  10-second/256-KiB bounds, peer capability negotiation, conservative sustained
-  bitrate gating, file-transfer exclusion, checksum verification, disconnect
+  10-second/8-KiB compressed bounds, peer capability negotiation, conservative
+  sustained sender-and-receiver bitrate gating, file-transfer exclusion, checksum verification, disconnect
   cleanup, sparse typing/recording presence, and a 120-second post-delivery cooldown.
   Local recording, playback, discard, and replacement work while disconnected;
   transmission remains session/capability/link gated. Separate voice-device and
@@ -60,9 +63,14 @@ Mercury internals.
   a non-transmitting live dBFS diagnostic. Windows media-player file handles are
   released before draft replacement, and cleanup failures cannot strand the UI.
   Protocol 2 uses stop-and-wait 384-byte chunks, receiver-confirmed progress,
-  Mercury BUFFER low-water pacing, bounded response timeouts, local incoming and
-  delivery snapshots, and suppression of competing text/presence traffic while
-  bulk data is pending. Beacons advertise `voice-chat` support.
+  a BUFFER-0 gate for the offer, Mercury BUFFER low-water pacing, response
+  timeouts that begin only after the local queue drains, local incoming and
+  delivery snapshots, a unified Transfer status card, locally visible deferred
+  text, and suppression of disposable presence traffic while bulk data is
+  pending. Beacons advertise `voice-chat` support.
+- Voice protocol errors are copied into the persistent Activity log, late peer
+  results cannot rewrite terminal transfer outcomes, and an intentional Mercury
+  shutdown no longer appears as a process crash.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, and a dedicated download directory.
 - Capability beacons over Mercury KISS broadcast transport.

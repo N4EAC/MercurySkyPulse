@@ -15,7 +15,7 @@ BuildArch:      x86_64
 Requires:       glibc, mesa-libEGL, mesa-libGL, libxkbcommon-x11, alsa-lib, pulseaudio-libs, pipewire-libs, hamlib
 
 %description
-MercurySkyPulse provides chat, short voice messages, beacon, ping, file transfer,
+Mercury SkyPulse provides chat, short voice messages, beacon, ping, file transfer,
 BBS, location, reporting, and station controls through a bundled Mercury modem runtime.
 
 %prep
@@ -40,5 +40,5 @@ install -m 0644 mercuryskypulse.png %{buildroot}%{_datadir}/icons/hicolor/256x25
 %{_datadir}/icons/hicolor/256x256/apps/mercuryskypulse.png
 
 %changelog
-* Thu Aug 13 2026 MercurySkyPulse contributors - @RPM_VERSION@-1
+* Thu Aug 13 2026 Mercury SkyPulse contributors - @RPM_VERSION@-1
 - Initial Fedora engineering package

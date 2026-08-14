@@ -1,4 +1,4 @@
-# Using the MercurySkyPulse BBS
+# Using the Mercury SkyPulse BBS
 
 The BBS works over an established Mercury ARQ connection. One station hosts its
 local mailbox, bulletin, and file catalog; the connected station can exchange

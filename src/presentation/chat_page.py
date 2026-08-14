@@ -25,7 +25,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from application.messaging import ChatMessage, Conversation, MessageDirection
+from application.messaging import (
+    ChatMessage, Conversation, MessageDirection, MessageStatus,
+)
 from .time_format import format_utc_timestamp
 
 
@@ -368,10 +370,13 @@ class ChatPage(QWidget):
             self._show_voice_readiness()
             return
         message = messages[-1]
-        active = message.status in {"queued", "transmitting", "receiving", "verifying"}
+        active = message.status in {
+            "queued", "offered", "transmitting", "receiving", "verifying",
+        }
         self._voice_transfer_active = active
         labels = {
-            "queued": "Voice queued — waiting for receiving station",
+            "queued": "Voice queued locally — waiting for Mercury BUFFER 0",
+            "offered": "Voice offer sent — waiting for receiving station",
             "transmitting": f"Voice transmitting — {message.progress}% confirmed by receiver",
             "receiving": f"Incoming voice message — {message.progress}% received",
             "verifying": "Voice sent — waiting for receiver verification",
@@ -379,6 +384,7 @@ class ChatPage(QWidget):
             "received": "Incoming voice message ready to play",
             "failed": "Voice message failed — recording retained for review",
             "busy": "Receiving station was busy — recording retained",
+            "link-poor": "Receiving station reports link too weak for voice",
         }
         self.voice_status.setText(
             labels.get(message.status, f"Voice {message.direction} · {message.status}")
@@ -489,7 +495,13 @@ class ChatPage(QWidget):
                 else (self.remote_call.text().strip().upper() or "Remote station")
             )
             timestamp = self._display_time(message.sent_at)
-            status = f" · {message.status.value}" if direction == "You" else ""
+            display_status = {
+                MessageStatus.QUEUED: "queued locally",
+                MessageStatus.SENT: "submitted to Mercury",
+                MessageStatus.DELIVERED: "delivered",
+                MessageStatus.FAILED: "failed",
+            }.get(message.status, message.status.value)
+            status = f" · {display_status}" if direction == "You" else ""
             item = QListWidgetItem(
                 f"{direction}  {timestamp}{status}\n{message.body}"
             )

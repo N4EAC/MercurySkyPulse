@@ -11,11 +11,12 @@ bounded MSP application protocol over Mercury's opaque reliable ARQ byte stream.
 They are not live FreeDV audio and Mercury remains unaware of recording,
 compression, playback, cooldowns, and user-interface presence.
 
-Recordings are limited to 10 seconds and 256 KiB. Capture, local playback,
+Recordings are limited to 10 seconds and 8 KiB of compressed data. Capture, local playback,
 discard, and replacement do not require an ARQ connection; this permits safe
 microphone setup without RF traffic. Recordings may be sent only while an
 identified ARQ session is connected, both clients advertise the compatible voice
-protocol, the reported link bitrate is sustained at or above 500 bit/s, and no
+protocol, both endpoints report their received link bitrate sustained at or above
+500 bit/s, and no
 ordinary file transfer is offered, queued, active, paused, verifying, or awaiting
 acknowledgement. Voice uses one serialized transfer and cannot be paused or
 resumed. Disconnect deletes incomplete outgoing and incoming artifacts.
@@ -25,7 +26,10 @@ acknowledgements. The sender advances displayed progress only after the peer
 confirms each offset, and it submits another chunk only when Mercury reports its
 BUFFER at or below 256 bytes. After the last chunk, the sender displays a
 verification state until the receiver validates size and SHA-256 and returns the
-delivery result. Offer, chunk, and completion responses have bounded timeouts.
+delivery result. A voice offer itself remains locally queued until Mercury reports
+BUFFER 0. Offer, chunk, and completion response timeouts count only after the
+local Mercury queue drains, so a slow pre-existing backlog cannot create a false
+peer timeout.
 This intentionally favors half-duplex stability over throughput.
 
 The connectionless capability beacon includes `voice-chat` so an operator can
@@ -43,8 +47,10 @@ is sent at the start of an activity period. There are no periodic heartbeats;
 receiver-side TTLs and normal message arrival clear stale indicators. Presence is
 never retried.
 
-While voice or file data is pending—including a paused file—MSP suppresses new
-chat text and disposable presence events. Voice and file transfer exclude each
+While voice or file data is pending—including a paused file—MSP holds new chat
+text in the local conversation as visibly queued and suppresses disposable
+presence events. Queued text is submitted in order when bulk traffic releases
+the session. Voice and file transfer exclude each
 other. Incoming, progress, verification, ready-to-play, and delivered notices are
 local UI/log snapshots derived from the transfer frames already required by the
 protocol; they add no separate RF notification traffic.
@@ -57,5 +63,10 @@ protocol; they add no separate RF notification traffic.
 - Platform multimedia codecs can differ; the sender selects only a mutually
   advertised MIME type and otherwise disables voice.
 - Link-quality gating is conservative and cannot predict exact transfer time.
+- The receiver rejects an offer with `link-poor` when its inbound link does not
+  meet the sustained threshold; sender-only telemetry is insufficient on an
+  asymmetric RF path.
+- Late results cannot overwrite a terminal failed/delivered transfer state.
+- Station Status reports the active voice or file state through one Transfer card.
 - Older protocol-1 voice clients are deliberately incompatible with protocol 2.
 - Voice cannot delay, resume in, or leak into a later ARQ session.

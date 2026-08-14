@@ -6,7 +6,7 @@ Accepted.
 
 ## Decision
 
-MercurySkyPulse represents positions internally as validated WGS84 decimal
+Mercury SkyPulse represents positions internally as validated WGS84 decimal
 latitude and longitude. Operators can set a manual position using decimal values
 or APRS uncompressed coordinates in `DDMM.mmN/DDDMM.mmE` format. Manual position
 is stored locally in application settings.
