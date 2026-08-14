@@ -437,12 +437,12 @@ The repository includes optional desktop artwork under `assets/wallpapers/`:
 
 - [Midnight MSP 4K wallpaper](assets/wallpapers/mercuryskypulse-midnight-4k.png)
 - [Near-night sunset MSP 4K wallpaper](assets/wallpapers/mercuryskypulse-sunset-4k.png)
-- [Xingu communities and Mercury Modem 4K wallpaper](assets/wallpapers/mercuryskypulse-xingu-communities-4k.png)
+- [Connecting Distant Communities 4K wallpaper](assets/wallpapers/connecting-distant-communities-4k.png)
 - [MSP widescreen wallpaper](assets/wallpapers/MSP.png)
 
 The MSP designs use the phrases **Mercury Modem ARQ Data-Link Technology** and
-**Alternative Telecommunications**. The Xingu design uses the original Mercury
-emblem with **Mercury Modem** and **Connecting Distant Communities**. These
+**Alternative Telecommunications**. The **Connecting Distant Communities**
+design uses the original Mercury emblem with **Mercury Modem**. These
 wallpapers are project artwork and are not bundled into application installers.
 
 ### Windows test executable
