@@ -124,10 +124,7 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     "$PROJECT_ROOT/apps/desktop/main.py"
 
-if ! find dist/MercurySkyPulse -type f -iname '*mediaplugin*' -print -quit | grep -q .; then
-    echo "ERROR: The Linux package is missing the Qt Multimedia backend required for voice messages." >&2
-    exit 1
-fi
+"$BUILD_VENV/bin/python" tools/validate_voice_package.py dist/MercurySkyPulse
 
 mkdir -p dist/MercurySkyPulse/mercury
 install -m 0755 "$MERCURY_SOURCE" dist/MercurySkyPulse/mercury/mercury

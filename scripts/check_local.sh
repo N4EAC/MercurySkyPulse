@@ -40,9 +40,7 @@ test -f "$APP/Contents/Resources/mercuryskypulse.icns"
 test -f "$APP/Contents/Resources/mercury/LICENSE"
 test -f "$APP/Contents/Resources/mercury/LICENSE-freedv"
 test -f "$APP/Contents/Resources/mercury/SOURCE.txt"
-test -d "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia"
-find "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia" \
-    -type f -name '*mediaplugin*' -print -quit | grep -q .
+"$LOCAL_PYTHON" tools/validate_voice_package.py "$APP"
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "MercurySkyPulse" ]]
 [[ -n "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" ]]

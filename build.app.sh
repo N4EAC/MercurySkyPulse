@@ -71,12 +71,7 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c \
     "Add :NSMicrophoneUsageDescription string MercurySkyPulse records short voice messages when the operator presses Record Voice." \
     "$PLIST"
-if [[ ! -d "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia" ]] || \
-        ! find "$APP/Contents/Frameworks/PySide6/Qt/plugins/multimedia" \
-            -type f -name '*mediaplugin*' -print -quit | grep -q .; then
-    print -u2 "ERROR: The macOS bundle is missing Qt Multimedia backends."
-    exit 1
-fi
+"$BUILD_VENV/bin/python" tools/validate_voice_package.py "$APP"
 # Editing Info.plist invalidates PyInstaller's ad-hoc signature.
 codesign --force --deep --sign - "$APP"
 

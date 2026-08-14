@@ -46,7 +46,7 @@ class VoiceMessageTests(unittest.TestCase):
     def make_available(self):
         self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
         self.client.voice_event_received.emit(Envelope(
-            "voice_capability", protocol=1, mime_types=["audio/mp4"],
+            "voice_capability", protocol=1, mime_types=["audio/mp4"], ack=True,
             maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES,
         ))
         for _ in range(3): self.service.set_modem_bitrate(600)
@@ -56,13 +56,26 @@ class VoiceMessageTests(unittest.TestCase):
         self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
         self.assertEqual(self.client.events[-1][0], "voice_capability")
         self.client.voice_event_received.emit(Envelope(
-            "voice_capability", protocol=1, mime_types=["audio/mp4"]
+            "voice_capability", protocol=1, mime_types=["audio/mp4"], ack=True
         ))
         self.service.set_modem_bitrate(600)
         self.service.set_modem_bitrate(600)
         self.assertFalse(self.service.availability()[0])
         self.service.set_modem_bitrate(600)
         self.assertTrue(self.service.availability()[0])
+
+    def test_capability_request_gets_one_bounded_ack_without_echo(self):
+        self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
+        self.client.voice_event_received.emit(Envelope(
+            "voice_capability", protocol=1, mime_types=["audio/mp4"], ack=False
+        ))
+        self.assertEqual([event[0] for event in self.client.events],
+                         ["voice_capability", "voice_capability"])
+        self.assertTrue(self.client.events[-1][2]["ack"])
+        self.client.voice_event_received.emit(Envelope(
+            "voice_capability", protocol=1, mime_types=["audio/mp4"], ack=False
+        ))
+        self.assertEqual(len(self.client.events), 2)
 
     def test_paused_file_blocks_voice(self):
         self.make_available()

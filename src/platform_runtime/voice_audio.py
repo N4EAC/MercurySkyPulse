@@ -35,6 +35,7 @@ class VoiceAudioEngine(QObject):
         self._player = QMediaPlayer(self)
         self._player.setAudioOutput(self._output)
         self._path = ""
+        self._requested_path = ""
         self._mime = "audio/mp4"
         self._level_source = None
         self._level_stream = None
@@ -48,6 +49,7 @@ class VoiceAudioEngine(QObject):
             lambda value: self.recording_changed.emit(True, min(10_000, int(value)))
         )
         self._recorder.recorderStateChanged.connect(self._recorder_state)
+        self._recorder.actualLocationChanged.connect(self._actual_location_changed)
         self._recorder.errorOccurred.connect(
             lambda _error, message: self.error_received.emit(str(message))
         )
@@ -109,11 +111,12 @@ class VoiceAudioEngine(QObject):
             self._mime, suffix = "audio/ogg", ".ogg"
         else:
             self._mime, suffix = "audio/mp4", ".m4a"
-        self._path = str(Path(gettempdir()) / f"msp-voice-{uuid4()}{suffix}")
+        self._requested_path = str(Path(gettempdir()) / f"msp-voice-{uuid4()}{suffix}")
+        self._path = self._requested_path
         self._recorder.setMediaFormat(media_format)
         self._recorder.setAudioBitRate(12_000)
         self._recorder.setAudioSampleRate(8_000)
-        self._recorder.setOutputLocation(QUrl.fromLocalFile(self._path))
+        self._recorder.setOutputLocation(QUrl.fromLocalFile(self._requested_path))
         self._recorder.record()
         self._limit.start()
 
@@ -138,8 +141,32 @@ class VoiceAudioEngine(QObject):
     def _recorder_state(self, state) -> None:
         recording = state == QMediaRecorder.RecorderState.RecordingState
         self.recording_changed.emit(recording, int(self._recorder.duration()))
-        if not recording and self._path and Path(self._path).is_file():
-            self.recording_ready.emit(self._path, self._mime)
+        if not recording and self._requested_path:
+            self._finalize_recording(0)
+
+    def _actual_location_changed(self, location: QUrl) -> None:
+        if location.isLocalFile():
+            self._path = location.toLocalFile()
+
+    def _finalize_recording(self, attempt: int) -> None:
+        candidates = tuple(dict.fromkeys(filter(None, (
+            self._path,
+            self._requested_path,
+            self._requested_path + ".m4a" if self._requested_path else "",
+            self._requested_path + ".ogg" if self._requested_path else "",
+        ))))
+        path = next(
+            (candidate for candidate in candidates
+             if Path(candidate).is_file() and Path(candidate).stat().st_size > 0),
+            "",
+        )
+        if path:
+            self._path = path
+            self.recording_ready.emit(path, self._mime)
+        elif attempt < 20:
+            QTimer.singleShot(100, lambda: self._finalize_recording(attempt + 1))
+        else:
+            self.error_received.emit("Voice recording could not be finalized; record again")
 
     def _read_input_level(self, audio_format: QAudioFormat) -> None:
         if self._level_stream is None:

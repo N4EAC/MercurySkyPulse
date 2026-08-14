@@ -42,6 +42,7 @@ class PackagingScriptTests(unittest.TestCase):
         )
         self.assertIn("rpm -qpR", builder)
         self.assertIn("plugins/multimedia/.*mediaplugin", builder)
+        self.assertIn("tools/validate_voice_package.py", builder)
         self.assertIn("pipewire-libs", rpm_spec)
         deb_control = (ROOT / "packaging/linux/debian-control.in").read_text(
             encoding="utf-8"

@@ -53,6 +53,7 @@ class VoiceMessageService(QObject):
         self._messages: dict[str, VoiceMessage] = {}
         self._outgoing_id: str | None = None
         self._cooldown_until: datetime | None = None
+        self._capability_ack_sent = False
         self._pump_timer = QTimer(self)
         self._pump_timer.setInterval(10)
         self._pump_timer.timeout.connect(self._pump)
@@ -132,9 +133,8 @@ class VoiceMessageService(QObject):
         self._peer_compatible = False
         self._good_bitrate_samples = self._poor_bitrate_samples = 0
         self._link_usable = False
-        self._send("voice_capability", str(uuid4()), protocol=1,
-                   mime_types=["audio/mp4", "audio/ogg", "audio/webm"],
-                   maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES)
+        self._capability_ack_sent = False
+        self._send_capability(ack=False)
         self._publish_availability()
 
     def _session_disconnected(self) -> None:
@@ -147,6 +147,7 @@ class VoiceMessageService(QObject):
         self._outgoing_id = None
         self._cooldown_until = None
         self._cooldown_timer.stop()
+        self._capability_ack_sent = False
         self._emit()
         self._publish_availability()
 
@@ -159,6 +160,10 @@ class VoiceMessageService(QObject):
                     values.get("protocol") == 1 and isinstance(mime_types, list)
                     and bool({"audio/mp4", "audio/ogg", "audio/webm"} & set(mime_types))
                 )
+                if self._peer_compatible and not bool(values.get("ack", False)) \
+                        and not self._capability_ack_sent:
+                    self._capability_ack_sent = True
+                    self._send_capability(ack=True)
             elif envelope.kind == "voice_offer":
                 self._receive_offer(envelope.message_id, values)
             elif envelope.kind == "voice_accept":
@@ -265,6 +270,11 @@ class VoiceMessageService(QObject):
 
     def _send(self, kind: str, message_id: str, **values: object) -> None:
         self.client.send_file_event(kind, message_id, datetime.now(UTC).isoformat(), **values)
+
+    def _send_capability(self, ack: bool) -> None:
+        self._send("voice_capability", str(uuid4()), protocol=1,
+                   mime_types=["audio/mp4", "audio/ogg", "audio/webm"],
+                   maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES, ack=ack)
 
     def _update(self, message_id: str, **changes: object) -> None:
         self._messages[message_id] = replace(self._messages[message_id], **changes)

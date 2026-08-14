@@ -1,4 +1,6 @@
 import struct
+from tempfile import TemporaryDirectory
+from pathlib import Path
 import unittest
 
 from PySide6.QtMultimedia import QAudioFormat
@@ -23,6 +25,17 @@ class VoiceAudioLevelTests(unittest.TestCase):
             ),
             0.0,
         )
+
+    def test_finalizer_uses_backend_actual_location(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "actual.m4a"
+            path.write_bytes(b"encoded-audio")
+            engine = VoiceAudioEngine()
+            engine._path = str(path)
+            ready = []
+            engine.recording_ready.connect(lambda *values: ready.append(values))
+            engine._finalize_recording(0)
+            self.assertEqual(ready, [(str(path), "audio/mp4")])
         self.assertEqual(
             VoiceAudioEngine._normalized_peak(
                 b"1234", QAudioFormat.SampleFormat.Unknown

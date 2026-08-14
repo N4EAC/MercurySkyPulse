@@ -88,7 +88,7 @@ if errorlevel 1 (
 )
 
 echo Verifying Qt Multimedia voice-message support...
-"%MSP_PYTHON%" -c "from pathlib import Path; root=Path(r'dist\MercurySkyPulse'); plugins=list(root.rglob('*mediaplugin*')); raise SystemExit(0 if plugins else 1)"
+"%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
 if errorlevel 1 (
     echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice messages.
     goto failed
