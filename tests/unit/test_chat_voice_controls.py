@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QPushButton
 
 from presentation.chat_page import ChatPage
 from application.messaging import ChatMessage, MessageDirection, MessageStatus
@@ -99,6 +99,26 @@ class ChatVoiceControlTests(unittest.TestCase):
         self.page.set_voice_messages([delivered])
         self.assertIn("Voice delivered", self.page.voice_status.text())
         self.assertIn("delivered", self.page.messages.item(0).text())
+
+    def test_completed_voice_rows_play_their_own_sender_and_receiver_audio(self):
+        played = []
+        self.page.voice_play_requested.connect(played.append)
+        outgoing = SimpleNamespace(
+            id="sent", direction="outgoing", status="delivered",
+            progress=100, path="/tmp/sent.ogg", size=1000,
+        )
+        incoming = SimpleNamespace(
+            id="received", direction="incoming", status="received",
+            progress=100, path="/tmp/received.ogg", size=1000,
+        )
+        self.page.set_voice_messages([outgoing, incoming])
+
+        for row in range(self.page.messages.count()):
+            widget = self.page.messages.itemWidget(self.page.messages.item(row))
+            self.assertIsNotNone(widget)
+            widget.findChild(QPushButton).click()
+
+        self.assertEqual(played, ["/tmp/sent.ogg", "/tmp/received.ogg"])
 
     def test_completed_outgoing_file_clears_controls_but_remains_in_chat(self):
         transfer = SimpleNamespace(

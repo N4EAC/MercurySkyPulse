@@ -133,7 +133,7 @@ class GuiSmokeTests(unittest.TestCase):
             self.assertTrue(self.window._docks[key].isHidden())
         for key in ("summary", "frequency", "beacon"):
             self.assertFalse(self.window._docks[key].isHidden())
-        self.assertEqual(14, len(self.window.station_summary.values))
+        self.assertEqual(15, len(self.window.station_summary.values))
 
     def test_station_status_formats_next_beacon_or_manual_mode(self) -> None:
         self.window.station_summary.set_next_beacon(None)
@@ -247,6 +247,7 @@ class GuiSmokeTests(unittest.TestCase):
             ModemStatus(
                 sync=True, direction="tx", snr_db=7.25,
                 bitrate_bps=2400, radio_frequency_hz=14_105_000,
+                modem_mode="DATAC4",
             )
         )
         values = self.window.station_summary.values
@@ -255,6 +256,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(values["snr"].text(), "7.2 dB")
         self.assertEqual(values["bitrate"].text(), "2,400 bps")
         self.assertEqual(values["frequency"].text(), "14.105000 MHz")
+        self.assertEqual(values["datac_mode"].text(), "DATAC4")
 
     def test_bbs_opens_as_a_large_floating_dock_without_crushing_chat(self) -> None:
         self.window._reset_layout(clear_saved=False)

@@ -122,6 +122,25 @@ class VoiceMessageTests(unittest.TestCase):
         path.write_bytes(b"x" * (MAX_VOICE_BYTES + 1))
         self.assertFalse(self.service.send_recording(str(path), "audio/mp4"))
 
+    def test_sender_retains_a_separate_playable_copy(self):
+        self.make_available()
+        draft = Path(self.temp.name) / "draft.m4a"
+        draft.write_bytes(b"voice")
+        updates = []
+        self.service.messages_changed.connect(lambda values: updates.append(values[-1]))
+
+        self.assertTrue(self.service.send_recording(str(draft), "audio/mp4"))
+        message_id = updates[-1].id
+        self.client.voice_event_received.emit(Envelope(
+            "voice_result", message_id, result="delivered"
+        ))
+
+        retained = Path(updates[-1].path)
+        self.assertNotEqual(retained, draft)
+        self.assertEqual(retained.read_bytes(), b"voice")
+        draft.unlink()
+        self.assertEqual(retained.read_bytes(), b"voice")
+
     def test_disconnect_deletes_incomplete_session_artifact(self):
         self.make_available()
         path = Path(self.temp.name) / "draft.m4a"

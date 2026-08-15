@@ -94,7 +94,9 @@ Readiness is sent only when it changes; the receiver also rechecks its link when
 an offer arrives, protecting asymmetric or recently degraded links.
 Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
 chunk acknowledgements. Both operators see local incoming/transmitting progress;
-the sender sees **delivered** only after receiver checksum verification. While
+the sender sees **delivered** only after receiver checksum verification. Completed
+incoming and outgoing voice entries remain in Chat with their own **Play** button,
+so either operator can review the exact received or sent recording. While
 voice or file data is pending, MSP displays new text locally as **queued**, sends
 it after the bulk transfer releases the session, and suppresses disposable
 presence traffic. The Station Status Transfer card shows voice as well as file

@@ -87,6 +87,7 @@ class StationSummaryPanel(QWidget):
             ("snr", "SNR", "— dB"),
             ("bitrate", "Bitrate", "— bps"),
             ("frequency", "Frequency", "Unavailable"),
+            ("datac_mode", "DATAC Mode", "Idle"),
             ("link", "ARQ", "Disconnected"),
             ("peer", "Station", "None"),
             ("transfer", "Transfer", "Idle"),
@@ -116,6 +117,8 @@ class StationSummaryPanel(QWidget):
         self.set_value("radio", "Transmitting" if status.direction == "tx" else "Receiving")
         self.set_value("snr", f"{status.snr_db:.1f} dB")
         self.set_value("bitrate", f"{status.bitrate_bps:,} bps")
+        mode = status.modem_mode.strip().upper()
+        self.set_value("datac_mode", mode if mode and mode != "IDLE" else "Idle")
         self.set_value(
             "frequency",
             "Unavailable" if status.radio_frequency_hz is None

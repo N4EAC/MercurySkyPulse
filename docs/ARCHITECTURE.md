@@ -945,6 +945,11 @@ typed result. Exact Mercury modulation names are used when the public telemetry
 contract supplies them; otherwise the adapter reports `ARQ` or `idle`. ADR 0009
 records measurement semantics and this public-interface limitation.
 
+Station Status also projects that exact public `modem_mode` value as DATAC Mode.
+It is passive telemetry: MSP does not request a mode change or infer a payload
+mode from control traffic. During an active link this exposes Mercury's reported
+DATAC13 control mode or adaptive DATAC4/DATAC3/DATAC1 payload mode.
+
 CQ discovery is a separate bounded frame on the existing KISS broadcast adapter.
 It carries a validated callsign/grid/version/timestamp invitation and never opens
 CAT or changes VFO state. Chat expires callers after five minutes and answering
