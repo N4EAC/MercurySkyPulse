@@ -4,8 +4,8 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 BUILD_VENV="$PROJECT_ROOT/.venv-build-linux"
-MERCURY_COMMIT="9803d0fcd690de76309dbe62d9186a0d34dba507"
-MERCURY_ARCHIVE_SHA256="c2f0ddd03c61a2ecb5d342bffe44ea4d61fa44cb1885df0c8ed33f7294f9bf27"
+MERCURY_COMMIT="18eb1c1fbcc2dd36fa405607e03423e50c578fb4"
+MERCURY_ARCHIVE_SHA256="bd9acd89563cb12244967b9f020acb36393437598c4073154898366c15f29ce1"
 MERCURY_ARCHIVE_URL="https://github.com/N4EAC/mercury/archive/$MERCURY_COMMIT.tar.gz"
 MERCURY_CACHE="$PROJECT_ROOT/build/mercury-linux-runtime"
 MERCURY_ROOT=""
@@ -95,6 +95,11 @@ if [[ ! -f "$MERCURY_ROOT/LICENSE" || ! -f "$MERCURY_ROOT/LICENSE-freedv" ]]; th
 fi
 if ! grep -a -q "radio_frequency_hz" "$MERCURY_SOURCE"; then
     echo "ERROR: Mercury does not contain MSP's read-only CAT frequency telemetry." >&2
+    echo "Use the pinned automatic build or a compatible MERCURY_EXECUTABLE." >&2
+    exit 1
+fi
+if ! grep -a -q "arq_tx_mode" "$MERCURY_SOURCE" || ! grep -a -q "arq_rx_mode" "$MERCURY_SOURCE"; then
+    echo "ERROR: Mercury does not contain MSP's read-only ARQ payload-mode telemetry." >&2
     echo "Use the pinned automatic build or a compatible MERCURY_EXECUTABLE." >&2
     exit 1
 fi

@@ -96,7 +96,8 @@ Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
 chunk acknowledgements. Both operators see local incoming/transmitting progress;
 the sender sees **delivered** only after receiver checksum verification. Completed
 incoming and outgoing voice entries remain in Chat with their own **Play** button,
-so either operator can review the exact received or sent recording. While
+so either operator can review the exact received or sent recording. Voice and
+text entries share timestamp order and scroll together as one conversation. While
 voice or file data is pending, MSP displays new text locally as **queued**, sends
 it after the bulk transfer releases the session, and suppresses disposable
 presence traffic. The Station Status Transfer card shows voice as well as file
@@ -105,6 +106,10 @@ Chat renders outgoing file and voice lifecycle snapshots as **queued**, **sent**
 **delivered**, or **failed**. Sent requires receiver participation; delivered
 requires the receiving application's final checksum result. A delivered outgoing
 file clears the send controls and progress bar for the next transfer.
+An operator can cancel any offered, active, paused, or verifying file transfer.
+Loss of the ARQ session marks unfinished transfers interrupted, deletes incomplete
+received data, releases the transfer queue, and requires a fresh send after
+reconnection rather than attempting an unsafe cross-session resume.
 Voice recording uses a stable `10` through `00` countdown. Record is red only
 during capture, Play is green only during playback, and send availability is
 shown below the local recording state but hidden throughout capture.
@@ -584,6 +589,9 @@ Unexpected Mercury exits are detected and restarted automatically with bounded b
 The command toolbar plus Station Status, Activity, Radio
 Frequency, Beacon, Ping, Location, PSK Reporter Activity, and BBS docks can be
 moved, floated, tabified, and resized around the central Chat workspace.
+Station Status displays independently reported ARQ TX/RX payload modes when the
+bundled Mercury runtime provides them; generic `ARQ` telemetry is shown as
+unavailable rather than mislabeled as a DATAC level.
 Main-window geometry, dock/toolbar placement and sizes, setup-window geometry, appearance/theme,
 UI scale, and the selected GPS port are restored for the current OS user. Use
 **Window → Reset Panel Layout** to restore the default dock arrangement.

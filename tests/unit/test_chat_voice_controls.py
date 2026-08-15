@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication, QPushButton
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton
 
 from presentation.chat_page import ChatPage
 from application.messaging import ChatMessage, MessageDirection, MessageStatus
@@ -98,7 +98,8 @@ class ChatVoiceControlTests(unittest.TestCase):
         self.assertIn("sent", self.page.messages.item(0).text())
         self.page.set_voice_messages([delivered])
         self.assertIn("Voice delivered", self.page.voice_status.text())
-        self.assertIn("delivered", self.page.messages.item(0).text())
+        row = self.page.messages.itemWidget(self.page.messages.item(0))
+        self.assertIn("delivered", row.findChild(QLabel).text())
 
     def test_completed_voice_rows_play_their_own_sender_and_receiver_audio(self):
         played = []
@@ -119,6 +120,36 @@ class ChatVoiceControlTests(unittest.TestCase):
             widget.findChild(QPushButton).click()
 
         self.assertEqual(played, ["/tmp/sent.ogg", "/tmp/received.ogg"])
+
+    def test_voice_and_text_messages_share_chronological_scroll_order(self):
+        voice = SimpleNamespace(
+            id="voice", direction="incoming", status="received", progress=100,
+            path="/tmp/voice.ogg", size=1000,
+            created_at="2026-08-15T12:01:00+00:00",
+        )
+        text = ChatMessage(
+            id="text", conversation_id=1, direction=MessageDirection.INCOMING,
+            body="after voice", sent_at="2026-08-15T12:02:00+00:00",
+            status=MessageStatus.RECEIVED,
+        )
+
+        self.page.set_voice_messages([voice])
+        self.page.set_messages([text])
+
+        first = self.page.messages.itemWidget(self.page.messages.item(0))
+        self.assertIn("Voice message", first.findChild(QLabel).text())
+        self.assertIn("after voice", self.page.messages.item(1).text())
+
+    def test_interrupted_file_clears_controls_and_allows_next_send(self):
+        transfer = SimpleNamespace(
+            id="file", direction="outgoing", status="interrupted", progress=0,
+            path="/tmp/report.txt", name="report.txt", checksum="a" * 64,
+            thumbnail=b"",
+        )
+        self.page.set_transfers([transfer])
+        self.assertEqual(self.page.transfer_status.text(), "No file transfer")
+        self.assertFalse(self.page.cancel_file_button.isEnabled())
+        self.assertIn("interrupted", self.page.messages.item(0).text())
 
     def test_completed_outgoing_file_clears_controls_but_remains_in_chat(self):
         transfer = SimpleNamespace(

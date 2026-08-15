@@ -107,9 +107,12 @@ Mercury internals.
 - Unified operator console with Chat as the central surface and dockable Station
   Status, Beacon, Ping, Location, transfer-in-Chat, PSK Reporter Activity, BBS,
   Radio Frequency, and Activity views. Station Status includes Mercury/TNC state,
-  modem sync, TX/RX, SNR, bitrate, current Mercury-reported DATAC mode,
+  modem sync, TX/RX, SNR, bitrate, current Mercury-reported ARQ TX/RX payload modes,
   frequency, peer, current GRID, next-beacon
   countdown or paused state, and workflow state.
+- Completed incoming and outgoing voice messages are timestamp-ordered with text
+  in Chat and provide per-message playback. File transfers can be cancelled;
+  disconnects terminate incomplete session transfers and release the send queue.
 - Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:
   solid green for receive and solid red for transmit. UTC date/time is displayed
   through minutes without seconds.
@@ -196,8 +199,9 @@ Mercury internals.
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
   the native target. It automatically downloads, checksum-verifies, and compiles
-  pinned Mercury compatibility commit `9803d0fc` when no override/sibling runtime
-  exists, verifies the `radio_frequency_hz` capability, and bundles the runtime.
+  pinned Mercury compatibility commit `18eb1c1f` when no override/sibling runtime
+  exists, verifies the read-only frequency and ARQ payload-mode telemetry, and
+  bundles the runtime.
   Fedora packaging disables inapplicable debugsource subpackages for the
   prebuilt PyInstaller payload, filters only PySide6's unavailable optional
   `libtiff.so.5` plugin dependency, and uses a relative launcher symlink.

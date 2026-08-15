@@ -945,10 +945,12 @@ typed result. Exact Mercury modulation names are used when the public telemetry
 contract supplies them; otherwise the adapter reports `ARQ` or `idle`. ADR 0009
 records measurement semantics and this public-interface limitation.
 
-Station Status also projects that exact public `modem_mode` value as DATAC Mode.
-It is passive telemetry: MSP does not request a mode change or infer a payload
-mode from control traffic. During an active link this exposes Mercury's reported
-DATAC13 control mode or adaptive DATAC4/DATAC3/DATAC1 payload mode.
+Station Status does not reinterpret the generic public `modem_mode=ARQ` value as
+a DATAC level. It passively consumes explicit `arq_tx_mode` and `arq_rx_mode`
+telemetry when a compatible Mercury runtime publishes its independently tracked
+payload modes. MSP does not request a mode change or infer a payload mode from
+bitrate, SNR, or control traffic. Older runtimes therefore show **Unavailable**
+rather than a fabricated level.
 
 CQ discovery is a separate bounded frame on the existing KISS broadcast adapter.
 It carries a validated callsign/grid/version/timestamp invitation and never opens
@@ -969,6 +971,14 @@ Operator-facing absolute timestamps use UTC consistently, including Chat and BBS
 history. Application protocol timestamps were already UTC. Mercury-originated
 relative timings and telemetry remain authoritative and are not rewritten by the
 presentation layer.
+
+Voice messages retain their creation timestamp so the Chat presentation can
+interleave completed playable rows with text rather than maintaining a separate
+static transfer block. File transfer state is scoped to one ARQ session: an
+operator cancellation or session disconnect releases bulk ownership, and partial
+incoming files are deleted. MSP deliberately does not resume a transfer across a
+new ARQ session because the remote offset and identity binding are no longer
+authoritative; the operator starts a fresh transfer instead.
 
 Station Status projects only the current compact Maidenhead locator: a locator
 calculated from current GPS/manual coordinates takes precedence over the saved

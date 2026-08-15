@@ -79,6 +79,8 @@ class FileTransferService(QObject):
         self._outgoing_id: str | None = None
         self._external_busy_check = None
         client.file_event_received.connect(self._on_event)
+        if hasattr(client, "session_disconnected"):
+            client.session_disconnected.connect(self._session_disconnected)
 
     def set_external_busy_check(self, callback) -> None:
         self._external_busy_check = callback
@@ -178,6 +180,39 @@ class FileTransferService(QObject):
             self._outgoing_id = transfer_id
             if self.auto_pump:
                 self._timer.start()
+
+    def cancel(self, transfer_id: str) -> None:
+        """Cancel one local transfer and release its half-duplex session ownership."""
+        transfer = self._transfers.get(transfer_id)
+        if not transfer or transfer.status not in ACTIVE_TRANSFER_STATES:
+            return
+        self._timer.stop()
+        if transfer.direction == "incoming" and transfer.path:
+            Path(transfer.path).unlink(missing_ok=True)
+        self._update(transfer_id, status="cancelled")
+        self._send_safely(
+            "file_result", transfer_id, result="failed", reason="operator-cancelled"
+        )
+        if transfer_id == self._outgoing_id:
+            self._outgoing_id = None
+
+    def _session_disconnected(self) -> None:
+        """Terminate session-scoped transfers that cannot safely resume on a new ARQ link."""
+        self._timer.stop()
+        changed = False
+        for transfer_id, transfer in list(self._transfers.items()):
+            if transfer.status not in ACTIVE_TRANSFER_STATES:
+                continue
+            if transfer.direction == "incoming" and transfer.path:
+                try:
+                    Path(transfer.path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            self._transfers[transfer_id] = replace(transfer, status="interrupted")
+            changed = True
+        self._outgoing_id = None
+        if changed:
+            self._emit()
 
     def _on_event(self, envelope) -> None:
         values = envelope.values or {}

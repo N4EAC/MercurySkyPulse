@@ -87,7 +87,7 @@ class StationSummaryPanel(QWidget):
             ("snr", "SNR", "— dB"),
             ("bitrate", "Bitrate", "— bps"),
             ("frequency", "Frequency", "Unavailable"),
-            ("datac_mode", "DATAC Mode", "Idle"),
+            ("datac_mode", "ARQ Payload", "Unavailable"),
             ("link", "ARQ", "Disconnected"),
             ("peer", "Station", "None"),
             ("transfer", "Transfer", "Idle"),
@@ -117,8 +117,18 @@ class StationSummaryPanel(QWidget):
         self.set_value("radio", "Transmitting" if status.direction == "tx" else "Receiving")
         self.set_value("snr", f"{status.snr_db:.1f} dB")
         self.set_value("bitrate", f"{status.bitrate_bps:,} bps")
-        mode = status.modem_mode.strip().upper()
-        self.set_value("datac_mode", mode if mode and mode != "IDLE" else "Idle")
+        tx_mode = status.arq_tx_mode.strip().upper()
+        rx_mode = status.arq_rx_mode.strip().upper()
+        if tx_mode and rx_mode:
+            payload_mode = tx_mode if tx_mode == rx_mode else f"TX {tx_mode} · RX {rx_mode}"
+        elif tx_mode or rx_mode:
+            payload_mode = f"TX {tx_mode}" if tx_mode else f"RX {rx_mode}"
+        else:
+            payload_mode = "Unavailable"
+        self.set_value("datac_mode", payload_mode)
+        self.values["datac_mode"].setToolTip(
+            "Mercury-reported ARQ payload modes; control frames use Mercury's fixed control mode"
+        )
         self.set_value(
             "frequency",
             "Unavailable" if status.radio_frequency_hz is None

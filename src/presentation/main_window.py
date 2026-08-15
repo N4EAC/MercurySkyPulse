@@ -661,6 +661,7 @@ class MainWindow(QMainWindow):
             self.chat_page.file_requested.connect(transfers.send_file)
             self.chat_page.transfer_pause_requested.connect(transfers.pause)
             self.chat_page.transfer_resume_requested.connect(transfers.resume)
+            self.chat_page.transfer_cancel_requested.connect(transfers.cancel)
             self.chat_page.transfer_folder_requested.connect(self._open_transfer_folder)
             transfers.transfers_changed.connect(self.chat_page.set_transfers)
             transfers.transfers_changed.connect(self._log_transfers)
@@ -1189,8 +1190,11 @@ class MainWindow(QMainWindow):
             else None
         )
         if terminal_file and terminal_file.status in {
-            "failed", "rejected", "received", "duplicate",
+            "failed", "rejected", "received", "duplicate", "cancelled", "interrupted",
         }:
+            if terminal_file.status in {"cancelled", "interrupted"}:
+                self.station_summary.set_value("transfer", "Idle")
+                return
             label = str(terminal_file.status).replace("_", " ").title()
             self.station_summary.set_value("transfer", f"File: {label}")
             return

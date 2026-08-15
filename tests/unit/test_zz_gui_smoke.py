@@ -247,7 +247,7 @@ class GuiSmokeTests(unittest.TestCase):
             ModemStatus(
                 sync=True, direction="tx", snr_db=7.25,
                 bitrate_bps=2400, radio_frequency_hz=14_105_000,
-                modem_mode="DATAC4",
+                modem_mode="ARQ", arq_tx_mode="DATAC3", arq_rx_mode="DATAC4",
             )
         )
         values = self.window.station_summary.values
@@ -256,7 +256,7 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(values["snr"].text(), "7.2 dB")
         self.assertEqual(values["bitrate"].text(), "2,400 bps")
         self.assertEqual(values["frequency"].text(), "14.105000 MHz")
-        self.assertEqual(values["datac_mode"].text(), "DATAC4")
+        self.assertEqual(values["datac_mode"].text(), "TX DATAC3 · RX DATAC4")
 
     def test_bbs_opens_as_a_large_floating_dock_without_crushing_chat(self) -> None:
         self.window._reset_layout(clear_saved=False)
