@@ -194,7 +194,8 @@ Mercury internals.
 - `build.exe.bat` creates the Windows 10/11 engineering executable and bundles the
   pinned, checksum-verified Mercury compatibility runtime from the public
   `N4EAC/mercury` fork. That runtime includes the read-only Hamlib frequency
-  telemetry required by MSP reporting and display.
+  telemetry and independent ARQ TX/peer RX payload-mode telemetry required by
+  MSP reporting and display.
 - `packaging/windows/MercurySkyPulse.iss` wraps that payload in a per-user Inno
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on

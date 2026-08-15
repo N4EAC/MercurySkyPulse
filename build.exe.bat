@@ -6,11 +6,11 @@ echo Mercury SkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
-set "MSP_MERCURY_VERSION=1.9.11-msp-9803d0fc"
-set "MSP_MERCURY_COMMIT=9803d0fcd690de76309dbe62d9186a0d34dba507"
-set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.11-msp-9803d0fc.zip"
-set "MSP_MERCURY_ARCHIVE_SHA256=e7a2563242dd2d3a57b1380a780d9b702a3c4f2050ff6f7e3c87bd31d4c80b25"
-set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.11-frequency-1/mercury-1.9.11-msp-9803d0fc.zip"
+set "MSP_MERCURY_VERSION=1.9.11-msp-18eb1c1f"
+set "MSP_MERCURY_COMMIT=18eb1c1fbcc2dd36fa405607e03423e50c578fb4"
+set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.11-msp-18eb1c1f.zip"
+set "MSP_MERCURY_ARCHIVE_SHA256=30c17008418c03cc3cf062300962e02a25f51b716d077140347297520af7bfc3"
+set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.11-arq-telemetry-1/mercury-1.9.11-msp-18eb1c1f.zip"
 set "MSP_MERCURY_CACHE=%TEMP%\MercurySkyPulse-build-cache\mercury-%MSP_MERCURY_VERSION%"
 set "MSP_MERCURY_ARCHIVE=%MSP_MERCURY_CACHE%\%MSP_MERCURY_ARCHIVE_NAME%"
 set "MSP_MERCURY_RUNTIME=%MSP_MERCURY_CACHE%\runtime\mercury-%MSP_MERCURY_VERSION%"
@@ -182,6 +182,12 @@ if not exist "%MSP_MERCURY_RUNTIME%\mercury.exe" (
 )
 if not exist "%MSP_MERCURY_RUNTIME%\LICENSE" (
     echo ERROR: Verified Mercury archive did not contain its GPL license.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$text=[Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes((Join-Path $env:MSP_MERCURY_RUNTIME 'mercury.exe'))); if (-not ($text.Contains('radio_frequency_hz') -and $text.Contains('arq_tx_mode') -and $text.Contains('arq_rx_mode'))) { exit 1 }"
+if errorlevel 1 (
+    echo ERROR: Mercury runtime does not contain MSP frequency and ARQ payload-mode telemetry.
     exit /b 1
 )
 exit /b 0
