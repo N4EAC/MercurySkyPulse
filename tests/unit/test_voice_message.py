@@ -57,7 +57,7 @@ class VoiceMessageTests(unittest.TestCase):
         self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
         self.client.voice_event_received.emit(Envelope(
             "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=True,
-            maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES,
+            maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES, link_ready=True,
         ))
         for _ in range(3): self.service.set_modem_bitrate(600)
 
@@ -66,7 +66,8 @@ class VoiceMessageTests(unittest.TestCase):
         self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
         self.assertEqual(self.client.events[-1][0], "voice_capability")
         self.client.voice_event_received.emit(Envelope(
-            "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=True
+            "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=True,
+            link_ready=True,
         ))
         self.service.set_modem_bitrate(600)
         self.service.set_modem_bitrate(600)
@@ -86,6 +87,28 @@ class VoiceMessageTests(unittest.TestCase):
             "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=False
         ))
         self.assertEqual(len(self.client.events), 2)
+
+    def test_voice_requires_both_stations_to_report_sustained_bitrate(self):
+        self.client.session_connected.emit("N4EAC", "K1ABC", 2500)
+        self.client.voice_event_received.emit(Envelope(
+            "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=True,
+            link_ready=False,
+        ))
+        for _ in range(3):
+            self.service.set_modem_bitrate(600)
+        self.assertFalse(self.service.availability()[0])
+        self.assertIn("receiving station", self.service.availability()[1])
+        readiness_events = [
+            event for event in self.client.events
+            if event[0] == "voice_capability" and event[2].get("link_ready")
+        ]
+        self.assertEqual(len(readiness_events), 1)
+
+        self.client.voice_event_received.emit(Envelope(
+            "voice_capability", protocol=2, mime_types=["audio/mp4"], ack=True,
+            link_ready=True, bitrate_bps=700,
+        ))
+        self.assertTrue(self.service.availability()[0])
 
     def test_paused_file_blocks_voice(self):
         self.make_available()

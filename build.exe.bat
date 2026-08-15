@@ -87,7 +87,7 @@ if errorlevel 1 (
     goto failed
 )
 
-echo Verifying Qt Multimedia and bidirectional-gated voice protocol 2 support...
+echo Verifying Qt Multimedia, bilateral bitrate gating, and voice protocol 2 support...
 "%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
 if errorlevel 1 (
     echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice recording and playback.

@@ -124,7 +124,7 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     "$PROJECT_ROOT/apps/desktop/main.py"
 
-printf 'Verifying Qt Multimedia and bidirectional-gated voice protocol 2 support...\n'
+printf 'Verifying Qt Multimedia, bilateral bitrate gating, and voice protocol 2 support...\n'
 "$BUILD_VENV/bin/python" tools/validate_voice_package.py dist/MercurySkyPulse
 
 mkdir -p dist/MercurySkyPulse/mercury

@@ -33,4 +33,5 @@ exposed over radio.
 The verifier is password-equivalent material, so the SQLite file needs host
 filesystem protection. Captured proofs cannot be replayed, but traffic is not
 encrypted. A shared password cannot distinguish stations that know the same
-secret; per-user keys and encrypted transport remain future work.
+secret. ADR 0033 removes product licensing and the dormant radio-traffic
+encryption direction; this password mechanism remains authentication only.

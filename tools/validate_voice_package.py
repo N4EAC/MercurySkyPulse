@@ -32,6 +32,19 @@ def validate(root: Path) -> list[str]:
     if VOICE_RESPONSE_TIMEOUT_MS != 180_000:
         errors.append("voice protocol 2 must use the drain-aware 180-second timeout")
     try:
+        capability = encode_event(
+            "voice_capability", "package-capability", "2026-01-01T00:00:00+00:00",
+            protocol=2, mime_types=["audio/mp4"], maximum_seconds=10,
+            maximum_bytes=MAX_VOICE_BYTES, link_ready=True, bitrate_bps=600,
+            ack=True,
+        )
+        decoded_capability = FrameDecoder().feed(capability)
+        if (
+            len(decoded_capability) != 1
+            or decoded_capability[0].kind != "voice_capability"
+            or not decoded_capability[0].values.get("link_ready")
+        ):
+            errors.append("voice protocol 2 bilateral bitrate readiness is unavailable")
         frame = encode_event(
             "voice_chunk_ack", "package-check", "2026-01-01T00:00:00+00:00",
             offset=384,
@@ -40,7 +53,7 @@ def validate(root: Path) -> list[str]:
         if len(decoded) != 1 or decoded[0].kind != "voice_chunk_ack":
             errors.append("voice protocol 2 chunk acknowledgement is unavailable")
     except (TypeError, ValueError):
-        errors.append("voice protocol 2 chunk acknowledgement is unavailable")
+        errors.append("voice protocol 2 capability or chunk acknowledgement is unavailable")
     return errors
 
 
@@ -54,7 +67,7 @@ def main() -> int:
     if errors:
         return 1
     print(
-        "Voice runtime and bidirectional-gated BUFFER-aware protocol 2 verified: "
+        "Voice runtime and bilateral-bitrate-gated BUFFER-aware protocol 2 verified: "
         f"{args.package}"
     )
     return 0

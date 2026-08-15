@@ -35,7 +35,7 @@ PySide6 desktop application and optional supervised Mercury child process. It
 includes dockable operator UI, modem telemetry, ARQ chat and file transfer,
 location and GPS workflows, capability beacons, station ping, a persistent BBS,
 a loopback-only read-only web interface, optional PSK Reporter reception uploads,
-offline signed licensing, and a trusted built-in plugin kernel. It is suitable for continued development and controlled
+a trusted built-in plugin kernel, and no product activation or feature editions. It is suitable for continued development and controlled
 manual testing, but is not yet a production release.
 
 Mercury remains a process-isolated engine accessed through its documented UI
@@ -83,11 +83,12 @@ seconds and 8 KiB. Voice uses separate system microphone/playback devices select
 Mercury ARQ session; it is not live FreeDV audio. MSP permits local recording,
 review playback, discard, and replacement without requiring a station connection.
 **Send Voice** is enabled only after the connected peer advertises `voice-chat`,
-after three usable local bitrate reports, and while no file transfer is pending—including
+after both stations advertise sustained bitrate readiness of at least 500 bps,
+and while no file transfer is pending—including
 paused transfers. One voice message may be outstanding, and successful delivery
 starts a 120-second sending cooldown. Disconnecting discards incomplete session audio.
-The receiver independently rejects voice when its inbound bitrate is below the
-same threshold, protecting asymmetric links that look good only to the sender.
+Readiness is sent only when it changes; the receiver also rechecks its link when
+an offer arrives, protecting asymmetric or recently degraded links.
 Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
 chunk acknowledgements. Both operators see local incoming/transmitting progress;
 the sender sees **delivered** only after receiver checksum verification. While
@@ -95,6 +96,13 @@ voice or file data is pending, MSP displays new text locally as **queued**, send
 it after the bulk transfer releases the session, and suppresses disposable
 presence traffic. The Station Status Transfer card shows voice as well as file
 activity.
+Chat renders outgoing file and voice lifecycle snapshots as **queued**, **sent**,
+**delivered**, or **failed**. Sent requires receiver participation; delivered
+requires the receiving application's final checksum result. A delivered outgoing
+file clears the send controls and progress bar for the next transfer.
+Voice recording uses a stable `10` through `00` countdown. Record is red only
+during capture, Play is green only during playback, and send availability is
+shown below the local recording state but hidden throughout capture.
 Sparse `is typing…` and `is recording audio…` indicators use one expiring event
 per activity period rather than continuous RF presence traffic.
 The Audio tab confirms the active voice endpoints, saves a voice-only microphone
@@ -154,7 +162,7 @@ is Off by default and supports 1, 5, 10, 15, 30, or 60-minute intervals plus a
 manual **Send Now** action.
 Station Status displays **Next Beacon: Manual** while periodic beaconing is off;
 when an interval is enabled it displays the live time remaining until the next
-scheduled transmission. The countdown text blinks bright red only during the
+scheduled transmission. The countdown text turns bright red only during the
 final ten seconds.
 Periodic beaconing shows **Paused** during an ARQ session and for 300 seconds
 after each CQ call. It resumes with a fresh interval when no pause remains.
@@ -171,7 +179,7 @@ cannot insert it into Chat. Weather is not currently included in beacons.
 MSP-generated protocol, diagnostic, reporting, Chat, BBS, and weather-fetch
 timestamps are stored or displayed in UTC. Mercury-originated relative timing and
 modem telemetry remain unchanged.
-The bottom status bar shows the current UTC date and time.
+The bottom status bar shows the current UTC date and time through minutes.
 
 Station Status shows a compact **GRID** card. It is calculated from the current
 GPS/manual coordinates when available and otherwise uses the station GRID saved
@@ -309,7 +317,7 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 - Mercury SkyPulse depends on documented wire contracts, not Mercury globals or private source internals.
 - Transport-specific code remains behind adapter interfaces.
 - Mercury TNC and KISS adapters carry opaque application bytes; message framing, chunking, authentication, and feature protocols live above them in `application_protocol`.
-- Chat, files, BBS, mapping, web, logging, licensing, and encryption policy are Mercury SkyPulse features, never Mercury modem responsibilities.
+- Chat, files, BBS, mapping, web, and logging are Mercury SkyPulse features, never Mercury modem responsibilities. MSP does not encrypt radio traffic.
 - Domain and application layers do not depend on TCP, WebSocket, UI, or operating-system details.
 - A managed local Mercury process and a remote Mercury service should look equivalent to the application layer.
 - New behavior is introduced with tests and documentation before crossing module boundaries.
@@ -327,7 +335,7 @@ MercurySkyPulse/
 │   ├── application/             # Collaboration use cases and neutral models
 │   ├── application_protocol/    # MSP1/beacon codecs and event routing
 │   ├── persistence/             # SQLite schema and repository
-│   ├── platform_runtime/        # Process, file, GPS, web, and license adapters
+│   ├── platform_runtime/        # Process, file, GPS, weather, and web adapters
 │   ├── presentation/            # PySide6 UI and current composition root
 │   ├── transport/
 │   │   └── mercury/             # Opaque TNC/KISS and telemetry adapters
@@ -340,7 +348,6 @@ MercurySkyPulse/
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── BBS_GUIDE.md
-│   ├── LICENSE_FORMAT.md
 │   ├── PLUGIN_SYSTEM.md
 │   └── decisions/               # Architecture decision records
 ├── tools/run_tests.py           # Canonical test runner
@@ -584,8 +591,8 @@ and tokens; suspected secret fields are redacted before writing.
 When a valid station callsign is saved, MSP automatically configures Mercury to
 accept incoming ARQ calls as soon as the TNC is ready and re-arms listening after
 a disconnect or TNC reconnection. Chat displays **Listening as: CALLSIGN**. The
-small status-bar LED is green while Mercury reports receive and red while it
-reports transmit. Beacon traffic uses Mercury's separate broadcast interface;
+small status-bar LED is solid green while Mercury reports receive and solid red
+while it reports transmit. Beacon traffic uses Mercury's separate broadcast interface;
 automatic ARQ listening does not disable Beacon, BBS, GPS, or reception reporting.
 
 Use **Mercury → Open Diagnostic Log Folder** to locate it. Logs rotate at 10 MiB
@@ -606,36 +613,16 @@ Only GET and HEAD are supported; POST, PUT, PATCH, and DELETE return HTTP 405.
 No application files or directories are served. Set `MERCURYSKYPULSE_WEB_PORT`
 before launch to select another local port; `0` chooses an available port.
 
-### Offline licensing
-
-Mercury SkyPulse starts in Community edition when no license is installed. The
-framework accepts offline Ed25519-signed JSON files with editions, feature flags,
-expiration, and individual or organizational deployment metadata. Status appears
-in the status bar, **Help → License Information**, and local dashboard. Existing
-workflows are not gated during this framework phase.
-
-Discovery checks `MERCURYSKYPULSE_LICENSE_FILE` and
-`MERCURYSKYPULSE_LICENSE_KEYS`, then machine-wide files under
-`/Library/Application Support/MercurySkyPulse`,
-`%PROGRAMDATA%\MercurySkyPulse`, or `/etc/mercury-skypulse`, and finally the
-per-user data directory. The key registry is
-`{"schema":1,"keys":{"key-id":"BASE64_RAW_ED25519_PUBLIC_KEY"}}`.
-Protect deployment files with OS permissions. No activation, telemetry, copy
-protection, or hardware binding is performed.
-
-The complete envelope and canonical signature procedure are documented in
-[`docs/LICENSE_FORMAT.md`](docs/LICENSE_FORMAT.md). Private signing keys are never
-part of the application or deployment package.
-
 ### Plugin system
 
 Mercury transport, GUI themes, GPS, mapping export, BBS, the local web interface,
 and logging are registered as trusted built-in plugins. The kernel provides API
-compatibility, dependencies, explicit permissions, license requirements,
+compatibility, dependencies, explicit permissions,
 deterministic lifecycle, provider priority, and failure isolation. Status appears
 under **Help → Plugin Information** and `/api/plugins` locally.
 
-An encryption-provider extension point exists but has no provider. Third-party
+MSP does not encrypt application payloads sent over amateur radio. Optional BBS
+passwords authenticate access but do not conceal BBS traffic. Third-party
 discovery is intentionally disabled because in-process Python permissions are not
 a sandbox. External plugins require the future out-of-process broker described in
 [`docs/PLUGIN_SYSTEM.md`](docs/PLUGIN_SYSTEM.md) and ADR 0014.

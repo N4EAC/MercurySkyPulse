@@ -19,19 +19,16 @@ Registered providers:
 | `core.web` | `web-interface` | `local.http` |
 | `core.logging` | `logging` | `logging.write` |
 
-`encryption-provider` exists but has no provider. No UI or protocol may claim
-encryption merely because the extension point exists.
-
 Transport plugins must not export collaboration services or interpret application
 event names. Protocol plugins may layer framing, compression, chunking,
-authentication, or encryption over a transport export. Feature plugins consume
+or authentication over a transport export. Feature plugins consume
 those application-protocol ports rather than Mercury-specific classes.
 
 ## Manifest contract
 
 Every plugin declares a stable reverse-domain-style ID, display name, semantic
 version, publisher, supported plugin API range, dependencies, requested
-permissions, extension contributions, and optional licensing feature. Each
+permissions and extension contributions. Each
 contribution names an extension point, an exported object, and a priority.
 
 Dependencies form an acyclic graph. Providers start after dependencies and stop

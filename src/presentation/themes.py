@@ -53,6 +53,7 @@ LIGHT = {
     "accent": "#3478f6",
     "accent_hover": "#2568d8",
     "success": "#1b8f5a",
+    "danger": "#c62828",
     "warning": "#b66a00",
 }
 
@@ -66,6 +67,7 @@ DARK = {
     "accent": "#64a0ff",
     "accent_hover": "#82b2ff",
     "success": "#4cc38a",
+    "danger": "#e53935",
     "warning": "#f0ad4e",
 }
 
@@ -157,6 +159,18 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         font-weight: 600;
     }}
     QPushButton#PrimaryButton:hover {{ background: {colors['accent_hover']}; }}
+    QPushButton#VoiceRecordingButton {{
+        background: {colors['danger']};
+        color: white;
+        border-color: {colors['danger']};
+        font-weight: 600;
+    }}
+    QPushButton#VoicePlayingButton {{
+        background: {colors['success']};
+        color: white;
+        border-color: {colors['success']};
+        font-weight: 600;
+    }}
     QListWidget, QTreeWidget, QTableWidget, QPlainTextEdit, QTextEdit {{
         background: {colors['surface']};
         alternate-background-color: {colors['surface_alt']};

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0033](0033-remove-product-licensing-and-encryption-hook.md)
 
 ## Context
 

@@ -30,7 +30,7 @@ submit it.
 - `transport/mercury` owns documented Mercury TNC, KISS, and telemetry wire
   details and carries opaque application bytes.
 - `platform_runtime` owns process supervision, filesystem, image, GPS, local HTTP,
-  mapping export, and license deployment adapters.
+  and mapping export adapters.
 - `persistence` owns SQLite schema and repository behavior.
 - `presentation` owns PySide6 UI coordination and the current composition root;
   UI code consumes application services and typed modem projections.

@@ -20,7 +20,6 @@ from application.beacon import BeaconService, DEFAULT_BEACON_CAPABILITIES
 from application.ping import PingService
 from application.bbs import BbsService
 from application.web_dashboard import WebDashboardSnapshot
-from application.licensing import LicenseStatus
 from application.endpoints import MercuryEndpointProfile, MercuryRunMode
 from application.radio import RadioStationService, TxLevelTestService
 from application.psk_reporter import PskReporterService
@@ -32,7 +31,6 @@ from platform_runtime.gps_receiver import GpsReceiver
 from platform_runtime.location_exporter import LocationExporter
 from platform_runtime.diagnostic_log import DiagnosticLog
 from platform_runtime.local_web import LocalWebServer
-from platform_runtime.licensing import LicenseDeployment
 from application_protocol import ApplicationMessagingClient
 from transport.mercury.tnc import MercuryTncTransport
 from application_protocol.beacon import BeaconProtocolClient
@@ -196,10 +194,6 @@ def main() -> int:
         client, repository, file_transfer_service, data_directory / "bbs-files"
     )
     web_snapshot = WebDashboardSnapshot()
-    license_state = LicenseDeployment(data_directory).load()
-    web_snapshot.update_license(license_state)
-    if license_state.status not in {LicenseStatus.COMMUNITY, LicenseStatus.VALID}:
-        web_snapshot.append_log(f"License {license_state.status}: {license_state.reason}")
     try:
         web_port = int(os.environ.get("MERCURYSKYPULSE_WEB_PORT", "8765"))
     except ValueError:
@@ -212,7 +206,6 @@ def main() -> int:
         web_snapshot.append_log(f"Local web interface unavailable: {error}")
         web_server = LocalWebServer(web_snapshot, 0)
     plugins = create_builtin_registry(
-        license_features=license_state.features,
         event_sink=web_snapshot.append_log,
         mercury_transport=mercury_transport,
         beacon_transport=mercury_broadcast,
@@ -238,7 +231,6 @@ def main() -> int:
         bbs_service=bbs_service,
         web_snapshot=web_snapshot,
         web_server=web_server,
-        license_state=license_state,
         plugin_registry=plugins,
         endpoint_profile=endpoint_profile,
         supervisor=mercury_supervisor,

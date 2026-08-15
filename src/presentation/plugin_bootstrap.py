@@ -10,12 +10,9 @@ from application.plugins import (
 from .themes import apply_appearance
 
 
-def create_builtin_registry(*, license_features: frozenset[str], event_sink,
-                            mercury_transport, beacon_transport, location_service,
+def create_builtin_registry(*, event_sink, mercury_transport, beacon_transport, location_service,
                             bbs_service, web_server, web_snapshot) -> PluginRegistry:
-    registry = PluginRegistry(
-        enabled_license_features=license_features, event_sink=event_sink
-    )
+    registry = PluginRegistry(event_sink=event_sink)
     builtins = (
         (_manifest("core.mercury", "Mercury Transport", "mercury.transport",
                    ExtensionPoint.TRANSPORT, "transport"),

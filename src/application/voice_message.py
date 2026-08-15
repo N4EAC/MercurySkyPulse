@@ -54,6 +54,8 @@ class VoiceMessageService(QObject):
         self._good_bitrate_samples = 0
         self._poor_bitrate_samples = 0
         self._link_usable = False
+        self._peer_link_usable = False
+        self._latest_bitrate_bps = 0
         self._file_busy = False
         self._messages: dict[str, VoiceMessage] = {}
         self._outgoing_id: str | None = None
@@ -93,7 +95,9 @@ class VoiceMessageService(QObject):
             self._pump()
 
     def set_modem_bitrate(self, bitrate_bps: int) -> None:
-        if int(bitrate_bps) >= 500:
+        previous = self._link_usable
+        self._latest_bitrate_bps = max(0, int(bitrate_bps))
+        if self._latest_bitrate_bps >= 500:
             self._good_bitrate_samples += 1
             self._poor_bitrate_samples = 0
             if self._good_bitrate_samples >= 3:
@@ -103,6 +107,8 @@ class VoiceMessageService(QObject):
             self._good_bitrate_samples = 0
             if self._poor_bitrate_samples >= 2:
                 self._link_usable = False
+        if self._connected and self._link_usable != previous:
+            self._send_capability(ack=True)
         self._publish_availability()
 
     def set_file_transfers(self, transfers) -> None:
@@ -150,6 +156,11 @@ class VoiceMessageService(QObject):
             return False, "Finish the current voice message first"
         if not self._link_usable:
             return False, "Voice requires a sustained link bitrate of at least 500 bps"
+        if not self._peer_link_usable:
+            return False, (
+                "Waiting for the receiving station to confirm a sustained "
+                "link bitrate of at least 500 bps"
+            )
         if self._cooldown_until and datetime.now(UTC) < self._cooldown_until:
             seconds = max(1, int((self._cooldown_until - datetime.now(UTC)).total_seconds()))
             return False, f"Voice cooldown: {seconds} seconds remaining"
@@ -160,7 +171,7 @@ class VoiceMessageService(QObject):
 
     def _session_connected(self, *_args) -> None:
         self._connected = True
-        self._peer_compatible = False
+        self._peer_compatible = self._peer_link_usable = False
         self._good_bitrate_samples = self._poor_bitrate_samples = 0
         self._link_usable = False
         self._capability_ack_sent = False
@@ -169,6 +180,7 @@ class VoiceMessageService(QObject):
 
     def _session_disconnected(self) -> None:
         self._connected = self._peer_compatible = self._link_usable = False
+        self._peer_link_usable = False
         self._pump_timer.stop()
         self._response_timer.stop()
         self._waiting_for_response = False
@@ -193,6 +205,7 @@ class VoiceMessageService(QObject):
                     values.get("protocol") == 2 and isinstance(mime_types, list)
                     and bool({"audio/mp4", "audio/ogg", "audio/webm"} & set(mime_types))
                 )
+                self._peer_link_usable = bool(values.get("link_ready", False))
                 if self._peer_compatible and not bool(values.get("ack", False)) \
                         and not self._capability_ack_sent:
                     self._capability_ack_sent = True
@@ -376,7 +389,9 @@ class VoiceMessageService(QObject):
     def _send_capability(self, ack: bool) -> None:
         self._send("voice_capability", str(uuid4()), protocol=2,
                    mime_types=["audio/mp4", "audio/ogg", "audio/webm"],
-                   maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES, ack=ack)
+                   maximum_seconds=10, maximum_bytes=MAX_VOICE_BYTES,
+                   link_ready=self._link_usable,
+                   bitrate_bps=min(self._latest_bitrate_bps, 100_000), ack=ack)
 
     def _update(self, message_id: str, **changes: object) -> None:
         self._messages[message_id] = replace(self._messages[message_id], **changes)

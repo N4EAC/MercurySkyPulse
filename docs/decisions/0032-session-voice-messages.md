@@ -16,7 +16,8 @@ discard, and replacement do not require an ARQ connection; this permits safe
 microphone setup without RF traffic. Recordings may be sent only while an
 identified ARQ session is connected, both clients advertise the compatible voice
 protocol, both endpoints report their received link bitrate sustained at or above
-500 bit/s, and no
+500 bit/s through readiness transitions piggybacked on the bounded capability
+exchange, and no
 ordinary file transfer is offered, queued, active, paused, verifying, or awaiting
 acknowledgement. Voice uses one serialized transfer and cannot be paused or
 resumed. Disconnect deletes incomplete outgoing and incoming artifacts.
@@ -54,6 +55,11 @@ the session. Voice and file transfer exclude each
 other. Incoming, progress, verification, ready-to-play, and delivered notices are
 local UI/log snapshots derived from the transfer frames already required by the
 protocol; they add no separate RF notification traffic.
+Outgoing Chat snapshots advance from queued to sent only after peer participation
+and to delivered only after receiver checksum confirmation. The recording UI is
+locked against asynchronous link-readiness updates during capture, displays a
+fixed-width `10` through `00` countdown, and colors Record/Play only while the
+corresponding recorder/player state is active.
 
 ## Consequences
 
@@ -63,9 +69,9 @@ protocol; they add no separate RF notification traffic.
 - Platform multimedia codecs can differ; the sender selects only a mutually
   advertised MIME type and otherwise disables voice.
 - Link-quality gating is conservative and cannot predict exact transfer time.
-- The receiver rejects an offer with `link-poor` when its inbound link does not
-  meet the sustained threshold; sender-only telemetry is insufficient on an
-  asymmetric RF path.
+- The sender remains disabled until both peers advertise sustained readiness.
+  The receiver still rejects an offer with `link-poor` if its link degrades;
+  sender-only telemetry is insufficient on an asymmetric RF path.
 - Late results cannot overwrite a terminal failed/delivered transfer state.
 - Station Status reports the active voice or file state through one Transfer card.
 - Older protocol-1 voice clients are deliberately incompatible with protocol 2.

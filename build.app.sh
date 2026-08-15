@@ -74,7 +74,7 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c \
     "Add :NSMicrophoneUsageDescription string Mercury SkyPulse records short voice messages when the operator presses Record Voice." \
     "$PLIST"
-print "Verifying Qt Multimedia and bidirectional-gated voice protocol 2 support..."
+print "Verifying Qt Multimedia, bilateral bitrate gating, and voice protocol 2 support..."
 "$BUILD_VENV/bin/python" tools/validate_voice_package.py "$APP"
 # Editing Info.plist invalidates PyInstaller's ad-hoc signature.
 codesign --force --deep --sign - "$APP"

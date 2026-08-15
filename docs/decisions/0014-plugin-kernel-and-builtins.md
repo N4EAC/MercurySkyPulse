@@ -7,22 +7,21 @@ Accepted
 ## Context
 
 Mercury SkyPulse needs replaceable providers for transport, presentation,
-positioning, mapping, BBS, web, logging, and future encryption. Rewriting all
+positioning, mapping, BBS, web, and logging. Rewriting all
 working components at once would introduce unnecessary operational risk.
 
 ## Decision
 
 The application layer owns a framework-neutral plugin kernel with versioned API
 compatibility, immutable manifests, extension contributions, explicit permission
-grants, license feature requirements, dependencies, deterministic startup,
+grants, dependencies, deterministic startup,
 reverse shutdown, prioritized provider lookup, state reporting, and exception
-containment. Missing permissions and license features disable a plugin; failed
+containment. Missing permissions disable a plugin; failed
 dependencies block dependents without stopping independent providers.
 
 Existing components are registered as trusted built-in object adapters at the
 desktop composition boundary. The first built-ins are Mercury transport, GUI
-themes, GPS, mapping export, BBS, local web, and logging. Encryption is an empty
-extension point and does not imply encryption is available.
+themes, GPS, mapping export, BBS, local web, and logging.
 
 The in-process registry is for trusted built-ins only. It is not a security
 sandbox: Python code can ignore application permission APIs. Third-party package

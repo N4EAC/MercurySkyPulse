@@ -155,8 +155,7 @@ def _dashboard(data: dict) -> str:
              ("SNR", _value(station["snr_db"], " dB")),
              ("Bitrate", _value(station["bitrate_bps"], " bps")),
              ("Conversations", len(data["conversations"])),
-             ("Transfers", len(data["transfers"])),
-             ("Edition", str(data["license"]["edition"]).title()))
+             ("Transfers", len(data["transfers"])))
     return '<div class="grid">' + "".join(
         f'<section class="card"><small>{escape(str(label))}</small><div class="metric">{escape(str(value))}</div></section>'
         for label, value in cards) + "</div>"

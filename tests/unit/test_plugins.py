@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from dataclasses import fields
 from types import SimpleNamespace
 
 from application.plugins import (
@@ -12,11 +13,11 @@ from presentation.plugin_bootstrap import create_builtin_registry
 
 def manifest(plugin_id: str, *, dependencies=(), permissions=frozenset(),
              point=ExtensionPoint.APPLICATION_SERVICE, export="service", priority=0,
-             api_min=1, api_max=1, license_feature=None) -> PluginManifest:
+             api_min=1, api_max=1) -> PluginManifest:
     return PluginManifest(
         plugin_id, plugin_id.title(), "1.0.0", "Test Publisher",
         api_min=api_min, api_max=api_max, dependencies=dependencies,
-        permissions=permissions, license_feature=license_feature,
+        permissions=permissions,
         extensions=(ExtensionContribution(point, export, priority),),
     )
 
@@ -36,6 +37,10 @@ class RecordingPlugin:
 
 
 class PluginTests(unittest.TestCase):
+    def test_manifest_and_extension_points_have_no_entitlement_or_encryption_hooks(self) -> None:
+        self.assertNotIn("license_feature", {item.name for item in fields(PluginManifest)})
+        self.assertNotIn("encryption-provider", {item.value for item in ExtensionPoint})
+
     def test_dependencies_start_first_and_stop_in_reverse(self) -> None:
         events = []
         registry = PluginRegistry()
@@ -61,16 +66,13 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(states["feature.dependent"], PluginState.BLOCKED.value)
         self.assertEqual(states["feature.independent"], PluginState.ACTIVE.value)
 
-    def test_permissions_and_license_features_are_deny_by_default(self) -> None:
-        registry = PluginRegistry(enabled_license_features=frozenset({"allowed.feature"}))
+    def test_permissions_are_deny_by_default(self) -> None:
+        registry = PluginRegistry()
         registry.register(manifest("third.permission", permissions=frozenset({"local.http"})),
-                          ObjectPlugin({"service": object()}))
-        registry.register(manifest("third.licensed", license_feature="missing.feature"),
                           ObjectPlugin({"service": object()}))
         registry.activate_all()
         states = {item["id"]: item["state"] for item in registry.snapshot()}
         self.assertEqual(states["third.permission"], PluginState.DISABLED.value)
-        self.assertEqual(states["third.licensed"], PluginState.DISABLED.value)
 
     def test_extension_providers_are_ordered_by_priority_then_id(self) -> None:
         registry = PluginRegistry()
@@ -103,18 +105,12 @@ class PluginTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already registered"):
             registry.register(manifest("cycle.one"), ObjectPlugin({"service": 3}))
 
-    def test_encryption_is_an_extension_slot_without_implicit_provider(self) -> None:
-        registry = PluginRegistry()
-        registry.activate_all()
-        self.assertEqual(registry.extensions(ExtensionPoint.ENCRYPTION_PROVIDER), [])
-
     def test_current_components_register_as_seven_builtin_plugins(self) -> None:
         events = []
         snapshot = SimpleNamespace(append_log=events.append)
         location = SimpleNamespace(receiver=object(), exporter=object())
         registry = create_builtin_registry(
-            license_features=frozenset(), event_sink=events.append,
-            mercury_transport=object(), beacon_transport=object(),
+            event_sink=events.append, mercury_transport=object(), beacon_transport=object(),
             location_service=location, bbs_service=object(),
             web_server=object(), web_snapshot=snapshot,
         )
@@ -122,7 +118,6 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(len(records), 7)
         self.assertTrue(all(item["built_in"] and item["state"] == "active" for item in records))
         self.assertEqual(len(registry.extensions(ExtensionPoint.TRANSPORT)), 1)
-        self.assertEqual(registry.extensions(ExtensionPoint.ENCRYPTION_PROVIDER), [])
 
 
 if __name__ == "__main__":

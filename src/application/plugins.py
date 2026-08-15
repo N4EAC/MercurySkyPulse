@@ -22,7 +22,6 @@ class ExtensionPoint(StrEnum):
     BBS = "bbs"
     WEB_INTERFACE = "web-interface"
     LOGGING = "logging"
-    ENCRYPTION_PROVIDER = "encryption-provider"
     APPLICATION_SERVICE = "application-service"
 
 
@@ -58,7 +57,6 @@ class PluginManifest:
     dependencies: tuple[str, ...] = ()
     permissions: frozenset[str] = frozenset()
     extensions: tuple[ExtensionContribution, ...] = ()
-    license_feature: str | None = None
 
     def __post_init__(self) -> None:
         if not IDENTIFIER.fullmatch(self.id) or not VERSION.fullmatch(self.version):
@@ -76,8 +74,6 @@ class PluginManifest:
         exports = [item.export for item in self.extensions]
         if len(exports) != len(set(exports)):
             raise ValueError("Plugin extension exports must be unique")
-        if self.license_feature and not IDENTIFIER.fullmatch(self.license_feature):
-            raise ValueError("Invalid plugin license feature")
 
 
 class Plugin(Protocol):
@@ -136,10 +132,8 @@ class PluginRegistry:
     """
 
     def __init__(self, api_version: int = PLUGIN_API_VERSION,
-                 enabled_license_features: frozenset[str] | None = None,
                  event_sink: Callable[[str], None] | None = None) -> None:
         self.api_version = api_version
-        self.enabled_license_features = enabled_license_features
         self.event_sink = event_sink or (lambda _message: None)
         self._records: dict[str, PluginRecord] = {}
         self._activation_order: list[str] = []
@@ -164,10 +158,6 @@ class PluginRegistry:
             if missing_grants:
                 self._set_state(record, PluginState.DISABLED,
                                 f"Permissions not granted: {', '.join(sorted(missing_grants))}")
-                continue
-            if (manifest.license_feature and self.enabled_license_features is not None
-                    and manifest.license_feature not in self.enabled_license_features):
-                self._set_state(record, PluginState.DISABLED, "License feature is not enabled")
                 continue
             inactive = [item for item in manifest.dependencies
                         if self._records[item].state is not PluginState.ACTIVE]

@@ -23,7 +23,7 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0010 — Unauthenticated local-first BBS](0010-unauthenticated-bbs.md)
 - [0011 — Optional BBS password and role access](0011-bbs-password-and-role-access.md)
 - [0012 — Loopback-only read-only web interface](0012-loopback-read-only-web-interface.md)
-- [0013 — Offline signed licensing framework](0013-offline-signed-licensing.md)
+- [0013 — Offline signed licensing framework (superseded)](0013-offline-signed-licensing.md)
 - [0014 — Plugin kernel and built-in migration](0014-plugin-kernel-and-builtins.md)
 - [0015 — Automated test matrix](0015-automated-test-matrix.md)
 - [0016 — Mercury opaque transport boundary](0016-mercury-opaque-transport-boundary.md)
@@ -43,3 +43,4 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0030 — Opt-in internet weather for chat composition](0030-opt-in-weather-chat.md)
 - [0031 — Native engineering packages wrap a bundled Mercury runtime](0031-native-engineering-packages.md)
 - [0032 — Session-scoped compressed voice messages](0032-session-voice-messages.md)
+- [0033 — Remove product licensing and the unused encryption hook](0033-remove-product-licensing-and-encryption-hook.md)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import math
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
@@ -244,6 +245,10 @@ class ChatPage(QWidget):
         self._voice_draft_ready = False
         self._voice_send_reason = "Connect to a station before sending voice"
         self._voice_transfer_active = False
+        self._voice_recording = False
+        self._chat_messages: list[ChatMessage] = []
+        self._file_transfers: list[object] = []
+        self._voice_messages: list[object] = []
         self._cq_expiry_timer = QTimer(self)
         self._cq_expiry_timer.setInterval(30_000)
         self._cq_expiry_timer.timeout.connect(self._expire_cq_calls)
@@ -338,19 +343,40 @@ class ChatPage(QWidget):
         self._voice_available = available
         self._voice_send_reason = reason
         self.voice_send_button.setEnabled(self._voice_draft_ready and available)
-        if not self._voice_transfer_active:
+        if not self._voice_transfer_active and not self._voice_recording:
             self._show_voice_readiness()
 
     def set_voice_recording(self, recording: bool, duration_ms: int) -> None:
+        self._voice_recording = recording
+        self._set_button_state(
+            self.voice_record_button, "VoiceRecordingButton" if recording else ""
+        )
         self.voice_record_button.setEnabled(not recording)
         self.voice_stop_button.setEnabled(recording)
         self.voice_discard_button.setEnabled(
             not recording and self._voice_draft_ready
         )
-        self.voice_status.setText(
-            f"Recording… {min(10.0, duration_ms / 1000):.1f} / 10.0 seconds"
-            if recording else self.voice_status.text()
+        if recording:
+            remaining = max(0, min(10, math.ceil((10_000 - duration_ms) / 1000)))
+            # Preserve the normal two-line label height without showing send
+            # availability while capture duration updates arrive.
+            self.voice_status.setText(f"Recording · {remaining:02d}\n\u00a0")
+        else:
+            self._show_voice_readiness()
+
+    def set_voice_playback(self, playing: bool) -> None:
+        self._set_button_state(
+            self.voice_play_button, "VoicePlayingButton" if playing else ""
         )
+
+    @staticmethod
+    def _set_button_state(button: QPushButton, object_name: str) -> None:
+        if button.objectName() == object_name:
+            return
+        button.setObjectName(object_name)
+        button.style().unpolish(button)
+        button.style().polish(button)
+        button.update()
 
     def set_voice_draft(self, ready: bool, path: str = "") -> None:
         self._voice_draft_ready = ready
@@ -365,6 +391,8 @@ class ChatPage(QWidget):
             self._show_voice_readiness()
 
     def set_voice_messages(self, messages) -> None:
+        self._voice_messages = list(messages)
+        self._render_messages()
         if not messages:
             self._voice_transfer_active = False
             self._show_voice_readiness()
@@ -405,14 +433,14 @@ class ChatPage(QWidget):
             )
 
     def _show_voice_readiness(self) -> None:
-        if self._voice_transfer_active:
+        if self._voice_transfer_active or self._voice_recording:
             return
         if self._voice_available:
             detail = "Peer voice compatible — ready to send"
         else:
             detail = f"Send unavailable: {self._voice_send_reason}"
         prefix = "Voice recording ready" if self._voice_draft_ready else "Ready to record locally"
-        self.voice_status.setText(f"{prefix} · {detail}")
+        self.voice_status.setText(f"{prefix}\n{detail}")
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""
@@ -488,8 +516,12 @@ class ChatPage(QWidget):
         )
 
     def set_messages(self, messages: list[ChatMessage]) -> None:
+        self._chat_messages = list(messages)
+        self._render_messages()
+
+    def _render_messages(self) -> None:
         self.messages.clear()
-        for message in messages:
+        for message in self._chat_messages:
             direction = (
                 "You" if message.direction is MessageDirection.OUTGOING
                 else (self.remote_call.text().strip().upper() or "Remote station")
@@ -508,12 +540,57 @@ class ChatPage(QWidget):
             if message.direction is MessageDirection.OUTGOING:
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
             self.messages.addItem(item)
+        for transfer in self._file_transfers:
+            if transfer.direction != "outgoing":
+                continue
+            state = {
+                "offered": "queued",
+                "transferring": "sent",
+                "paused": "sent · paused",
+                "verifying": "sent · awaiting delivery confirmation",
+                "received": "delivered",
+                "duplicate": "delivered · receiver already had this file",
+                "failed": "failed",
+                "rejected": "failed · receiver rejected transfer",
+                "checksum-failed": "failed · checksum mismatch",
+            }.get(transfer.status)
+            if state:
+                self._add_transfer_message(f"File {transfer.name}", state)
+        for message in self._voice_messages:
+            if message.direction != "outgoing":
+                continue
+            state = {
+                "queued": "queued",
+                "offered": "queued · awaiting receiver",
+                "transmitting": "sent · receiver confirming chunks",
+                "verifying": "sent · awaiting delivery confirmation",
+                "delivered": "delivered",
+                "failed": "failed",
+                "busy": "failed · receiving station busy",
+                "link-poor": "failed · receiving link below voice threshold",
+            }.get(message.status)
+            if state:
+                self._add_transfer_message("Voice message", state)
         self.messages.scrollToBottom()
 
+    def _add_transfer_message(self, label: str, state: str) -> None:
+        item = QListWidgetItem(f"You · {label}: {state}")
+        item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
+        item.setToolTip(
+            "Local transfer status based on Mercury queue state and receiving-station confirmations"
+        )
+        self.messages.addItem(item)
+
     def set_transfers(self, transfers: list[object]) -> None:
+        self._file_transfers = list(transfers)
+        self._render_messages()
         if not transfers:
+            self._clear_transfer_controls()
             return
         transfer = transfers[-1]
+        if transfer.direction == "outgoing" and transfer.status in {"received", "duplicate"}:
+            self._clear_transfer_controls()
+            return
         self._transfer_id = transfer.id
         self._transfer_path = transfer.path
         status = {
@@ -553,6 +630,18 @@ class ChatPage(QWidget):
         self.open_transfer_button.setEnabled(
             bool(transfer.path) and transfer.status in {"received", "duplicate"}
         )
+
+    def _clear_transfer_controls(self) -> None:
+        self._transfer_id = ""
+        self._transfer_path = ""
+        self.transfer_status.setText("No file transfer")
+        self.transfer_status.setToolTip("")
+        self.transfer_thumbnail.clear()
+        self.transfer_progress.setRange(0, 100)
+        self.transfer_progress.setValue(0)
+        self.pause_file_button.setEnabled(False)
+        self.resume_file_button.setEnabled(False)
+        self.open_transfer_button.setEnabled(False)
 
     def _send(self) -> None:
         text = self.composer.toPlainText()

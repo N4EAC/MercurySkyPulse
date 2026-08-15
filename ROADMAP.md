@@ -71,6 +71,14 @@ bounds and acknowledgement disconnect-race handling are implemented.
 Voice transmission is negotiated per ARQ session, while connectionless beacons
 advertise the compact `voice-chat` discovery capability.
 
+A follow-on BBS notification should add one bounded, session-deduplicated
+`messages waiting` event after the connected identity is resolved. It should
+carry only a count, never message metadata, and render a non-modal
+`Retrieve? Yes / Not now` prompt. Retrieval remains operator initiated. Protected
+BBS mode must wait for authenticated identity binding; open mode must continue
+to label the claimed identity as untrusted. This requires a versioned protocol
+event and adversarial identity/session tests before implementation.
+
 ## Phase 4 — Mercury runtime management (managed-local prototype complete)
 
 - The optional platform adapter for launching and supervising local Mercury is
@@ -110,7 +118,7 @@ Exit criteria: a minimal application can connect to Mercury and display verified
 
 - Implemented slices include chat, file/image transfer, location/GPS export,
   beacon, ping, BBS, radio/Hamlib setup, bounded TX level testing, optional PSK
-  Reporter reception uploads, local web, offline licensing, and built-in plugins.
+  Reporter reception uploads, local web, and built-in plugins.
 - Incoming transfer consent, truthful RF-delivery state, persistent bounded field
   diagnostics, and slow-link ping/BBS timing are implemented from paired RF tests.
 - Public-telemetry audio diagnostics expose selected native endpoint IDs, inferred
@@ -135,7 +143,7 @@ configuration remains in Setup.
 - The versioned kernel and initial trusted built-in registrations are implemented.
 - Migrate direct construction to plugin factories one capability at a time.
 - Resolve consumers through typed extension ports rather than concrete adapters.
-- Add alternate-provider contract tests for transport, themes, positioning, mapping, BBS, web, logging, and encryption.
+- Add alternate-provider contract tests for transport, themes, positioning, mapping, BBS, web, and logging.
 - Implement the authenticated out-of-process broker before third-party loading.
 - Add package verification, permission consent, revocation, scoped storage, and constrained UI contributions.
 
@@ -156,4 +164,4 @@ Work should proceed in this order:
 4. Complete built-in plugin migration without enabling third-party in-process
    discovery.
 5. Decide packaging, supported platforms, compatibility policy, and legal/source
-   licensing obligations.
+   GPL and bundled-dependency redistribution obligations.

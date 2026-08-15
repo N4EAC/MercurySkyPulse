@@ -27,7 +27,7 @@ Messaging and Collaboration Services
     chat · files · BBS · mapping · web
     ↓
 Application Protocol
-    framing · compression · chunking · authentication · encryption providers
+    framing · compression · chunking · authentication
     ↓
 Mercury Transport Adapters
     opaque reliable bytes · opaque KISS payloads · modem telemetry
@@ -40,7 +40,7 @@ Audio · CAT · PTT · HF radio
 
 No feature may move downward merely because it uses Mercury. Mercury transport
 adapters do not know application event names, folders, conversations, files,
-roles, maps, web routes, or encryption policy.
+roles, maps, or web routes.
 
 ## 2. Objectives
 
@@ -231,7 +231,7 @@ src/transport/mercury/
   beacon.py                      KISS framing and opaque broadcast payloads
   telemetry/                     WebSocket JSON/binary codec and connection
 src/persistence/                 SQLite schema and repository
-src/platform_runtime/            Process, filesystem, GPS, web, weather, license adapters
+src/platform_runtime/            Process, filesystem, GPS, web, and weather adapters
 src/platform/                    Reserved platform placeholder
 src/presentation/                PySide6 UI and current composition root
 tests/unit/                      Pure module tests
@@ -570,10 +570,10 @@ The initial release may disable third-party installation while retaining the arc
 ### 10.6 Implemented plugin kernel
 
 `src/application/plugins.py` implements API compatibility, manifests, permissions,
-license requirements, dependency ordering, lifecycle state, prioritized extension
+dependency ordering, lifecycle state, prioritized extension
 lookup, and failure containment. `src/presentation/plugin_bootstrap.py` registers
 Mercury transport, themes, GPS, mapping, BBS, web, and logging as trusted built-in
-adapters. Encryption is a provider slot with no implementation. Plugin state is
+adapters. Plugin state is
 visible through the local web API and desktop Help menu. External discovery and
 dynamic import are intentionally absent. ADR 0014 defines the migration boundary.
 
@@ -587,7 +587,9 @@ dynamic import are intentionally absent. ADR 0014 defines the migration boundary
 - Contain compromised plugins and malformed remote inputs.
 - Produce verifiable software updates and useful, privacy-preserving audit data.
 
-Mercury SkyPulse cannot make HF radio traffic confidential by itself. Application-layer encryption/authentication, if added, must be an explicit protocol above Mercury's byte transport and must not be implied by a WSS control connection.
+Mercury SkyPulse does not make HF radio traffic confidential. Application-layer
+authentication used for access control must not be described as encryption, and
+a WSS control connection does not make RF payloads confidential.
 
 ### 11.2 Trust boundaries
 
@@ -628,7 +630,7 @@ Mercury remains the final PTT safety authority. The UI treats PTT telemetry as a
 - Memory containing tokens is short-lived and excluded from crash/diagnostic output where runtime support permits.
 - File permissions for database, logs, configuration, IPC endpoints, and plugin state are user-only by default.
 - Diagnostic bundles are redacted, previewable, explicitly exported, and never uploaded automatically.
-- Optional database encryption is a separate ADR based on threat model and credible cross-platform key management; it is not a substitute for minimizing data.
+- Stored application data is not encrypted by MSP; minimize retained data and protect the host account and database permissions.
 
 ### 11.6 Plugin isolation
 
@@ -793,7 +795,7 @@ The design supports, but does not yet commit to:
 - multiple saved Mercury endpoints and fast profile switching;
 - multiple concurrent Mercury endpoints after use cases and UI complexity justify it;
 - background receive/notification mode consistent with OS policies;
-- encrypted/authenticated application protocols above Mercury's byte stream;
+- authenticated application protocols above Mercury's byte stream where access control requires them;
 - headless automation through a separately authenticated API;
 - constrained declarative plugin panels and workflow plugins;
 - richer link analytics based on minimized aggregate data;
@@ -833,16 +835,24 @@ progress, checksum completion, response timeouts, and cooldown.
 `src/platform_runtime/voice_audio.py` owns separate Qt Multimedia capture,
 playback, voice-only microphone level, and local diagnostics. Voice recording and
 review are local operations; only sending requires a compatible ARQ session.
+The presentation locks recording state against asynchronous bitrate availability
+updates, uses a fixed-width two-digit countdown, and derives Record/Play colors
+from actual recorder/player state rather than click state.
 Connectionless beacons advertise `voice-chat`, but the session event remains the
 authoritative compatibility negotiation.
 Presentation derives incoming, progress, verification, and delivered snapshots
 from those existing protocol transitions and does not send separate notification
-traffic. A voice offer waits locally for Mercury BUFFER 0, and response timeouts
+traffic. Outgoing file and voice timeline entries use `queued` before peer
+acceptance, `sent` only after peer participation, and `delivered` only after the
+receiver's final checksum result. A voice offer waits locally for Mercury BUFFER 0, and response timeouts
 run only after Mercury drains the corresponding local write. Chat text is stored
 and rendered as queued while voice or file data owns the half-duplex session,
 then submitted in order; disposable presence is suppressed.
-Both endpoints independently qualify their received bitrate; an inbound endpoint
-below threshold rejects the offer before allocating a transfer. Compressed voice
+Both endpoints independently qualify their received bitrate and advertise only
+readiness transitions through the bounded session capability event. The sender
+remains disabled until both endpoints report a sustained qualifying link, and an
+inbound endpoint still rejects a stale offer if its link falls below threshold.
+Compressed voice
 is capped at 8 KiB, and late peer results cannot rewrite terminal state.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
@@ -981,15 +991,11 @@ logs. The interface implements GET/HEAD only, verifies loopback clients, disable
 caching/CORS/framing, and stops with the desktop process. ADR 0012 makes any
 future write endpoint or non-loopback exposure a new security decision.
 
-`src/application/licensing.py` defines the signed schema, editions, feature
-entitlements, organizational metadata, UTC validity rules, and verifier port.
-`src/platform_runtime/licensing.py` adapts Ed25519 verification and bounded
-license/key discovery. Runtime use requires no account or network. Administrators
-may deploy files through environment overrides, fixed machine-wide directories,
-or the per-user data directory. Invalid or expired licenses fail closed; absence
-selects Community. State is visible in the desktop and local web dashboard. No
-existing workflow is gated until edition policy names enforcement points. ADR
-0013 excludes hardware binding and copy protection.
+MSP has no product activation, feature editions, entitlement files, or encrypted
+radio payloads. The optional BBS password mechanism authenticates access without
+encrypting BBS traffic. GPL notices and package integrity checks remain separate
+distribution requirements. ADR 0033 records removal of the former offline
+licensing framework and unused encryption extension point.
 
 ### 19.1 Decisions established by this specification
 
@@ -1014,7 +1020,7 @@ existing workflow is gated until edition policy names enforcement points. ADR
 7. Plugin IPC protocol, package format, sandboxing, and UI contribution model.
 8. TLS/trust and secure remote TNC deployment guidance.
 9. Target OS versions and packaging/update mechanisms.
-10. Licensing and Mercury distribution model.
+10. GPL obligations and Mercury distribution model.
 11. Logging library, redaction schema, and diagnostic archive format.
 12. Application-layer payload protocol, only when its first use case is approved.
 
