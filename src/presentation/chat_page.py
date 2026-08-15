@@ -557,20 +557,20 @@ class ChatPage(QWidget):
             if state:
                 self._add_transfer_message(f"File {transfer.name}", state)
         for message in self._voice_messages:
-            if message.direction != "outgoing":
-                continue
             state = {
                 "queued": "queued",
                 "offered": "queued · awaiting receiver",
                 "transmitting": "sent · receiver confirming chunks",
+                "receiving": f"receiving · {message.progress}%",
                 "verifying": "sent · awaiting delivery confirmation",
                 "delivered": "delivered",
+                "received": "received · ready to play",
                 "failed": "failed",
                 "busy": "failed · receiving station busy",
                 "link-poor": "failed · receiving link below voice threshold",
             }.get(message.status)
             if state:
-                self._add_transfer_message("Voice message", state)
+                self._add_voice_message(message, state)
         self.messages.scrollToBottom()
 
     def _add_transfer_message(self, label: str, state: str) -> None:
@@ -580,6 +580,40 @@ class ChatPage(QWidget):
             "Local transfer status based on Mercury queue state and receiving-station confirmations"
         )
         self.messages.addItem(item)
+
+    def _add_voice_message(self, message, state: str) -> None:
+        direction = "You" if message.direction == "outgoing" else (
+            self.remote_call.text().strip().upper() or "Remote station"
+        )
+        text = f"{direction} · Voice message: {state}"
+        item = QListWidgetItem(text)
+        if message.direction == "outgoing":
+            item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
+        playable = message.status in {"delivered", "received"} and bool(message.path)
+        if not playable:
+            self.messages.addItem(item)
+            return
+        row = QWidget()
+        row_layout = QHBoxLayout(row)
+        row_layout.setContentsMargins(8, 4, 8, 4)
+        label = QLabel(text)
+        label.setWordWrap(True)
+        play = QPushButton("Play")
+        play.setToolTip("Play this completed voice message")
+        play.clicked.connect(
+            lambda _checked=False, path=message.path: self.voice_play_requested.emit(path)
+        )
+        if message.direction == "outgoing":
+            row_layout.addStretch(1)
+            row_layout.addWidget(label)
+            row_layout.addWidget(play)
+        else:
+            row_layout.addWidget(play)
+            row_layout.addWidget(label)
+            row_layout.addStretch(1)
+        item.setSizeHint(row.sizeHint())
+        self.messages.addItem(item)
+        self.messages.setItemWidget(item, row)
 
     def set_transfers(self, transfers: list[object]) -> None:
         self._file_transfers = list(transfers)

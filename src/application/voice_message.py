@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 import hashlib
 from pathlib import Path
+import shutil
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -311,7 +312,17 @@ class VoiceMessageService(QObject):
         self._clear_response_wait()
         self._awaiting_ack_offset = None
         if result == "delivered":
-            self._update(message_id, status="delivered", transferred=message.size)
+            self.storage_directory.mkdir(parents=True, exist_ok=True)
+            suffix = {
+                "audio/mp4": ".m4a", "audio/ogg": ".ogg", "audio/webm": ".webm",
+            }[message.mime_type]
+            retained = self.storage_directory / f"{message.id}{suffix}"
+            if Path(message.path).resolve() != retained.resolve():
+                shutil.copyfile(message.path, retained)
+            self._update(
+                message_id, status="delivered", transferred=message.size,
+                path=str(retained),
+            )
             self._cooldown_until = datetime.now(UTC) + timedelta(seconds=COOLDOWN_SECONDS)
             self._cooldown_timer.start(COOLDOWN_SECONDS * 1000)
             self.delivered.emit(message_id)

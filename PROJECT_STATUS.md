@@ -107,7 +107,8 @@ Mercury internals.
 - Unified operator console with Chat as the central surface and dockable Station
   Status, Beacon, Ping, Location, transfer-in-Chat, PSK Reporter Activity, BBS,
   Radio Frequency, and Activity views. Station Status includes Mercury/TNC state,
-  modem sync, TX/RX, SNR, bitrate, frequency, peer, current GRID, next-beacon
+  modem sync, TX/RX, SNR, bitrate, current Mercury-reported DATAC mode,
+  frequency, peer, current GRID, next-beacon
   countdown or paused state, and workflow state.
 - Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:
   solid green for receive and solid red for transmit. UTC date/time is displayed
