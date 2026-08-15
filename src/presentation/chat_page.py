@@ -40,6 +40,7 @@ class ChatPage(QWidget):
     file_requested = Signal(str)
     transfer_pause_requested = Signal(str)
     transfer_resume_requested = Signal(str)
+    transfer_cancel_requested = Signal(str)
     transfer_folder_requested = Signal(str)
     conversation_selected = Signal(int)
     cq_requested = Signal()
@@ -184,8 +185,10 @@ class ChatPage(QWidget):
         self.send_file_button = QPushButton("Send File…")
         self.pause_file_button = QPushButton("Pause")
         self.resume_file_button = QPushButton("Resume")
+        self.cancel_file_button = QPushButton("Cancel")
         self.open_transfer_button = QPushButton("Open Folder")
         self.open_transfer_button.setEnabled(False)
+        self.cancel_file_button.setEnabled(False)
         self.transfer_status = QLabel("No file transfer")
         self.transfer_thumbnail = QLabel()
         self.transfer_thumbnail.setFixedSize(72, 72)
@@ -198,6 +201,7 @@ class ChatPage(QWidget):
         transfer_row.addWidget(self.transfer_thumbnail)
         transfer_row.addWidget(self.pause_file_button)
         transfer_row.addWidget(self.resume_file_button)
+        transfer_row.addWidget(self.cancel_file_button)
         transfer_row.addWidget(self.open_transfer_button)
         transfer_row.addWidget(self.transfer_status, 1)
         transfer_row.addWidget(self.transfer_progress)
@@ -232,6 +236,9 @@ class ChatPage(QWidget):
         self.send_file_button.clicked.connect(self._choose_file)
         self.pause_file_button.clicked.connect(self._pause_transfer)
         self.resume_file_button.clicked.connect(self._resume_transfer)
+        self.cancel_file_button.clicked.connect(
+            lambda: self.transfer_cancel_requested.emit(self._transfer_id)
+        )
         self.open_transfer_button.clicked.connect(self._open_transfer_folder)
         self.conversations.currentRowChanged.connect(self._select_row)
         self.conversations.currentRowChanged.connect(
@@ -521,7 +528,31 @@ class ChatPage(QWidget):
 
     def _render_messages(self) -> None:
         self.messages.clear()
-        for message in self._chat_messages:
+        entries = [
+            (message.sent_at, 0, index, "text", message)
+            for index, message in enumerate(self._chat_messages)
+        ]
+        entries.extend(
+            (getattr(message, "created_at", "") or "9999", 1, index, "voice", message)
+            for index, message in enumerate(self._voice_messages)
+        )
+        for _timestamp, _order, _index, kind, message in sorted(entries):
+            if kind == "voice":
+                state = {
+                    "queued": "queued",
+                    "offered": "queued · awaiting receiver",
+                    "transmitting": "sent · receiver confirming chunks",
+                    "receiving": f"receiving · {message.progress}%",
+                    "verifying": "sent · awaiting delivery confirmation",
+                    "delivered": "delivered",
+                    "received": "received · ready to play",
+                    "failed": "failed",
+                    "busy": "failed · receiving station busy",
+                    "link-poor": "failed · receiving link below voice threshold",
+                }.get(message.status)
+                if state:
+                    self._add_voice_message(message, state)
+                continue
             direction = (
                 "You" if message.direction is MessageDirection.OUTGOING
                 else (self.remote_call.text().strip().upper() or "Remote station")
@@ -553,24 +584,11 @@ class ChatPage(QWidget):
                 "failed": "failed",
                 "rejected": "failed · receiver rejected transfer",
                 "checksum-failed": "failed · checksum mismatch",
+                "cancelled": "cancelled",
+                "interrupted": "interrupted · reconnect and send again",
             }.get(transfer.status)
             if state:
                 self._add_transfer_message(f"File {transfer.name}", state)
-        for message in self._voice_messages:
-            state = {
-                "queued": "queued",
-                "offered": "queued · awaiting receiver",
-                "transmitting": "sent · receiver confirming chunks",
-                "receiving": f"receiving · {message.progress}%",
-                "verifying": "sent · awaiting delivery confirmation",
-                "delivered": "delivered",
-                "received": "received · ready to play",
-                "failed": "failed",
-                "busy": "failed · receiving station busy",
-                "link-poor": "failed · receiving link below voice threshold",
-            }.get(message.status)
-            if state:
-                self._add_voice_message(message, state)
         self.messages.scrollToBottom()
 
     def _add_transfer_message(self, label: str, state: str) -> None:
@@ -587,17 +605,22 @@ class ChatPage(QWidget):
         )
         text = f"{direction} · Voice message: {state}"
         item = QListWidgetItem(text)
-        if message.direction == "outgoing":
-            item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
         playable = message.status in {"delivered", "received"} and bool(message.path)
         if not playable:
+            if message.direction == "outgoing":
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
             self.messages.addItem(item)
             return
+        item.setText("")
+        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
         row = QWidget()
+        row.setObjectName("VoiceMessageRow")
         row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(8, 4, 8, 4)
+        row_layout.setContentsMargins(10, 6, 10, 6)
+        row_layout.setSpacing(10)
         label = QLabel(text)
         label.setWordWrap(True)
+        label.setMinimumWidth(220)
         play = QPushButton("Play")
         play.setToolTip("Play this completed voice message")
         play.clicked.connect(
@@ -611,7 +634,9 @@ class ChatPage(QWidget):
             row_layout.addWidget(play)
             row_layout.addWidget(label)
             row_layout.addStretch(1)
-        item.setSizeHint(row.sizeHint())
+        size = row.sizeHint()
+        size.setHeight(max(44, size.height()))
+        item.setSizeHint(size)
         self.messages.addItem(item)
         self.messages.setItemWidget(item, row)
 
@@ -622,7 +647,9 @@ class ChatPage(QWidget):
             self._clear_transfer_controls()
             return
         transfer = transfers[-1]
-        if transfer.direction == "outgoing" and transfer.status in {"received", "duplicate"}:
+        if transfer.direction == "outgoing" and transfer.status in {
+            "received", "duplicate", "cancelled", "interrupted",
+        }:
             self._clear_transfer_controls()
             return
         self._transfer_id = transfer.id
@@ -661,6 +688,9 @@ class ChatPage(QWidget):
             self.transfer_thumbnail.clear()
         self.pause_file_button.setEnabled(transfer.status in {"offered", "transferring"})
         self.resume_file_button.setEnabled(transfer.status == "paused")
+        self.cancel_file_button.setEnabled(transfer.status in {
+            "offered", "transferring", "paused", "verifying",
+        })
         self.open_transfer_button.setEnabled(
             bool(transfer.path) and transfer.status in {"received", "duplicate"}
         )
@@ -673,6 +703,7 @@ class ChatPage(QWidget):
         self.transfer_thumbnail.clear()
         self.transfer_progress.setRange(0, 100)
         self.transfer_progress.setValue(0)
+        self.cancel_file_button.setEnabled(False)
         self.pause_file_button.setEnabled(False)
         self.resume_file_button.setEnabled(False)
         self.open_transfer_button.setEnabled(False)

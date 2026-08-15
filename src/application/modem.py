@@ -18,6 +18,8 @@ class ModemStatus:
     bytes_received: int = 0
     waterfall_enabled: bool = False
     modem_mode: str = "idle"
+    arq_tx_mode: str = ""
+    arq_rx_mode: str = ""
     tx_gain_db: float = 0.0
     tx_peak_dbfs: float = -120.0
     radio_frequency_hz: int | None = None

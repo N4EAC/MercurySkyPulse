@@ -11,6 +11,7 @@ from application_protocol.messaging import ChatEnvelope
 
 class FakeClient(QObject):
     file_event_received = Signal(object)
+    session_disconnected = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -183,6 +184,35 @@ class FileTransferTests(unittest.TestCase):
         self.receiver.accept(transfer_id)
         self.assertEqual(self.receiver._transfers[transfer_id].status, "transferring")
         self.assertEqual(self.sender._transfers[transfer_id].status, "transferring")
+
+    def test_operator_can_cancel_an_outgoing_offer(self) -> None:
+        self.receiver.auto_accept = False
+        source = self.source_directory / "cancel.txt"
+        source.write_text("cancel me", encoding="utf-8")
+        self.sender.send_file(str(source))
+        transfer_id = next(iter(self.sender._transfers))
+
+        self.sender.cancel(transfer_id)
+
+        self.assertEqual(self.sender._transfers[transfer_id].status, "cancelled")
+        self.assertEqual(self.receiver._transfers[transfer_id].status, "failed")
+        self.assertFalse(self.sender.transfer_busy())
+
+    def test_disconnect_interrupts_active_transfer_and_removes_partial(self) -> None:
+        source = self.source_directory / "interrupted.bin"
+        source.write_bytes(b"x" * 9000)
+        self.sender.send_file(str(source))
+        transfer_id = next(iter(self.sender._transfers))
+        partial = Path(self.receiver._transfers[transfer_id].path)
+        self.assertTrue(partial.exists())
+
+        self.sender_client.session_disconnected.emit()
+        self.receiver_client.session_disconnected.emit()
+
+        self.assertEqual(self.sender._transfers[transfer_id].status, "interrupted")
+        self.assertEqual(self.receiver._transfers[transfer_id].status, "interrupted")
+        self.assertFalse(partial.exists())
+        self.assertFalse(self.sender.transfer_busy())
 
 
 if __name__ == "__main__":

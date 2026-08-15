@@ -57,6 +57,8 @@ class MercuryTelemetryContractTests(unittest.TestCase):
                 "bytes_received": 900,
                 "waterfall": True,
                 "modem_mode": "DATAC3",
+                "arq_tx_mode": "DATAC3",
+                "arq_rx_mode": "DATAC4",
                 "tx_gain_db": -8.5,
                 "tx_peak_dbfs": -2.25,
                 "radio_frequency_hz": 14_105_000,
@@ -68,6 +70,8 @@ class MercuryTelemetryContractTests(unittest.TestCase):
         self.assertEqual(1200, status.bitrate_bps)
         self.assertEqual(6.5, status.snr_db)
         self.assertEqual("DATAC3", status.modem_mode)
+        self.assertEqual("DATAC3", status.arq_tx_mode)
+        self.assertEqual("DATAC4", status.arq_rx_mode)
         self.assertTrue(status.sync)
         self.assertEqual("tx", status.direction)
         self.assertEqual(-8.5, status.tx_gain_db)

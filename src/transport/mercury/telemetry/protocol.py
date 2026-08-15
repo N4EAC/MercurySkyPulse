@@ -76,6 +76,8 @@ def parse_status_message(payload: str | bytes) -> ModemStatus | None:
         modem_mode=str(
             raw.get("modem_mode", raw.get("mode", "ARQ" if raw.get("sync") else "idle"))
         )[:32],
+        arq_tx_mode=str(raw.get("arq_tx_mode", ""))[:16],
+        arq_rx_mode=str(raw.get("arq_rx_mode", ""))[:16],
         tx_gain_db=max(-20.0, min(20.0, _finite_float(raw.get("tx_gain_db")))),
         tx_peak_dbfs=max(-120.0, min(20.0, _finite_float(raw.get("tx_peak_dbfs"), -120.0))),
         radio_frequency_hz=_optional_positive_int(raw.get("radio_frequency_hz")),

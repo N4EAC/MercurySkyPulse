@@ -34,6 +34,7 @@ class VoiceMessage:
     checksum: str
     mime_type: str
     transferred: int = 0
+    created_at: str = ""
 
     @property
     def progress(self) -> int:
@@ -134,6 +135,7 @@ class VoiceMessageService(QObject):
             message = VoiceMessage(
                 message_id, "outgoing", "queued", str(path), size,
                 self._sha256(path), mime_type,
+                created_at=datetime.now(UTC).isoformat(),
             )
             self._messages[message_id] = message
             self._outgoing_id = message_id
@@ -255,7 +257,8 @@ class VoiceMessageService(QObject):
         path = self.storage_directory / f".{message_id}{suffix}.part"
         path.write_bytes(b"")
         self._messages[message_id] = VoiceMessage(
-            message_id, "incoming", "receiving", str(path), size, checksum, mime
+            message_id, "incoming", "receiving", str(path), size, checksum, mime,
+            created_at=datetime.now(UTC).isoformat(),
         )
         self._emit()
         self._send("voice_accept", message_id)

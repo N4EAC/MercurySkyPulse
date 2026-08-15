@@ -25,6 +25,14 @@ if [[ ! -f "$MERCURY_ROOT/LICENSE" || ! -f "$MERCURY_ROOT/LICENSE-freedv" ]]; th
     print -u2 "ERROR: Mercury license files are missing beside $MERCURY_SOURCE"
     exit 1
 fi
+if ! grep -a -q "radio_frequency_hz" "$MERCURY_SOURCE"; then
+    print -u2 "ERROR: Mercury does not contain MSP's read-only CAT frequency telemetry."
+    exit 1
+fi
+if ! grep -a -q "arq_tx_mode" "$MERCURY_SOURCE" || ! grep -a -q "arq_rx_mode" "$MERCURY_SOURCE"; then
+    print -u2 "ERROR: Mercury does not contain MSP's read-only ARQ payload-mode telemetry."
+    exit 1
+fi
 
 mkdir -p "$MERCURY_RUNTIME"
 cp "$MERCURY_SOURCE" "$MERCURY_RUNTIME/mercury"
