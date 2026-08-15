@@ -15,6 +15,8 @@ from PySide6.QtMultimedia import (
     QMediaFormat, QMediaPlayer, QMediaRecorder,
 )
 
+from .voice_compression import compress_voice_recording
+
 
 class VoiceAudioEngine(QObject):
     recording_changed = Signal(bool, int)
@@ -191,9 +193,15 @@ class VoiceAudioEngine(QObject):
             "",
         )
         if path:
-            self._path = path
-            self._requested_path = ""
-            self.recording_ready.emit(path, self._mime)
+            try:
+                compressed_path, compressed_mime = compress_voice_recording(path)
+                self._path = compressed_path
+                self._requested_path = ""
+                self._mime = compressed_mime
+                self.recording_ready.emit(compressed_path, compressed_mime)
+            except (OSError, RuntimeError, ValueError) as error:
+                self._requested_path = ""
+                self.error_received.emit(f"Voice recording compression failed: {error}")
         elif attempt < 20:
             QTimer.singleShot(100, lambda: self._finalize_recording(attempt + 1))
         else:

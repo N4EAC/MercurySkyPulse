@@ -70,6 +70,9 @@ profile UI/loader, and real-Mercury integration tests. TNC control and KISS inpu
 bounds and acknowledgement disconnect-race handling are implemented.
 Voice transmission is negotiated per ARQ session, while connectionless beacons
 advertise the compact `voice-chat` discovery capability.
+Ten-second voice captures are converted locally to deterministic 8-kHz mono
+constant-bitrate Opus and rejected unless the final transport artifact is within
+the protocol's 8-KiB ceiling. All three packaging scripts validate that runtime.
 
 A follow-on BBS notification should add one bounded, session-deduplicated
 `messages waiting` event after the connected identity is resolved. It should

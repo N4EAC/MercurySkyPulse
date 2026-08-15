@@ -35,8 +35,14 @@ class VoiceAudioLevelTests(unittest.TestCase):
             engine._path = str(path)
             ready = []
             engine.recording_ready.connect(lambda *values: ready.append(values))
-            engine._finalize_recording(0)
-            self.assertEqual(ready, [(str(path), "audio/mp4")])
+            compressed = str(Path(directory) / "actual.voice.ogg")
+            with patch(
+                "platform_runtime.voice_audio.compress_voice_recording",
+                return_value=(compressed, "audio/ogg"),
+            ) as compressor:
+                engine._finalize_recording(0)
+            compressor.assert_called_once_with(str(path))
+            self.assertEqual(ready, [(compressed, "audio/ogg")])
             self.assertEqual(engine._requested_path, "")
         self.assertEqual(
             VoiceAudioEngine._normalized_peak(

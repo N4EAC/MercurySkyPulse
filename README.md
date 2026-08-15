@@ -78,7 +78,10 @@ sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
 
 Compatible MSP peers can also exchange compressed voice messages of up to 10
-seconds and 8 KiB. Voice uses separate system microphone/playback devices selected under
+seconds and 8 KiB. MSP always converts the complete recording to constant-bitrate,
+8 kHz mono Opus and verifies the finished Ogg artifact is no larger than 8 KiB
+before enabling Send; the operator does not manage file size or codec settings.
+Voice uses separate system microphone/playback devices selected under
 **Setup → Audio** and is transferred as verified application data over the active
 Mercury ARQ session; it is not live FreeDV audio. MSP permits local recording,
 review playback, discard, and replacement without requiring a station connection.
@@ -417,6 +420,10 @@ This first builds and validates `MercurySkyPulse.app`, then creates:
 ```text
 dist/installer/MercurySkyPulse-0.1.0-macos-arm64.dmg
 ```
+
+When the DMG exceeds 50 MiB, the script also creates the repository-ready
+`MercurySkyPulse-0.1.0-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
+DMG so large installer updates do not trigger GitHub's 50-MB warning.
 
 Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
 drag the application onto that shortcut. The engineering image is compressed and

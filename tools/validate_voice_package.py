@@ -23,6 +23,12 @@ def validate(root: Path) -> list[str]:
         errors.append("PySide6 QtMultimedia recording/playback library is missing")
     if not any("mediaplugin" in name for name in names):
         errors.append("Qt Multimedia native recording/playback backend is missing")
+    if not any(name.startswith(("av.", "avcodec", "libavcodec")) for name in names):
+        errors.append("PyAV/FFmpeg voice compression runtime is missing")
+    if "pyav_license.txt" not in names:
+        errors.append("PyAV redistribution license is missing")
+    if "third_party_notices.md" not in names:
+        errors.append("third-party notices are missing")
     if VOICE_CHUNK_BYTES != 384:
         errors.append("voice protocol 2 must use 384-byte stop-and-wait chunks")
     if MERCURY_QUEUE_LOW_WATER_BYTES != 256:
@@ -67,7 +73,7 @@ def main() -> int:
     if errors:
         return 1
     print(
-        "Voice runtime and bilateral-bitrate-gated BUFFER-aware protocol 2 verified: "
+        "Bounded Opus voice runtime and bilateral-bitrate-gated BUFFER-aware protocol 2 verified: "
         f"{args.package}"
     )
     return 0

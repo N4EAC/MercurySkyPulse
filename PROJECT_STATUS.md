@@ -54,7 +54,8 @@ Mercury internals.
   cleanup of 30-day-old empty attempts, and automatic incoming ARQ listening
   under the saved station callsign.
 - Session-scoped compressed voice messages with separate system audio devices,
-  10-second/8-KiB compressed bounds, peer capability negotiation, conservative
+  deterministic full-10-second 8-kHz mono Opus encoding within an 8-KiB bound,
+  peer capability negotiation, conservative
   sustained sender-and-receiver bitrate gating, file-transfer exclusion, checksum verification, disconnect
   cleanup, sparse typing/recording presence, and a 120-second post-delivery cooldown.
   Local recording, playback, discard, and replacement work while disconnected;

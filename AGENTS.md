@@ -41,6 +41,9 @@ The repository contains a trusted built-in plugin kernel, PySide6 GUI, loopback-
 - Add tests with future implementation changes, especially Mercury contract tests.
 - Preserve `tests/unit/test_architecture_layers.py`; new imports must follow UI → services → application protocol → transport adapter → Mercury.
 - Do not commit binaries, secrets, traffic captures, logs, generated build output, or local machine configuration.
+- When the user explicitly requests a packaged artifact in Git, compress any
+  artifact larger than GitHub's 50 MB recommended threshold before staging it;
+  commit the compressed archive instead of the oversized raw artifact.
 - Do not run destructive commands or rewrite history.
 
 ## Mac-first local quality gate

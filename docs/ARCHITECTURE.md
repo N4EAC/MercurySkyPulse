@@ -835,6 +835,11 @@ progress, checksum completion, response timeouts, and cooldown.
 `src/platform_runtime/voice_audio.py` owns separate Qt Multimedia capture,
 playback, voice-only microphone level, and local diagnostics. Voice recording and
 review are local operations; only sending requires a compatible ARQ session.
+`src/platform_runtime/voice_compression.py` treats Qt output as temporary capture,
+resamples at most ten seconds to 8-kHz mono, and encodes constant-bitrate Opus in
+an Ogg container. It verifies the completed artifact against the 8-KiB protocol
+ceiling before the draft becomes sendable and retries at lower bounded bitrates
+if platform/container overhead requires it.
 The presentation locks recording state against asynchronous bitrate availability
 updates, uses a fixed-width two-digit countdown, and derives Record/Play colors
 from actual recorder/player state rather than click state.

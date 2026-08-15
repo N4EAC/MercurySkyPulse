@@ -22,6 +22,13 @@ ordinary file transfer is offered, queued, active, paused, verifying, or awaitin
 acknowledgement. Voice uses one serialized transfer and cannot be paused or
 resumed. Disconnect deletes incomplete outgoing and incoming artifacts.
 
+Qt recorder output is temporary and may vary substantially by platform. Before a
+draft becomes sendable, MSP resamples the full recording (up to ten seconds) to
+8-kHz mono and encodes constant-bitrate Opus in Ogg. The encoder retries from
+5.2 kbps downward when necessary and accepts output only after verifying a valid,
+non-empty artifact no larger than 8 KiB. Operators never select a file-size or
+codec parameter.
+
 Protocol version 2 uses 384-byte chunks and stop-and-wait receiver
 acknowledgements. The sender advances displayed progress only after the peer
 confirms each offset, and it submits another chunk only when Mercury reports its
@@ -64,6 +71,8 @@ corresponding recorder/player state is active.
 ## Consequences
 
 - Audio-device capture and playback remain separate from Mercury modem devices.
+- PyAV's packaged FFmpeg libraries provide the same bounded Opus encoding path on
+  macOS, Windows, and Linux; platform Qt encoder bitrate behavior is not trusted.
 - Voice microphone device and bounded 0–100% capture level persist locally; the
   live dBFS meter is diagnostic and does not transmit.
 - Platform multimedia codecs can differ; the sender selects only a mutually

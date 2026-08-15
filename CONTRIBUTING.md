@@ -85,6 +85,7 @@ submit it.
 - Use temporary directories for transfer and database fixtures.
 - Keep GUI automation compatible with `QT_QPA_PLATFORM=offscreen`.
 - Keep voice recording/playback tests local and non-transmitting. Package changes
-  must retain Qt Multimedia capture/playback validation in the macOS, Windows,
-  and Linux build scripts; RF voice-transfer tests require operator control.
+  must retain Qt Multimedia capture/playback, PyAV/FFmpeg bounded-Opus encoding,
+  and redistribution-notice validation in the macOS, Windows, and Linux build
+  scripts; RF voice-transfer tests require operator control.
 - Real-Mercury integration and audio tests belong in an explicitly controlled integration tier.

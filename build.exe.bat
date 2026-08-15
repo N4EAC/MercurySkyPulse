@@ -80,6 +80,8 @@ echo Building MercurySkyPulse.exe...
     --name MercurySkyPulse ^
     --icon assets\icons\mercuryskypulse.ico ^
     --add-data "assets\icons\mercuryskypulse.png;assets\icons" ^
+    --add-data "THIRD_PARTY_NOTICES.md;." ^
+    --add-data "licenses\PYAV_LICENSE.txt;licenses" ^
     --paths src ^
     apps\desktop\main.py
 if errorlevel 1 (
@@ -87,7 +89,7 @@ if errorlevel 1 (
     goto failed
 )
 
-echo Verifying Qt Multimedia, bilateral bitrate gating, and voice protocol 2 support...
+echo Verifying Qt Multimedia, bounded Opus compression, bilateral bitrate gating, and voice protocol 2 support...
 "%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
 if errorlevel 1 (
     echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice recording and playback.
