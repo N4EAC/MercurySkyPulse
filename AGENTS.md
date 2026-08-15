@@ -13,7 +13,7 @@ it there.
 
 ## Current project stage
 
-The repository contains a trusted built-in plugin kernel, PySide6 GUI, modular offline signed licensing framework, loopback-only read-only web interface, supervised Mercury process, UI WebSocket telemetry, station chat/ping, an optionally password-protected BBS mailbox/bulletin/file catalog, verified file transfer, image preparation, GPS/manual positioning, location workflows, and periodic beacons over Mercury's documented interfaces. Application history uses local SQLite. Protected BBS identity fields are bound to the authenticated ARQ session; open-mode identity fields remain untrusted. Do not add unrelated product logic unless the user explicitly requests it. Preserve remaining placeholder directories until real modules replace them.
+The repository contains a trusted built-in plugin kernel, PySide6 GUI, loopback-only read-only web interface, supervised Mercury process, UI WebSocket telemetry, station chat/ping, an optionally password-protected BBS mailbox/bulletin/file catalog, verified file transfer, image preparation, GPS/manual positioning, location workflows, and periodic beacons over Mercury's documented interfaces. MSP has no product activation, feature editions, or radio-traffic encryption. Application history uses local SQLite. Protected BBS identity fields are bound to the authenticated ARQ session; open-mode identity fields remain untrusted. Do not add unrelated product logic unless the user explicitly requests it. Preserve remaining placeholder directories until real modules replace them.
 
 ## Architecture boundaries
 
@@ -25,8 +25,8 @@ The repository contains a trusted built-in plugin kernel, PySide6 GUI, modular o
 - Keep Mercury wire parsing and WebSocket lifecycle under `src/transport/mercury/`; presentation consumes typed status and spectrum objects.
 - Keep process launch/crash/restart behavior under `src/platform_runtime/`.
 - Keep messaging and file-transfer protocols versioned, size-bounded, and independently validated.
-- Keep application framing, compression, chunking, authentication, feature event names, and encryption above Mercury adapters under `src/application_protocol/` or application plugins. Mercury TNC/KISS adapters carry opaque bytes and modem facts only.
-- Never make Mercury responsible for chat, file transfer, BBS, mapping, web, logging, licensing, or other application features.
+- Keep application framing, compression, chunking, authentication, and feature event names above Mercury adapters under `src/application_protocol/` or application plugins. Mercury TNC/KISS adapters carry opaque bytes and modem facts only.
+- Never make Mercury responsible for chat, file transfer, BBS, mapping, web, logging, or other application features.
 - Communicate with Mercury only through documented interfaces. Do not use its private globals or internal data structures.
 - Preserve the managed bundled Mercury process as the packaged default while
   retaining typed unmanaged-local and explicitly acknowledged remote profiles.

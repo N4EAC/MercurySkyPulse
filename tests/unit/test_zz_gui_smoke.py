@@ -56,6 +56,15 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertGreater(len(self.window.menuBar().actions()), 0)
         self.assertIsNotNone(self.window.statusBar())
         self.assertIsNotNone(self.window.centralWidget())
+        self.assertFalse(hasattr(self.window, "_license_status"))
+        help_action = next(
+            action for action in self.window.menuBar().actions()
+            if action.text().replace("&", "") == "Help"
+        )
+        help_menu = help_action.menu()
+        self.assertNotIn(
+            "License Information", [action.text() for action in help_menu.actions()]
+        )
 
     def test_chat_is_central_and_operational_pages_are_dockable(self) -> None:
         self.assertIs(self.window.centralWidget(), self.window.chat_page)
@@ -113,13 +122,10 @@ class GuiSmokeTests(unittest.TestCase):
         self.window._set_tx_rx_indicator("tx")
         self.assertEqual(self.window._tx_rx_led.toolTip(), "Radio transmit")
         self.assertIn("#e53935", self.window._tx_rx_led.styleSheet())
-        self.assertFalse(self.window._rx_blink_timer.isActive())
         self.window._set_tx_rx_indicator("rx")
         self.assertEqual(self.window._tx_rx_led.toolTip(), "Radio receive")
         self.assertIn("#2fbf71", self.window._tx_rx_led.styleSheet())
-        self.assertTrue(self.window._rx_blink_timer.isActive())
-        self.window._toggle_rx_indicator()
-        self.assertIn("transparent", self.window._tx_rx_led.styleSheet())
+        self.assertFalse(hasattr(self.window, "_rx_blink_timer"))
 
     def test_default_console_reserves_space_for_chat(self) -> None:
         self.window._reset_layout(clear_saved=False)
@@ -233,7 +239,7 @@ class GuiSmokeTests(unittest.TestCase):
     def test_status_bar_displays_utc_date_and_time(self) -> None:
         self.assertRegex(
             self.window._utc_status.text(),
-            r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$",
+            r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$",
         )
 
     def test_station_status_contains_former_overview_modem_metrics(self) -> None:

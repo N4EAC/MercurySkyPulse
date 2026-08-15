@@ -26,7 +26,6 @@ from application.ping import PingService
 from application.radio import RadioStationService
 from application.bbs import BbsService
 from application.web_dashboard import WebDashboardSnapshot
-from application.licensing import LicenseState, community_state
 from application.plugins import PluginRegistry
 from application.endpoints import MercuryEndpointProfile
 from platform_runtime.local_web import LocalWebServer
@@ -67,7 +66,6 @@ class MainWindow(QMainWindow):
         bbs_service: BbsService | None = None,
         web_snapshot: WebDashboardSnapshot | None = None,
         web_server: LocalWebServer | None = None,
-        license_state: LicenseState | None = None,
         plugin_registry: PluginRegistry | None = None,
         endpoint_profile: MercuryEndpointProfile | None = None,
         supervisor: MercuryProcessSupervisor | None = None,
@@ -96,7 +94,6 @@ class MainWindow(QMainWindow):
         self.bbs_page = BbsPage()
         self.web_snapshot = web_snapshot
         self.web_server = web_server
-        self.license_state = license_state or community_state()
         self.plugin_registry = plugin_registry
         self.chat_service = chat_service
         self.file_transfer_service = file_transfer_service
@@ -327,10 +324,6 @@ class MainWindow(QMainWindow):
         self._tx_rx_led.setFixedSize(10, 10)
         self._tx_rx_led.setAccessibleName("Radio receive indicator")
         self._radio_direction = ""
-        self._rx_led_visible = False
-        self._rx_blink_timer = QTimer(self)
-        self._rx_blink_timer.setInterval(1000)
-        self._rx_blink_timer.timeout.connect(self._toggle_rx_indicator)
         self._set_tx_rx_indicator("rx")
         tx_rx_container = QWidget()
         tx_rx_layout = QHBoxLayout(tx_rx_container)
@@ -340,9 +333,6 @@ class MainWindow(QMainWindow):
         self.statusBar().addPermanentWidget(tx_rx_container)
         self.statusBar().addPermanentWidget(self._telemetry_status)
         self.statusBar().addPermanentWidget(self._engine_status)
-        self._license_status = QLabel(f"Edition: {self.license_state.edition.title()}")
-        self._license_status.setObjectName("Muted")
-        self.statusBar().addPermanentWidget(self._license_status)
         self._utc_status = QLabel()
         self._utc_status.setObjectName("Muted")
         self._utc_status.setToolTip("Coordinated Universal Time")
@@ -355,7 +345,7 @@ class MainWindow(QMainWindow):
 
     def _update_utc_status(self) -> None:
         self._utc_status.setText(
-            datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+            datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
         )
 
     def _create_menus(self) -> None:
@@ -403,9 +393,6 @@ class MainWindow(QMainWindow):
         about = QAction("About Mercury SkyPulse", self)
         about.triggered.connect(self._show_about)
         help_menu.addAction(about)
-        licensing = QAction("License Information", self)
-        licensing.triggered.connect(self._show_license)
-        help_menu.addAction(licensing)
         plugins = QAction("Plugin Information", self)
         plugins.triggered.connect(self._show_plugins)
         help_menu.addAction(plugins)
@@ -522,18 +509,6 @@ class MainWindow(QMainWindow):
             f"Mercury SkyPulse {self._app.applicationVersion()}",
         )
 
-    def _show_license(self) -> None:
-        state = self.license_state
-        expiration = state.expires_at.isoformat() if state.expires_at else "No expiration"
-        organization = state.organization or "Individual / not specified"
-        features = ", ".join(sorted(state.features)) or "None"
-        QMessageBox.information(
-            self, "License Information",
-            f"Edition: {state.edition.title()}\nStatus: {state.status.value}\n"
-            f"Organization: {organization}\nExpiration: {expiration}\n\n"
-            f"Enabled features: {features}\n\n{state.reason}",
-        )
-
     def _show_plugins(self) -> None:
         records = [] if self.plugin_registry is None else self.plugin_registry.snapshot()
         lines = [
@@ -541,7 +516,6 @@ class MainWindow(QMainWindow):
             + (f" ({item['reason']})" if item["reason"] else "")
             for item in records
         ]
-        lines.append("Encryption provider — no provider installed")
         QMessageBox.information(
             self, "Plugin Information",
             "Built-in plugins\n\n" + ("\n".join(lines) if lines else "Plugin registry unavailable"),
@@ -744,6 +718,7 @@ class MainWindow(QMainWindow):
                     else "Voice audio: playback stopped"
                 )
             )
+            audio.playback_changed.connect(self.chat_page.set_voice_playback)
             audio.devices_configured.connect(
                 lambda input_name, output_name: self.activity_panel.append_log(
                     f"Voice audio endpoints: microphone={input_name or 'system default'}; "
@@ -1122,25 +1097,10 @@ class MainWindow(QMainWindow):
     def _set_tx_rx_indicator(self, direction: str) -> None:
         transmitting = direction == "tx"
         state = "transmit" if transmitting else "receive"
-        changed = direction != self._radio_direction
         self._radio_direction = direction
-        if transmitting:
-            self._rx_blink_timer.stop()
-            self._apply_radio_indicator_color("#e53935")
-        elif changed or not self._rx_blink_timer.isActive():
-            self._rx_led_visible = True
-            self._apply_radio_indicator_color("#2fbf71")
-            self._rx_blink_timer.start()
+        self._apply_radio_indicator_color("#e53935" if transmitting else "#2fbf71")
         self._tx_rx_led.setToolTip(f"Radio {state}")
         self._tx_rx_led.setAccessibleName(f"Radio {state} indicator")
-
-    def _toggle_rx_indicator(self) -> None:
-        if self._radio_direction == "tx":
-            return
-        self._rx_led_visible = not self._rx_led_visible
-        self._apply_radio_indicator_color(
-            "#2fbf71" if self._rx_led_visible else "transparent"
-        )
 
     def _apply_radio_indicator_color(self, color: str) -> None:
         border = "1px solid rgba(0, 0, 0, 90)" if color != "transparent" else "none"

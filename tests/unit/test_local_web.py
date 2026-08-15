@@ -52,6 +52,7 @@ class LocalWebTests(unittest.TestCase):
         self.connection.request("GET", "/api/dashboard")
         response = self.connection.getresponse()
         payload = json.loads(response.read())
+        self.assertNotIn("license", payload)
         self.assertEqual(payload["station"]["snr_db"], 8.5)
         self.assertEqual(payload["transfers"][0]["progress"], 50)
         self.assertTrue(any("test event" in line for line in payload["logs"]))

@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-    "cryptography>=44,<47",
     "PySide6>=6.8,<7",
 ]
 

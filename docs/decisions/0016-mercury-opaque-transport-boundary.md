@@ -15,7 +15,7 @@ collaboration behavior.
 
 Mercury owns modem DSP, ARQ/KISS transport, audio, CAT, PTT, and radio behavior.
 It does not own chat, files, BBS, mapping, web, authentication policy, feature
-compression, application chunking, or encryption semantics.
+compression or application chunking semantics.
 
 `MercuryTncTransport` exposes documented control/session events and opaque
 reliable byte reads/writes. `MercuryBroadcastTransport` exposes opaque KISS
@@ -32,6 +32,6 @@ on the neutral modem-status projection is allowed under dependency inversion.
 ## Consequences
 
 Mercury can be replaced by another byte transport without moving collaboration
-features into the replacement modem. New compression, encryption, or message
+features into the replacement modem. New compression or message
 types belong in versioned application-protocol providers. Mercury changes are
 needed only for actual modem, audio/CAT/radio, or documented transport behavior.

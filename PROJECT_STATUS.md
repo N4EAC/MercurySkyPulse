@@ -62,17 +62,23 @@ Mercury internals.
   microphone-level choices persist locally; Setup shows the active endpoints and
   a non-transmitting live dBFS diagnostic. Windows media-player file handles are
   released before draft replacement, and cleanup failures cannot strand the UI.
+  Chat uses a stable two-line voice status: recording shows only a fixed-width
+  `10` through `00` countdown, Record is red only during capture, Play is green
+  only during playback, and send availability returns after capture stops.
   Protocol 2 uses stop-and-wait 384-byte chunks, receiver-confirmed progress,
   a BUFFER-0 gate for the offer, Mercury BUFFER low-water pacing, response
   timeouts that begin only after the local queue drains, local incoming and
-  delivery snapshots, a unified Transfer status card, locally visible deferred
+  delivery snapshots, bilateral sustained-link readiness advertised only when
+  it changes, a unified Transfer status card, Chat timeline entries that advance
+  from queued to sent to receiver-verified delivered/failed, locally visible deferred
   text, and suppression of disposable presence traffic while bulk data is
   pending. Beacons advertise `voice-chat` support.
 - Voice protocol errors are copied into the persistent Activity log, late peer
   results cannot rewrite terminal transfer outcomes, and an intentional Mercury
   shutdown no longer appears as a process crash.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
-  SHA-256 verification, duplicate detection, and a dedicated download directory.
+  SHA-256 verification, duplicate detection, a dedicated download directory,
+  receiver-confirmed Chat status, and a clean outgoing control row after delivery.
 - Capability beacons over Mercury KISS broadcast transport.
 - Bounded five-minute CQ discovery over the broadcast transport, with explicit
   Answer CQ handoff into the existing Mercury ARQ connection workflow.
@@ -84,7 +90,7 @@ Mercury internals.
 - Manual position, serial/system GPS, Maidenhead GRID calculation, position
   history, export, and location sharing.
 - Loopback-only read-only web status interface.
-- Trusted built-in plugin registry and offline signed licensing framework.
+- Trusted built-in plugin registry with no product activation or feature editions.
 - Persistent rotating diagnostic log suitable for radio-to-radio test collection.
 - Disabled-by-default PSK Reporter uploads for decoded MSP beacons, using bounded
   aggregation and current read-only Mercury CAT frequency telemetry. CQ calls and
@@ -103,7 +109,8 @@ Mercury internals.
   modem sync, TX/RX, SNR, bitrate, frequency, peer, current GRID, next-beacon
   countdown or paused state, and workflow state.
 - Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:
-  slow blinking green for receive and steady red for transmit.
+  solid green for receive and solid red for transmit. UTC date/time is displayed
+  through minutes without seconds.
 - Separate Setup window with Radio, Audio, User, GPS, Reporting, and Weather tabs.
 - Movable, floatable, closable, and resizable Activity dock.
 - Movable, floatable, closable, and resizable read-only Radio Frequency dock.

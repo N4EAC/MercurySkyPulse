@@ -35,7 +35,7 @@ fi
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 test -x "$APP/Contents/Frameworks/mercury/mercury"
-print "Verifying bidirectional-gated voice protocol 2 in the DMG payload..."
+print "Verifying bilateral bitrate gating and voice protocol 2 in the DMG payload..."
 "$PROJECT_ROOT/.venv-build-macos/bin/python" \
     tools/validate_voice_package.py "$APP"
 

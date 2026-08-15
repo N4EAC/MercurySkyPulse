@@ -41,8 +41,6 @@ class WebDashboardSnapshot:
         self._conversations: list[dict] = []
         self._messages: list[dict] = []
         self._transfers: list[dict] = []
-        self._license = {"status": "community", "edition": "community",
-                         "organization": None, "expires_at": None, "features": []}
         self._plugins: list[dict] = []
         self._logs: deque[str] = deque(["Mercury SkyPulse initialized"], maxlen=500)
 
@@ -67,15 +65,6 @@ class WebDashboardSnapshot:
                 timestamp = datetime.now(UTC).isoformat(timespec="seconds")
                 self._logs.append(f"{timestamp} · {clean[:2000]}")
 
-    def update_license(self, state) -> None:
-        with self._lock:
-            self._license = {
-                "status": _plain(state.status), "edition": state.edition,
-                "organization": state.organization,
-                "expires_at": None if state.expires_at is None else state.expires_at.isoformat(),
-                "features": sorted(state.features),
-            }
-
     def update_plugins(self, plugins: Iterable[dict]) -> None:
         with self._lock:
             self._plugins = [_plain(item) for item in plugins][:500]
@@ -88,6 +77,5 @@ class WebDashboardSnapshot:
                 "messages": [dict(item) for item in self._messages],
                 "transfers": [dict(item) for item in self._transfers],
                 "logs": list(self._logs),
-                "license": dict(self._license),
                 "plugins": [dict(item) for item in self._plugins],
             }
