@@ -337,6 +337,7 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 ```text
 MercurySkyPulse/
 ├── assets/icons/                # ICNS, ICO, and multi-resolution PNG artwork
+├── assets/voices/               # Proposed operator voice prompts and mapping notes
 ├── assets/wallpapers/           # Approved 3840×2160 MSP desktop wallpapers
 ├── packaging/                   # Inno Setup and native Linux package metadata
 ├── apps/
@@ -460,11 +461,19 @@ The repository includes optional desktop artwork under `assets/wallpapers/`:
 - [Near-night sunset MSP 4K wallpaper](assets/wallpapers/mercuryskypulse-sunset-4k.png)
 - [Connecting Distant Communities 4K wallpaper](assets/wallpapers/connecting-distant-communities-4k.png)
 - [MSP widescreen wallpaper](assets/wallpapers/MSP.png)
+- [MSP Navy wallpaper](assets/wallpapers/MSP%20Navy.png)
+- [MSP Army camouflage wallpaper](assets/wallpapers/MSP%20army_camo.png)
+- [MSP camouflage wallpaper](assets/wallpapers/MSP%20camo.png)
+- [MSP open-source wallpaper](assets/wallpapers/MSP%20is%20open%20source.png)
 
 The MSP designs use the phrases **Mercury Modem ARQ Data-Link Technology** and
 **Alternative Telecommunications**. The **Connecting Distant Communities**
 design uses the original Mercury emblem with **Mercury Modem**. These
 wallpapers are project artwork and are not bundled into application installers.
+
+The repository also contains proposed operator voice prompts and their design
+notes under `assets/voices/`. They are reference assets only and are not yet
+enabled or bundled by the application.
 
 ### Windows test executable
 
@@ -494,10 +503,13 @@ complete tested payload with Mercury and license material. Without Inno Setup,
 the portable directory remains valid and the builder reports that no installer
 was created. Both outputs are unsigned engineering artifacts.
 
-The builder downloads the Mercury 1.9.11 MSP compatibility build from the
+The builder downloads the pinned Mercury 1.9.12 MSP compatibility build from the
 public `N4EAC/mercury` fork, verifies its pinned archive SHA-256 digest, and
 copies the complete portable runtime into the build. The exact corresponding
-source commit is recorded in the package:
+source commit is recorded in the package. This revision incorporates upstream
+review feedback for non-blocking optional CAT polling, CAT-duration diagnostics,
+and failed-PTT state correction while retaining MSP's frequency and ARQ mode
+telemetry:
 
 ```text
 dist\MercurySkyPulse\

@@ -6,11 +6,11 @@ echo Mercury SkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
-set "MSP_MERCURY_VERSION=1.9.11-msp-18eb1c1f"
-set "MSP_MERCURY_COMMIT=18eb1c1fbcc2dd36fa405607e03423e50c578fb4"
-set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.11-msp-18eb1c1f.zip"
-set "MSP_MERCURY_ARCHIVE_SHA256=30c17008418c03cc3cf062300962e02a25f51b716d077140347297520af7bfc3"
-set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.11-arq-telemetry-1/mercury-1.9.11-msp-18eb1c1f.zip"
+set "MSP_MERCURY_VERSION=1.9.12-msp-84d35fbc"
+set "MSP_MERCURY_COMMIT=84d35fbcb0377e536d9123cb0650735a5b41ae01"
+set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.12-msp-84d35fbc.zip"
+set "MSP_MERCURY_ARCHIVE_SHA256=081be9fefa7d378c7b4c7fee8087d94737d8068bad4712cba3e6782793b6282c"
+set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.12-rafael-review-1/mercury-1.9.12-msp-84d35fbc.zip"
 set "MSP_MERCURY_CACHE=%TEMP%\MercurySkyPulse-build-cache\mercury-%MSP_MERCURY_VERSION%"
 set "MSP_MERCURY_ARCHIVE=%MSP_MERCURY_CACHE%\%MSP_MERCURY_ARCHIVE_NAME%"
 set "MSP_MERCURY_RUNTIME=%MSP_MERCURY_CACHE%\runtime\mercury-%MSP_MERCURY_VERSION%"

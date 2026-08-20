@@ -11,20 +11,26 @@ manually locating or copying Mercury. Local-executable discovery repeatedly
 produced incomplete packages and startup errors. Mercury publishes an official
 portable Windows archive, while its documented integration remains process and
 wire based. MSP additionally requires the read-only Hamlib frequency field added
-by its public Mercury compatibility fork; the upstream 1.9.11 archive cannot
+by its public Mercury compatibility fork; the upstream release archive cannot
 provide that telemetry.
 
-Mercury 1.9.11 is GPL-3.0. A complete runtime requires the console engine,
+Mercury is GPL-3.0. A complete runtime requires the console engine,
 Hamlib, USB/runtime DLLs, and example configuration. Copying only `mercury.exe`
 does not create a complete runtime.
 
 ## Decision
 
-`build.exe.bat` downloads a pinned Mercury 1.9.11 compatibility archive from the
+`build.exe.bat` downloads a pinned Mercury 1.9.12 compatibility archive from the
 public `N4EAC/mercury` fork, verifies its SHA-256 digest, extracts the complete
 runtime, and places it under `dist\MercurySkyPulse\mercury`. The archive contains
 the GPL license and the builder writes the exact corresponding-source commit URL
 into the package.
+
+The pinned revision incorporates upstream maintainer review of MSP's telemetry
+patch: optional CAT frequency polling uses a non-blocking mutex attempt and an
+atomic cache, slow CAT reads are measured, failed PTT commands clear the local
+PTT-active state, and the current WebSocket status schema is preserved. The
+cross-build archiver correction is maintained as a separate upstream change.
 
 Mercury is bundled as a required Mercury SkyPulse runtime component for Windows,
 but remains an independently supervised child process. Mercury SkyPulse continues

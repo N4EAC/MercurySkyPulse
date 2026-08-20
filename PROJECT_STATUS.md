@@ -200,7 +200,7 @@ Mercury internals.
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
   the native target. It automatically downloads, checksum-verifies, and compiles
-  pinned Mercury compatibility commit `18eb1c1f` when no override/sibling runtime
+  pinned Mercury compatibility commit `84d35fbc` when no override/sibling runtime
   exists, verifies the read-only frequency and ARQ payload-mode telemetry, and
   bundles the runtime.
   Fedora packaging disables inapplicable debugsource subpackages for the
