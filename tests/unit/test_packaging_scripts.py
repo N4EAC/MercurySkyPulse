@@ -10,6 +10,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PackagingScriptTests(unittest.TestCase):
+    def test_macos_bundle_sets_the_product_version(self) -> None:
+        builder = (ROOT / "build.app.sh").read_text(encoding="utf-8")
+        gate = (ROOT / "scripts/check_local.sh").read_text(encoding="utf-8")
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.0}"', builder)
+        self.assertIn("Set :CFBundleShortVersionString $VERSION", builder)
+        self.assertIn("Add :CFBundleVersion string $VERSION", builder)
+        self.assertIn("CFBundleShortVersionString", gate)
+        self.assertIn("CFBundleVersion", gate)
+
     def test_windows_installer_wraps_complete_portable_runtime(self) -> None:
         installer = (ROOT / "packaging/windows/MercurySkyPulse.iss").read_text(
             encoding="utf-8"

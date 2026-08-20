@@ -7,6 +7,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 MERCURY_SOURCE="${MERCURY_EXECUTABLE:-$PROJECT_ROOT/../mercury/mercury}"
 MERCURY_ROOT="${MERCURY_SOURCE:h}"
 MERCURY_RUNTIME="$PROJECT_ROOT/build/mercury-macos-runtime"
+VERSION="${MSP_VERSION:-0.1.0}"
 
 cd "$PROJECT_ROOT"
 
@@ -78,6 +79,9 @@ fi
 APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"
 PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName Mercury SkyPulse" "$PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
+/usr/libexec/PlistBuddy -c "Delete :CFBundleVersion" "$PLIST" >/dev/null 2>&1 || true
+/usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$PLIST"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PLIST" >/dev/null 2>&1 || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Mercury SkyPulse" "$PLIST"
 /usr/libexec/PlistBuddy -c "Delete :NSMicrophoneUsageDescription" "$PLIST" >/dev/null 2>&1 || true
