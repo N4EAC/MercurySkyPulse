@@ -59,14 +59,19 @@ macOS is not part of the presently validated build matrix.
 
 ### Alpha downloads
 
+[Mercury SkyPulse 0.1.0 Alpha 2](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.2)
+provides the current unsigned Apple Silicon macOS engineering installer and its
+SHA-256 checksum. Native Windows 10/11 and Fedora 42 Alpha 2 packages are pending
+rebuild and validation on those operating systems.
+
 [Mercury SkyPulse 0.1.0 Alpha 1](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.1)
-provides unsigned engineering installers and SHA-256 checksum files for:
+remains available with the earlier unsigned engineering installers for:
 
 - Apple Silicon macOS (`.dmg`, drag to Applications);
 - Windows 10/11 x86-64 (Inno Setup `.exe`); and
 - Fedora 42 x86-64 (`.rpm`).
 
-These artifacts are intended for controlled testing rather than production use.
+All alpha artifacts are intended for controlled testing rather than production use.
 Ubuntu will be added only after its native package is built and validated.
 
 ### Station chat and short voice messages
