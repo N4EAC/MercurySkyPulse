@@ -33,20 +33,7 @@ not complete.
 
 These items should be completed before expanding the feature set.
 
-### 1. Stop unanswered calls automatically
-
-Add a bounded timeout to station-to-station outbound calls. If the remote
-station does not answer, MSP must:
-
-- stop the call automatically;
-- clear the pending connection state;
-- return the local station to listening/idle operation; and
-- tell the operator that the call timed out.
-
-Tests must cover late replies, manual cancellation, reconnect races, and
-repeated attempts so an unanswered call can never continue indefinitely.
-
-### 2. Add automatic callsign identification
+### 1. Add automatic callsign identification
 
 Design and implement FCC-compatible station identification for an active radio
 communication. MSP should identify with the configured station callsign at the
@@ -57,11 +44,11 @@ Before implementation, confirm the applicable rule, record the behavior in an
 ADR, define exactly which over-the-air frame provides identification, and add
 timing, disconnect, missing-callsign, and queue/backpressure tests.
 
-### 3. Harden connection and recovery behavior
+### 2. Harden connection and recovery behavior
 
 - Finish moving process and connection lifecycle logic out of `MainWindow` and
   behind stable application ports.
-- Improve cancellation, timeouts, reconnects, backpressure, startup readiness,
+- Improve cancellation, reconnects, backpressure, startup readiness,
   shutdown, and actionable connection errors.
 - Add compatibility checks and clear behavior for unsupported Mercury versions.
 - Add RF-safe integration tests for TNC, WebSocket, KISS, crash/restart, and
@@ -69,11 +56,11 @@ timing, disconnect, missing-callsign, and queue/backpressure tests.
 
 ## Next field-test cycle — Paired-station RF validation
 
-After the calling timeout and identification work, run controlled two-station
+After the identification work, run controlled two-station
 tests and save the persistent log from both ends. Validate in this order:
 
 1. startup, audio routing, CAT/PTT, frequency telemetry, and clean shutdown;
-2. listen, connect, unanswered-call timeout, disconnect, and reconnect;
+2. listen, connect, disconnect, and reconnect;
 3. text acknowledgement and queued/sent/delivered/failed presentation;
 4. voice recording, link gating, transfer progress, playback, and cooldown;
 5. file offer, acceptance, transfer, pause/resume, cancellation, duplicate

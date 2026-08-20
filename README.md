@@ -19,8 +19,21 @@ not break installations or saved configuration.
 
 Mercury runs as its own process-isolated transport engine; Mercury SkyPulse
 communicates with it through documented interfaces. A small public
-[MSP compatibility fork](https://github.com/N4EAC/mercury) adds conservative,
-read-only Hamlib frequency telemetry while preserving this boundary:
+[MSP compatibility fork](https://github.com/N4EAC/mercury) carries N4EAC's
+Mercury integration work while preserving this boundary:
+
+- conservative, non-blocking Hamlib frequency telemetry with CAT-duration
+  diagnostics and post-PTT quiet time;
+- independent read-only ARQ TX and peer RX DATAC-mode telemetry;
+- correction of local PTT-active state when a Hamlib PTT command fails; and
+- use of Mercury's configured archiver in the FreeDV build, accepted upstream
+  by Rhizomatica in [PR #206](https://github.com/Rhizomatica/mercury/pull/206).
+
+The telemetry and PTT work remains in the MSP compatibility fork while upstream
+review continues. Packaged MSP builds pin the combined Mercury 1.9.12 revision
+`84d35fbc`; the package records its complete source revision and licenses.
+
+MSP uses Mercury's documented interfaces:
 
 - VARA-style ARQ TNC control TCP port (default `8300`);
 - ARQ data TCP port (default `8301`);
@@ -42,6 +55,12 @@ Mercury remains a process-isolated engine accessed through its documented UI
 WebSocket and TNC TCP interfaces. Packaged MSP builds include a pinned,
 MSP-compatible Mercury fork runtime so operators do not install or copy it
 separately.
+
+Recent connection reliability work adds a 60-second unanswered-call timeout and
+peer-confirmed session startup. Mercury's local `CONNECTED` notification is
+provisional until the remote MSP acknowledges a bounded application probe; an
+asymmetric or false connection is cancelled before chat, voice, file, BBS, or
+other session traffic is enabled.
 
 ### Platform support
 
@@ -126,6 +145,10 @@ This diagnostic never records or transmits audio and does not change Mercury's
 modem audio devices or gain.
 
 Conversation history is stored locally in the platform application-data directory.
+Direct station calls stop automatically after 60 seconds when unanswered. A
+Mercury `CONNECTED` indication is shown as provisional until the remote MSP
+acknowledges a bounded session probe; an unconfirmed link is cancelled rather
+than enabling application traffic on only one station.
 The same connected station can receive files through **Send File…**. Transfers
 may be paused or resumed. Every new incoming file requires operator acceptance.
 Received content is stored under the

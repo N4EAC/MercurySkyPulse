@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import unittest
 
 from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QApplication
 
 from application_protocol.client import ApplicationMessagingClient
 from application_protocol.messaging import FrameDecoder, encode_ack, encode_event, encode_message
@@ -35,6 +36,10 @@ class FakeByteTransport(QObject):
 
 
 class ApplicationProtocolClientTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.qt_app = QApplication.instance() or QApplication([])
+
     def setUp(self) -> None:
         self.transport = FakeByteTransport()
         self.client = ApplicationMessagingClient(self.transport)
@@ -110,6 +115,83 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.transport.data_received.emit(encode_ack("sent", self.now))
         self.assertEqual(delivered, ["sent"])
         self.assertEqual(self.transport.controls, [])
+
+    def test_local_mercury_connection_requires_peer_application_confirmation(self) -> None:
+        states, sessions = [], []
+        self.client.state_changed.connect(states.append)
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+
+        self.transport.state_changed.emit("connected")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+
+        self.assertEqual(states, ["validating"])
+        self.assertEqual(sessions, [])
+        probe = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(probe.kind, "session_probe")
+
+        self.transport.data_received.emit(encode_event(
+            "session_probe_ack", "ack-1", self.now, probe_id=probe.message_id
+        ))
+        self.assertEqual(states[-1], "connected")
+        self.assertEqual(sessions, [("N0CALL", "K1ABC", 2300)])
+
+    def test_wrong_probe_ack_does_not_validate_session(self) -> None:
+        sessions = []
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        self.transport.data_received.emit(encode_event(
+            "session_probe_ack", "ack-1", self.now, probe_id="wrong"
+        ))
+        self.assertEqual(sessions, [])
+
+    def test_validation_timeout_disconnects_false_local_connection(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+
+        self.client._validation_timed_out()
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("not confirmed", errors[-1])
+
+    def test_unanswered_call_timeout_disconnects_and_reports_error(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.client.connect_station("N0CALL", "K1ABC")
+
+        self.client._call_timed_out()
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("60 seconds", errors[-1])
+
+    def test_peer_probe_is_acknowledged_with_matching_identifier(self) -> None:
+        self.transport.data_received.emit(encode_event(
+            "session_probe", "peer-probe", self.now
+        ))
+        response = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(response.kind, "session_probe_ack")
+        self.assertEqual(response.values["probe_id"], "peer-probe")
+
+    def test_manual_cancel_ignores_late_probe_ack(self) -> None:
+        sessions = []
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        probe = FrameDecoder().feed(self.transport.writes[-1])[0]
+
+        self.client.disconnect_station()
+        self.transport.data_received.emit(encode_event(
+            "session_probe_ack", "late", self.now, probe_id=probe.message_id
+        ))
+
+        self.assertEqual(sessions, [])
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+
+    def test_new_call_can_start_after_previous_call_timeout(self) -> None:
+        self.client.connect_station("N0CALL", "K1ABC")
+        self.client._call_timed_out()
+        self.client.connect_station("N0CALL", "K2XYZ")
+        self.assertEqual(self.transport.controls[-1], "CONNECT N0CALL K2XYZ")
+        self.assertTrue(self.client._call_timer.isActive())
 
 
 if __name__ == "__main__":

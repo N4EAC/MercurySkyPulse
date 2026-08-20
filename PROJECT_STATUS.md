@@ -53,6 +53,10 @@ Mercury internals.
   history, explicit confirmed deletion, UTC last-contact display, conservative
   cleanup of 30-day-old empty attempts, and automatic incoming ARQ listening
   under the saved station callsign.
+- Outgoing calls stop after 60 seconds if unanswered. A local Mercury
+  `CONNECTED` indication remains provisional until a bounded MSP session probe
+  is acknowledged by the peer; unconfirmed links are disconnected after 30
+  seconds and never expose chat, file, voice, or BBS traffic as connected.
 - Session-scoped compressed voice messages with separate system audio devices,
   deterministic full-10-second 8-kHz mono Opus encoding within an 8-KiB bound,
   peer capability negotiation, conservative
