@@ -1,170 +1,171 @@
 # Mercury SkyPulse Roadmap
 
-This roadmap records the completed vertical-slice work and sequences the
-architecture hardening required before a production release. Dates remain
-intentionally omitted.
+This roadmap explains what works today and what should happen next. Work is
+listed in practical order. Dates are intentionally omitted because RF testing,
+native packaging, and upstream Mercury review determine the pace.
 
-## Phase 0 — Project foundation (complete)
+## Where the project stands
 
-- Establish the standalone repository and module boundaries.
-- Document the Mercury integration contract and dependency rules.
-- Add contributor and agent guidance.
-- Establish contribution, test-safety, and repository hygiene rules.
+Mercury SkyPulse has a working cross-platform vertical slice suitable for
+controlled amateur-radio field testing. The implemented application includes:
 
-Exit criteria: the folder structure and documentation define module ownership and
-prohibit changes to Mercury from this repository. **Met.**
+- a unified, dockable operator workspace centered on Chat;
+- supervised managed-local Mercury plus typed unmanaged-local and explicitly
+  acknowledged remote endpoint profiles;
+- station listening, connectionless CQ discovery, ARQ chat, acknowledgements,
+  ping, periodic beaconing, and location exchange;
+- bounded ten-second Opus voice messages with capability and link-quality gates;
+- verified file and image transfer with consent, progress, pause/resume,
+  cancellation, checksums, and receiver-confirmed delivery;
+- a persistent BBS with optional password protection and authenticated role
+  controls;
+- Hamlib CAT/PTT setup, read-only frequency and ARQ mode telemetry, GPS/manual
+  position, weather composition, and optional PSK Reporter uploads;
+- persistent diagnostic logs, a loopback-only read-only web interface, and a
+  trusted built-in plugin kernel; and
+- macOS, Windows, Fedora, and Ubuntu engineering build paths.
 
-## Phase 1 — Architecture decisions (partially complete)
+The project is still alpha engineering software. Real-RF validation, connection
+hardening, native package validation, signing, upgrades, and release policy are
+not complete.
 
-- Python 3.11+ and PySide6 are selected for the initial presentation shell in ADR 0001.
-- Select the complete packaging, formatting, linting, and test toolchain beyond the current setuptools/unittest baseline.
-- Confirm initial supported platform versions and packaging targets.
-- Continue native package validation: Fedora 42 `.rpm` build, installation,
-  desktop registration, and launch are confirmed; validate Fedora audio,
-  CAT/PTT, GPS, RF, and uninstall behavior. Build and validate the Ubuntu `.deb`
-  on its native x86-64 target. Continue Windows Inno Setup field validation.
-- Define complete endpoint configuration and secret-handling conventions.
-- Formalize the already-selected managed-local, unmanaged-local, and remote
-  Mercury modes as typed endpoint profiles.
-- Maintain the selected GPL-3.0-or-later project license and distribution notices.
-- Record decisions as ADRs in `docs/decisions/`.
+## Next milestone — Safe and predictable station operation
 
-Exit criteria: accepted ADRs define a minimal, reproducible toolchain without introducing product features.
+These items should be completed before expanding the feature set.
 
-The language/UI, process, protocol, transfer, location, beacon, ping, BBS, web,
-licensing, plugin, test, opaque-transport, and setup/privacy decisions are recorded
-in ADRs 0001–0020. Packaging targets, persisted configuration conventions, supported platforms,
-Mercury compatibility, native validation, signing, and final release packaging remain open. The project legal
-license is established by ADR 0027.
+### 1. Stop unanswered calls automatically
 
-## Phase 2 — Mercury contract layer (prototype complete; hardening remains)
+Add a bounded timeout to station-to-station outbound calls. If the remote
+station does not answer, MSP must:
 
-- TNC commands, notifications, application framing, and connection lifecycle used
-  by the current slice have executable contracts.
-- WebSocket JSON status, cached read-only CAT frequency, and binary-spectrum
-  schemas used by Mercury SkyPulse have bounded parsers and contract tests.
-- Protocol parser/serializer unit tests use generated, non-sensitive fixtures.
-- Add compatibility checks against a separately built Mercury executable.
-- Define capability negotiation and behavior for unsupported Mercury versions.
+- stop the call automatically;
+- clear the pending connection state;
+- return the local station to listening/idle operation; and
+- tell the operator that the call timed out.
 
-Exit criteria: adapters can be developed against executable contract tests without importing Mercury source code.
+Tests must cover late replies, manual cancellation, reconnect races, and
+repeated attempts so an unanswered call can never continue indefinitely.
 
-## Phase 3 — Transport adapters (vertical slice complete; hardening remains)
+### 2. Add automatic callsign identification
 
-- Read-only Mercury UI WebSocket telemetry and spectrum contracts are implemented.
-- Supervised local Mercury launch, crash detection, and bounded automatic restart are implemented.
-- Control/ARQ data, KISS broadcast, and telemetry adapters are implemented
-  independently.
-- Add cancellation, reconnect, timeout, backpressure, and structured error behavior.
-- Keep socket/WebSocket libraries contained in `src/transport/mercury/`.
-- Add integration tests against local and remote Mercury instances.
+Design and implement FCC-compatible station identification for an active radio
+communication. MSP should identify with the configured station callsign at the
+required interval and at the end of a communication without disrupting ARQ,
+voice, file transfer, or operator traffic.
 
-Exit criteria: the application layer can use transport ports without knowing protocol or network details.
+Before implementation, confirm the applicable rule, record the behavior in an
+ADR, define exactly which over-the-air frame provides identification, and add
+timing, disconnect, missing-callsign, and queue/backpressure tests.
 
-Text messaging, locally reviewable and bounded session voice messages, verified file transfer,
-application acknowledgements, location,
-ping, BBS events, and compact capability beacons are implemented above opaque
-Mercury transports. Remaining work includes explicit input bounds, stronger
-timeout/backpressure/error behavior, broader command coverage, a persisted
-profile UI/loader, and real-Mercury integration tests. TNC control and KISS input
-bounds and acknowledgement disconnect-race handling are implemented.
-Voice transmission is negotiated per ARQ session, while connectionless beacons
-advertise the compact `voice-chat` discovery capability.
-Ten-second voice captures are converted locally to deterministic 8-kHz mono
-constant-bitrate Opus and rejected unless the final transport artifact is within
-the protocol's 8-KiB ceiling. All three packaging scripts validate that runtime.
+### 3. Harden connection and recovery behavior
 
-A follow-on BBS notification should add one bounded, session-deduplicated
-`messages waiting` event after the connected identity is resolved. It should
-carry only a count, never message metadata, and render a non-modal
-`Retrieve? Yes / Not now` prompt. Retrieval remains operator initiated. Protected
-BBS mode must wait for authenticated identity binding; open mode must continue
-to label the claimed identity as untrusted. This requires a versioned protocol
-event and adversarial identity/session tests before implementation.
+- Finish moving process and connection lifecycle logic out of `MainWindow` and
+  behind stable application ports.
+- Improve cancellation, timeouts, reconnects, backpressure, startup readiness,
+  shutdown, and actionable connection errors.
+- Add compatibility checks and clear behavior for unsupported Mercury versions.
+- Add RF-safe integration tests for TNC, WebSocket, KISS, crash/restart, and
+  shutdown behavior against a separately built Mercury executable.
 
-## Phase 4 — Mercury runtime management (managed-local prototype complete)
+## Next field-test cycle — Paired-station RF validation
 
-- The optional platform adapter for launching and supervising local Mercury is
-  implemented with crash detection and bounded restart backoff.
-- Support connecting to an already-running local or remote Mercury engine.
-- Define startup readiness, shutdown, logs, crash recovery, and version inspection.
-- Ensure the process manager never edits or patches a Mercury checkout.
+After the calling timeout and identification work, run controlled two-station
+tests and save the persistent log from both ends. Validate in this order:
 
-Exit criteria: managed and unmanaged Mercury instances implement the same application-facing port.
+1. startup, audio routing, CAT/PTT, frequency telemetry, and clean shutdown;
+2. listen, connect, unanswered-call timeout, disconnect, and reconnect;
+3. text acknowledgement and queued/sent/delivered/failed presentation;
+4. voice recording, link gating, transfer progress, playback, and cooldown;
+5. file offer, acceptance, transfer, pause/resume, cancellation, duplicate
+   handling, and checksum completion;
+6. beacon scheduling, CQ hold, ping, GPS/location, BBS, weather, and PSK Reporter;
+7. recovery from temporary audio, TNC, KISS, or telemetry interruption; and
+8. layout restoration, panel density, peer targeting, and at-a-glance status on
+   representative displays.
 
-## Phase 5 — Application shell (vertical slice complete)
+Real-RF tests remain operator-controlled and must never run unattended.
 
-- Initial operator journeys and application services are implemented.
-- Connectionless CQ discovery and explicit Answer CQ are implemented for
-  real-radio validation; coordinated QSY is not implemented.
-- Periodic beacons pause during active ARQ sessions, and each CQ refreshes a
-  five-minute hold before idle scheduling resumes with a fresh interval.
-- Manual, explicitly enabled internet weather preview can be inserted into Chat;
-  automatic refresh and beacon weather remain intentionally out of scope.
-- PySide6 presentation, composition, status projections, and primary workflow
-  pages are implemented.
-- The unified operator console separates live operations from the
-  Radio/Audio/User/GPS/Reporting Setup window; manual/GPS positions calculate a
-  local GRID proposal without an internet dependency.
-- The unused Navigator/workspace dock is removed. Activity and Radio Frequency
-  remain dockable alongside the movable command toolbar; workflow
-  tabs are reorderable, and their per-user layout plus appearance and Setup geometry
-  are restored across launches.
-- Validate the new named macOS `.app` bundle and replace the interpreter-launch **Python** menu label through a
-  packaged Mercury SkyPulse application bundle with verified bundle metadata.
-- Continue moving process/connection lifecycle out of `MainWindow` and expose
-  endpoint configuration and actionable connection errors.
+## Mercury integration follow-up
 
-Exit criteria: a minimal application can connect to Mercury and display verified state without bypassing architectural boundaries.
+- Follow upstream review of the read-only frequency and ARQ payload-mode
+  telemetry change.
+- Once accepted upstream, rebase the N4EAC compatibility branch, run the full
+  Mercury suite and Windows cross-build, and repin MSP packages to the upstream
+  revision.
+- Keep Mercury process-isolated and communicate only through documented
+  command-line, TNC/data, KISS, and WebSocket interfaces.
+- Preserve managed-local as the packaged default while completing the persisted
+  profile UI/loader for unmanaged-local and explicitly acknowledged remote use.
 
-## Phase 6 — Product capabilities (vertical slice complete; release work remains)
+## Operator convenience improvements
 
-- Implemented slices include chat, file/image transfer, location/GPS export,
-  beacon, ping, BBS, radio/Hamlib setup, bounded TX level testing, optional PSK
-  Reporter reception uploads, local web, and built-in plugins.
-- Incoming transfer consent, truthful RF-delivery state, persistent bounded field
-  diagnostics, and slow-link ping/BBS timing are implemented from paired RF tests.
-- Public-telemetry audio diagnostics expose selected native endpoint IDs, inferred
-  capture energy, decoded SNR, and actionable no-energy warnings without RF output.
-- Add remaining history retention controls, accessibility,
-  packaging, backup/recovery, and upgrade policy.
-- Establish release automation and Mercury/OS compatibility matrices.
-- The Windows engineering builder bundles a pinned, checksum-verified official
-  Mercury runtime; production installer, update, and GPL-compliance review remain.
+These are useful but should follow the connection-safety milestone.
 
-The next milestone should harden existing behavior rather than add another large
-product feature.
+### LAN access to the read-only web interface
 
-The staged unified operator workspace in ADR 0028 now composes existing services
-as independently dockable panels around central Chat. Field validation must
-confirm at-a-glance state, narrow-screen defaults, restored layouts, peer-safe
-actions, and parity with every retired workflow tab. Only station and device
-configuration remains in Setup.
+Allow another computer on the same trusted LAN to open MSP's read-only web
+interface. This must be explicitly enabled; loopback-only binding remains the
+secure default. The work requires:
 
-## Phase 7 — Plugin migration
+- bind-address and access settings with visible status;
+- bounded access controls and non-loopback contract tests;
+- clear firewall guidance; and
+- a warning that an unencrypted LAN interface exposes station telemetry to
+  other devices on that network.
 
-- The versioned kernel and initial trusted built-in registrations are implemented.
-- Migrate direct construction to plugin factories one capability at a time.
+### BBS message-waiting notice
+
+After the connected identity is resolved, send at most one bounded,
+session-deduplicated notice containing only the waiting-message count. Show a
+non-modal **Retrieve? Yes / Not now** prompt and keep retrieval operator
+initiated. Protected mode must wait for authenticated identity binding; open
+mode must continue to mark claimed identity as untrusted. Add adversarial
+identity and session tests before implementation.
+
+### Optional operator voice announcements
+
+The MP3 files under `assets/voices/` are reference assets. A later feature may
+play them for CQ, beacon, connection, and disconnection events through the
+voice-chat output device, controlled by a persistent mute/enable setting.
+
+## Native packages and Alpha validation
+
+- Apple Silicon macOS Alpha 2 DMG: built and locally validated.
+- Windows 10/11 x86-64: rebuild the Alpha 2 Inno Setup installer and repeat
+  audio, CAT/PTT, GPS, voice, and RF tests.
+- Fedora 42 x86-64: rebuild the Alpha 2 RPM and validate installation, desktop
+  registration, audio, CAT/PTT, GPS, RF behavior, and uninstall.
+- Ubuntu x86-64: build and validate the DEB on a native Ubuntu machine.
+- Maintain a Mercury/OS compatibility matrix and verify every bundled runtime's
+  source revision, checksum, license material, and required telemetry.
+
+GitHub Actions remain disabled for routine development. The Apple Silicon Mac
+and `scripts/check_local.sh` are the required local quality gate; OS-specific
+installers must additionally be validated on their native operating systems.
+
+## Release-readiness work
+
+Complete these items before calling MSP production-ready:
+
+- history retention controls and backup/recovery behavior;
+- accessibility and keyboard-navigation review;
+- stable configuration migration and upgrade policy;
+- complete dependency, GPL source, and redistribution notices;
+- signed/notarized installer strategy and release verification instructions;
+- finalized supported OS versions and compatibility policy; and
+- reproducible packaging and release procedures that do not depend on GitHub
+  Actions.
+
+## Longer-term architecture work
+
+- Complete migration of built-in capabilities to typed plugin factories without
+  enabling untrusted in-process discovery.
 - Resolve consumers through typed extension ports rather than concrete adapters.
-- Add alternate-provider contract tests for transport, themes, positioning, mapping, BBS, web, and logging.
-- Implement the authenticated out-of-process broker before third-party loading.
-- Add package verification, permission consent, revocation, scoped storage, and constrained UI contributions.
+- Add alternate-provider contract tests for transport, themes, positioning,
+  mapping, BBS, web, and logging.
+- Before third-party plugins are allowed, implement an authenticated
+  out-of-process broker with package verification, permission consent,
+  revocation, scoped storage, and constrained UI contributions.
 
-Exit criteria: the shell contains policy and composition only, built-ins are
-replaceable through stable ports, and untrusted code cannot run in the desktop
-process.
-
-## Current milestone — Architecture hardening and real integration
-
-Work should proceed in this order:
-
-1. Add persisted profile loading and preferences for the implemented managed
-   local, unmanaged local, and explicitly acknowledged remote modes.
-2. Finish moving process and connection lifecycle out of `MainWindow` behind
-   stable application ports and plugin factories.
-3. Pin a compatible Mercury revision and add RF-safe TNC, WebSocket, KISS,
-   crash/reconnect, and shutdown integration tests.
-4. Complete built-in plugin migration without enabling third-party in-process
-   discovery.
-5. Decide packaging, supported platforms, compatibility policy, and legal/source
-   GPL and bundled-dependency redistribution obligations.
+The guiding rule is to harden and validate existing radio workflows before
+adding another large product capability.
