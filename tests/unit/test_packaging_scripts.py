@@ -37,9 +37,12 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
         self.assertIn('curl -L --fail --show-error "$MERCURY_ARCHIVE_URL"', builder)
         self.assertIn('make -C "$MERCURY_ROOT"', builder)
+        self.assertIn('GIT_HASH="${MERCURY_COMMIT:0:8}"', builder)
         self.assertIn('grep -a -q "radio_frequency_hz" "$MERCURY_SOURCE"', builder)
         self.assertIn('install -m 0755 "$MERCURY_SOURCE"', builder)
         self.assertIn("dpkg-deb --build", builder)
+        self.assertIn('DEB_CONTENTS="$(dpkg-deb --contents', builder)
+        self.assertNotIn('dpkg-deb --contents "dist/packages/mercury-skypulse_${VERSION}_amd64.deb" |', builder)
         self.assertIn("rpmbuild", builder)
         self.assertIn("mercuryskypulse-256.png", builder)
         rpm_spec = (ROOT / "packaging/linux/mercury-skypulse.spec.in").read_text(
@@ -61,6 +64,12 @@ class PackagingScriptTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("libpipewire-0.3-0", deb_control)
+        self.assertIn("libxcb-cursor0", deb_control)
+        self.assertIn("libxcb-keysyms1", deb_control)
+        self.assertIn("libxcb-render-util0", deb_control)
+        self.assertIn("libxcb-image0", deb_control)
+        self.assertIn("libxcb-icccm4", deb_control)
+        self.assertIn("libxcb-xkb1", deb_control)
 
     def test_linux_desktop_entry_uses_installed_application(self) -> None:
         desktop = (ROOT / "packaging/linux/mercuryskypulse.desktop").read_text(

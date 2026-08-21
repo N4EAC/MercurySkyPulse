@@ -10,6 +10,8 @@ MERCURY_ARCHIVE_URL="https://github.com/N4EAC/mercury/archive/$MERCURY_COMMIT.ta
 MERCURY_CACHE="$PROJECT_ROOT/build/mercury-linux-runtime"
 MERCURY_ROOT=""
 MERCURY_SOURCE=""
+MERCURY_REVISION=""
+MERCURY_REMOTE=""
 VERSION="${MSP_VERSION:-0.1.0}"
 ARCH="$(uname -m)"
 
@@ -41,6 +43,8 @@ prepare_mercury() {
         fi
         MERCURY_SOURCE="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
         MERCURY_ROOT="$(dirname "$MERCURY_SOURCE")"
+        MERCURY_REVISION="external-runtime"
+        MERCURY_REMOTE="operator-supplied MERCURY_EXECUTABLE"
         return
     fi
 
@@ -48,6 +52,8 @@ prepare_mercury() {
     if [[ -x "$candidate" ]]; then
         MERCURY_SOURCE="$(cd "$(dirname "$candidate")" && pwd)/mercury"
         MERCURY_ROOT="$(dirname "$MERCURY_SOURCE")"
+        MERCURY_REVISION="$(git -C "$MERCURY_ROOT" rev-parse HEAD 2>/dev/null || echo sibling-checkout)"
+        MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || echo sibling-checkout)"
         return
     fi
 
@@ -69,6 +75,8 @@ prepare_mercury() {
     local archive="$MERCURY_CACHE/mercury-$MERCURY_COMMIT.tar.gz"
     MERCURY_ROOT="$MERCURY_CACHE/mercury-$MERCURY_COMMIT"
     MERCURY_SOURCE="$MERCURY_ROOT/mercury"
+    MERCURY_REVISION="$MERCURY_COMMIT"
+    MERCURY_REMOTE="https://github.com/N4EAC/mercury"
     mkdir -p "$MERCURY_CACHE"
     if [[ ! -f "$archive" ]]; then
         echo "Downloading pinned Mercury source $MERCURY_COMMIT..."
@@ -82,10 +90,9 @@ prepare_mercury() {
     if [[ ! -f "$MERCURY_ROOT/Makefile" ]]; then
         tar -xzf "$archive" -C "$MERCURY_CACHE"
     fi
-    if [[ ! -x "$MERCURY_SOURCE" ]]; then
-        echo "Building pinned Mercury runtime locally..."
-        make -C "$MERCURY_ROOT" -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
-    fi
+    echo "Building or validating pinned Mercury runtime locally..."
+    make -C "$MERCURY_ROOT" GIT_HASH="${MERCURY_COMMIT:0:8}" \
+        -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
 }
 
 prepare_mercury
@@ -138,8 +145,6 @@ mkdir -p dist/MercurySkyPulse/mercury
 install -m 0755 "$MERCURY_SOURCE" dist/MercurySkyPulse/mercury/mercury
 install -m 0644 "$MERCURY_ROOT/LICENSE" dist/MercurySkyPulse/mercury/LICENSE
 install -m 0644 "$MERCURY_ROOT/LICENSE-freedv" dist/MercurySkyPulse/mercury/LICENSE-freedv
-MERCURY_REVISION="$(git -C "$MERCURY_ROOT" rev-parse HEAD 2>/dev/null || echo "$MERCURY_COMMIT")"
-MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || echo https://github.com/N4EAC/mercury)"
 printf 'Mercury Linux engineering runtime\nSource: %s\nRevision: %s\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
     "$MERCURY_REMOTE" "$MERCURY_REVISION" > dist/MercurySkyPulse/mercury/SOURCE.txt
 install -m 0644 LICENSE dist/MercurySkyPulse/LICENSE
@@ -158,8 +163,8 @@ if [[ "$PACKAGE_KIND" == deb ]]; then
     install -m 0644 assets/icons/linux/mercuryskypulse-256.png "$STAGE/usr/share/icons/hicolor/256x256/apps/mercuryskypulse.png"
     dpkg-deb --build --root-owner-group "$STAGE" "dist/packages/mercury-skypulse_${VERSION}_amd64.deb"
     dpkg-deb --info "dist/packages/mercury-skypulse_${VERSION}_amd64.deb" >/dev/null
-    dpkg-deb --contents "dist/packages/mercury-skypulse_${VERSION}_amd64.deb" | \
-        grep -q 'plugins/multimedia/.*mediaplugin'
+    DEB_CONTENTS="$(dpkg-deb --contents "dist/packages/mercury-skypulse_${VERSION}_amd64.deb")"
+    grep -q 'plugins/multimedia/.*mediaplugin' <<<"$DEB_CONTENTS"
     echo "Package complete: dist/packages/mercury-skypulse_${VERSION}_amd64.deb"
 else
     RPM_TOP="$PROJECT_ROOT/build/package-linux/rpm"
@@ -182,8 +187,8 @@ else
         exit 1
     fi
     rpm -qpi "$RPM_PACKAGE" >/dev/null
-    rpm -qpl "$RPM_PACKAGE" | \
-        grep -q 'plugins/multimedia/.*mediaplugin'
+    RPM_CONTENTS="$(rpm -qpl "$RPM_PACKAGE")"
+    grep -q 'plugins/multimedia/.*mediaplugin' <<<"$RPM_CONTENTS"
     RPM_REQUIREMENTS="$(rpm -qpR "$RPM_PACKAGE")"
     if grep -q '^libtiff[.]so[.]5' <<<"$RPM_REQUIREMENTS"; then
         echo "ERROR: RPM retained an unavailable optional libtiff.so.5 dependency." >&2
