@@ -1,8 +1,10 @@
 %global debug_package %{nil}
-# PySide6's optional private TIFF image plugin targets libtiff.so.5. Fedora's
-# current libtiff ABI is newer; do not turn that optional backend into a hard
-# application dependency. Other generated RPM requirements remain enabled.
-%global __requires_exclude ^libtiff[.]so[.]5.*$
+# PyInstaller wheels carry private shared libraries whose filenames contain an
+# eight-character content hash. They are shipped under /opt with the application
+# and must not become dependencies on nonexistent Fedora packages. PySide6's
+# optional private TIFF plugin similarly targets an older ABI that is not needed
+# by MSP. Other generated RPM requirements remain enabled.
+%global __requires_exclude ^(libtiff[.]so[.]5.*|lib.*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][.]so[.].*)$
 
 Name:           mercury-skypulse
 Version:        @RPM_VERSION@

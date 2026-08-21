@@ -46,11 +46,14 @@ class PackagingScriptTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("%global debug_package %{nil}", rpm_spec)
-        self.assertIn("%global __requires_exclude ^libtiff[.]so[.]5.*$", rpm_spec)
+        self.assertIn("libtiff[.]so[.]5", rpm_spec)
+        self.assertIn("lib.*-[0-9a-f][0-9a-f]", rpm_spec)
         self.assertIn(
             "ln -s ../../opt/mercuryskypulse/MercurySkyPulse", rpm_spec
         )
         self.assertIn("rpm -qpR", builder)
+        self.assertIn("private hash-named wheel-library dependency", builder)
+        self.assertIn("[[:xdigit:]]{8}", builder)
         self.assertIn("plugins/multimedia/.*mediaplugin", builder)
         self.assertIn("tools/validate_voice_package.py", builder)
         self.assertIn("pipewire-libs", rpm_spec)

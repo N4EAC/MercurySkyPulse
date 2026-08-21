@@ -164,6 +164,7 @@ if [[ "$PACKAGE_KIND" == deb ]]; then
 else
     RPM_TOP="$PROJECT_ROOT/build/package-linux/rpm"
     SOURCE_DIR="$RPM_TOP/source/mercury-skypulse-$VERSION"
+    rm -f dist/packages/mercury-skypulse-*.rpm
     rm -rf "$RPM_TOP"
     mkdir -p "$RPM_TOP"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS} "$SOURCE_DIR/app"
     cp -a dist/MercurySkyPulse/. "$SOURCE_DIR/app/"
@@ -175,11 +176,22 @@ else
         packaging/linux/mercury-skypulse.spec.in > "$RPM_TOP/SPECS/mercury-skypulse.spec"
     rpmbuild --define "_topdir $RPM_TOP" -bb "$RPM_TOP/SPECS/mercury-skypulse.spec"
     find "$RPM_TOP/RPMS" -name '*.rpm' -exec cp {} dist/packages/ \;
-    rpm -qpi dist/packages/mercury-skypulse-*.rpm >/dev/null
-    rpm -qpl dist/packages/mercury-skypulse-*.rpm | \
+    RPM_PACKAGE="$(find dist/packages -maxdepth 1 -name "mercury-skypulse-${RPM_VERSION}-1.*.x86_64.rpm" -print -quit)"
+    if [[ -z "$RPM_PACKAGE" ]]; then
+        echo "ERROR: rpmbuild did not produce the expected Fedora package." >&2
+        exit 1
+    fi
+    rpm -qpi "$RPM_PACKAGE" >/dev/null
+    rpm -qpl "$RPM_PACKAGE" | \
         grep -q 'plugins/multimedia/.*mediaplugin'
-    if rpm -qpR dist/packages/mercury-skypulse-*.rpm | grep -q '^libtiff[.]so[.]5'; then
+    RPM_REQUIREMENTS="$(rpm -qpR "$RPM_PACKAGE")"
+    if grep -q '^libtiff[.]so[.]5' <<<"$RPM_REQUIREMENTS"; then
         echo "ERROR: RPM retained an unavailable optional libtiff.so.5 dependency." >&2
+        exit 1
+    fi
+    if grep -E -q '^lib.*-[[:xdigit:]]{8}[.]so[.]' <<<"$RPM_REQUIREMENTS"; then
+        echo "ERROR: RPM retained a private hash-named wheel-library dependency:" >&2
+        grep -E '^lib.*-[[:xdigit:]]{8}[.]so[.]' <<<"$RPM_REQUIREMENTS" >&2
         exit 1
     fi
     echo "Package complete: dist/packages/mercury-skypulse-${RPM_VERSION}-1.*.x86_64.rpm"
