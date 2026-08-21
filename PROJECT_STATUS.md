@@ -57,6 +57,11 @@ Mercury internals.
   `CONNECTED` indication remains provisional until a bounded MSP session probe
   is acknowledged by the peer; unconfirmed links are disconnected after 30
   seconds and never expose chat, file, voice, or BBS traffic as connected.
+  Every Mercury `DISCONNECTED` event explicitly restores the MSP application
+  state to ready, including unanswered calls where Mercury's raw transport never
+  left ready, so automatic listening reliably re-arms under the saved callsign.
+  Session cleanup clears peer-specific controls without overwriting the newer
+  authoritative `Listening` presentation with a stale disconnected label.
 - Session-scoped compressed voice messages with separate system audio devices,
   deterministic full-10-second 8-kHz mono Opus encoding within an 8-KiB bound,
   peer capability negotiation, conservative
@@ -140,6 +145,11 @@ Mercury internals.
 - MSP saves the selection and configures managed Mercury through documented
   startup/configuration inputs.
 - Mercury remains the only Hamlib and PTT owner.
+- Fatal Mercury radio or audio initialization output is translated into an
+  actionable ARQ status. The operator is directed to Setup → Radio to correct or
+  disable unavailable Hamlib control, or Setup → Audio to select valid modem
+  devices; the original technical output remains in Activity and the persistent
+  diagnostic log.
 - Radio frequency and operating mode remain manually controlled at the radio.
   Mercury publishes a conservatively polled, cached read-only frequency for MSP
   display and reception reporting; MSP never opens a second CAT connection.

@@ -120,6 +120,7 @@ class MainWindow(QMainWindow):
         self.telemetry = telemetry or MercuryTelemetryClient(parent=self)
         self.diagnostic_log_path = diagnostic_log_path
         self._transfer_diagnostics: dict[str, tuple] = {}
+        self._mercury_startup_issue = ""
         self.setup_window = (
             SetupWindow(
                 radio_service, beacon_service, location_service,
@@ -531,6 +532,8 @@ class MainWindow(QMainWindow):
     def _connect_mercury_services(self) -> None:
         self.supervisor.state_changed.connect(self._on_engine_state)
         self.supervisor.output_received.connect(self.activity_panel.append_log)
+        if hasattr(self.supervisor, "startup_issue"):
+            self.supervisor.startup_issue.connect(self._on_mercury_startup_issue)
         self.supervisor.restart_scheduled.connect(
             lambda delay: self.activity_panel.append_log(
                 f"Automatic Mercury restart in {delay / 1000:.1f} seconds"
@@ -956,7 +959,6 @@ class MainWindow(QMainWindow):
 
     def _session_disconnected(self) -> None:
         self.station_summary.set_value("peer", "None")
-        self.station_summary.set_value("link", "Disconnected")
         self.location_panel.set_peer("")
         if self.beacon_service:
             self.beacon_service.set_session_connected(False)
@@ -1094,6 +1096,14 @@ class MainWindow(QMainWindow):
         self.station_summary.set_telemetry_state(state)
         self._telemetry_status.setText(f"Telemetry: {state}")
         self.activity_panel.append_log(f"Telemetry state: {state}")
+
+    def _on_mercury_startup_issue(self, summary: str, action: str) -> None:
+        self.station_summary.set_link_issue(summary, action)
+        self.chat_page.set_startup_issue(summary, action)
+        self.statusBar().showMessage(action)
+        if summary != self._mercury_startup_issue:
+            self._mercury_startup_issue = summary
+            self.activity_panel.append_log(f"Operator action: {action}")
 
     def _set_tx_rx_indicator(self, direction: str) -> None:
         transmitting = direction == "tx"

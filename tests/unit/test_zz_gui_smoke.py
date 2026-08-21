@@ -100,6 +100,35 @@ class GuiSmokeTests(unittest.TestCase):
             "Send Location to Connected Station",
         )
 
+    def test_mercury_startup_issue_is_actionable_in_arq_status(self) -> None:
+        action = (
+            "Mercury could not open the configured CAT/Hamlib radio. "
+            "Open Setup → Radio or disable Hamlib control."
+        )
+        self.window._on_mercury_startup_issue("Radio setup required", action)
+
+        self.assertEqual(
+            self.window.station_summary.values["link"].text(),
+            "Radio setup required",
+        )
+        self.assertEqual(self.window.chat_page.link_state.text(), "Radio setup required")
+        self.assertIn("Setup → Radio", self.window.chat_page.link_state.toolTip())
+        self.assertIn("Operator action:", self.window.activity_panel.output.toPlainText())
+
+    def test_session_cleanup_does_not_overwrite_listening_presentation(self) -> None:
+        page = self.window.chat_page
+        page.set_connected_peer("N0CALL", "K1ABC", 2300)
+        page.set_state("listening")
+        page.set_disconnected()
+        self.window.station_summary.set_value("link", "Listening")
+        self.window._session_disconnected()
+
+        self.assertEqual(page.link_state.text(), "TNC: listening")
+        self.assertEqual(
+            self.window.station_summary.values["link"].text(), "Listening"
+        )
+        self.assertEqual(self.window.station_summary.values["peer"].text(), "None")
+
     def test_station_grid_card_uses_compact_saved_or_position_grid(self) -> None:
         self.assertIn("grid", self.window.station_summary.values)
         self.assertNotIn("gps", self.window.station_summary.values)

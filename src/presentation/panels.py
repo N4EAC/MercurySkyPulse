@@ -112,6 +112,10 @@ class StationSummaryPanel(QWidget):
         if key in self.values:
             self.values[key].setText(value)
 
+    def set_link_issue(self, summary: str, action: str) -> None:
+        self.set_value("link", summary)
+        self.values["link"].setToolTip(action)
+
     def update_status(self, status: ModemStatus) -> None:
         self.set_value("modem", "Linked" if status.sync else "Listening")
         self.set_value("radio", "Transmitting" if status.direction == "tx" else "Receiving")

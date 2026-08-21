@@ -66,6 +66,7 @@ class MercuryProcessSupervisor(QObject):
     output_received = Signal(str)
     restart_scheduled = Signal(int)
     executable_resolved = Signal(str)
+    startup_issue = Signal(str, str)
 
     def __init__(
         self,
@@ -285,7 +286,31 @@ class MercuryProcessSupervisor(QObject):
         text = raw.decode("utf-8", errors="replace")
         for line in text.splitlines():
             if line.strip():
-                self.output_received.emit(line.rstrip())
+                clean = line.rstrip()
+                self._inspect_output_line(clean)
+                self.output_received.emit(clean)
+
+    def _inspect_output_line(self, line: str) -> None:
+        """Translate known fatal engine startup output into operator guidance."""
+        lowered = line.lower()
+        if "radio init failed" in lowered:
+            self.startup_issue.emit(
+                "Radio setup required",
+                "Mercury could not open the configured CAT/Hamlib radio. "
+                "Open Setup → Radio and correct the radio address, start the "
+                "required rig-control service, or disable Hamlib control.",
+            )
+        elif any(marker in lowered for marker in (
+            "audio init failed",
+            "audio initialization failed",
+            "failed to initialize audio",
+            "audio i/o init failed",
+        )):
+            self.startup_issue.emit(
+                "Audio setup required",
+                "Mercury could not open its modem audio path. Open Setup → Audio "
+                "and select available input and output devices.",
+            )
 
     def _kill_if_needed(self) -> None:
         if self.process.state() != QProcess.ProcessState.NotRunning:

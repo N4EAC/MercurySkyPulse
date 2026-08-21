@@ -39,6 +39,7 @@ class ApplicationMessagingClient(QObject):
         self._pending_session: tuple[str, str, int] | None = None
         self._probe_id = ""
         self._outgoing_call = False
+        self._published_state = "disconnected"
         self._call_timer = QTimer(self)
         self._call_timer.setSingleShot(True)
         self._call_timer.setInterval(call_timeout_ms)
@@ -74,7 +75,7 @@ class ApplicationMessagingClient(QObject):
         call = self.normalize_callsign(local_call)
         self.transport.send_control(f"MYCALL {call}")
         self.transport.send_control("LISTEN ON")
-        self.state_changed.emit("listening")
+        self._set_state("listening")
 
     def connect_station(self, local_call: str, remote_call: str) -> None:
         local = self.normalize_callsign(local_call)
@@ -84,7 +85,7 @@ class ApplicationMessagingClient(QObject):
         self.transport.send_control(f"CONNECT {local} {remote}")
         self._outgoing_call = True
         self._call_timer.start()
-        self.state_changed.emit("linking")
+        self._set_state("linking")
 
     def disconnect_station(self) -> None:
         self._clear_session_attempt()
@@ -143,7 +144,7 @@ class ApplicationMessagingClient(QObject):
         # A local Mercury CONNECTED indication is provisional.  Application
         # features remain disabled until the peer returns a bounded MSP probe.
         if state != "connected":
-            self.state_changed.emit(state)
+            self._set_state(state)
 
     def _on_transport_session_connected(
         self, source: str, destination: str, bandwidth: int
@@ -151,7 +152,7 @@ class ApplicationMessagingClient(QObject):
         self._call_timer.stop()
         self._pending_session = (source, destination, bandwidth)
         self._probe_id = str(uuid4())
-        self.state_changed.emit("validating")
+        self._set_state("validating")
         try:
             self.transport.write(encode_event(
                 "session_probe", self._probe_id, datetime.now(UTC).isoformat()
@@ -181,7 +182,7 @@ class ApplicationMessagingClient(QObject):
         self._pending_session = None
         self._probe_id = ""
         self._outgoing_call = False
-        self.state_changed.emit("connected")
+        self._set_state("connected")
         self.session_connected.emit(*session)
 
     def _call_timed_out(self) -> None:
@@ -207,6 +208,11 @@ class ApplicationMessagingClient(QObject):
 
     def _on_transport_session_disconnected(self) -> None:
         self._clear_session_attempt()
+        # Mercury may report DISCONNECTED after an unanswered call without its
+        # raw adapter ever leaving ready.  Publish the application transition
+        # explicitly so automatic listening cannot remain stuck at linking.
+        if self._published_state not in {"ready", "listening"}:
+            self._set_state("ready")
         self.session_disconnected.emit()
 
     def _clear_session_attempt(self) -> None:
@@ -215,3 +221,8 @@ class ApplicationMessagingClient(QObject):
         self._pending_session = None
         self._probe_id = ""
         self._outgoing_call = False
+
+    def _set_state(self, state: str) -> None:
+        if state != self._published_state:
+            self._published_state = state
+            self.state_changed.emit(state)

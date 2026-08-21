@@ -272,6 +272,11 @@ class ChatPage(QWidget):
 
     def set_state(self, state: str) -> None:
         self.link_state.setText(f"TNC: {state}")
+        self.link_state.setToolTip(f"Mercury TNC state: {state}")
+
+    def set_startup_issue(self, summary: str, action: str) -> None:
+        self.link_state.setText(summary)
+        self.link_state.setToolTip(action)
 
     def set_listening_identity(self, callsign: str) -> None:
         self.listening_identity.setText(f"Listening as: {callsign}")
@@ -326,7 +331,6 @@ class ChatPage(QWidget):
         self._update_weather_button()
 
     def set_disconnected(self) -> None:
-        self.link_state.setText("TNC: ready · no station connected")
         self._session_connected = False
         self._typing_timer.stop()
         self._typing_announced = False

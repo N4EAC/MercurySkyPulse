@@ -172,6 +172,27 @@ class MercurySupervisorTests(unittest.TestCase):
         self.assertEqual(supervisor.config.output_device, "playback-id")
         restart.assert_called_once_with()
 
+    def test_fatal_radio_startup_output_has_actionable_operator_guidance(self) -> None:
+        supervisor = MercuryProcessSupervisor()
+        issues = []
+        supervisor.startup_issue.connect(lambda *values: issues.append(values))
+
+        supervisor._inspect_output_line("mercury_engine: radio init failed")
+
+        self.assertEqual(issues[0][0], "Radio setup required")
+        self.assertIn("Setup → Radio", issues[0][1])
+        self.assertIn("disable Hamlib", issues[0][1])
+
+    def test_fatal_audio_startup_output_has_actionable_operator_guidance(self) -> None:
+        supervisor = MercuryProcessSupervisor()
+        issues = []
+        supervisor.startup_issue.connect(lambda *values: issues.append(values))
+
+        supervisor._inspect_output_line("mercury_engine: audio init failed")
+
+        self.assertEqual(issues[0][0], "Audio setup required")
+        self.assertIn("Setup → Audio", issues[0][1])
+
 
 if __name__ == "__main__":
     unittest.main()

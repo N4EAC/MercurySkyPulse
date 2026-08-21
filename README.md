@@ -62,6 +62,12 @@ provisional until the remote MSP acknowledges a bounded application probe; an
 asymmetric or false connection is cancelled before chat, voice, file, BBS, or
 other session traffic is enabled.
 
+MSP also translates known fatal Mercury startup failures into actionable ARQ
+status. An unavailable configured Hamlib radio directs the operator to correct
+or disable it under **Setup → Radio**; an unavailable modem audio path directs
+the operator to **Setup → Audio**. Complete Mercury diagnostics remain available
+in Activity and the persistent log.
+
 ### Platform support
 
 | Platform | Current status |

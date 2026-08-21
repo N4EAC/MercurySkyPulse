@@ -193,6 +193,33 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertEqual(self.transport.controls[-1], "CONNECT N0CALL K2XYZ")
         self.assertTrue(self.client._call_timer.isActive())
 
+    def test_unanswered_disconnect_restores_application_ready_state(self) -> None:
+        states = []
+        def observe(state: str) -> None:
+            states.append(state)
+            if state == "ready":
+                self.client.configure_and_listen("N0CALL")
+        self.client.state_changed.connect(observe)
+        self.client.connect_station("N0CALL", "K1ABC")
+
+        # Mercury can emit DISCONNECTED without a preceding CONNECTED, leaving
+        # its raw transport state unchanged at ready.
+        self.transport.session_disconnected.emit()
+
+        self.assertEqual(states, ["linking", "ready", "listening"])
+        self.assertEqual(self.transport.controls[-2:], ["MYCALL N0CALL", "LISTEN ON"])
+
+    def test_successful_disconnect_does_not_publish_ready_twice(self) -> None:
+        states = []
+        self.client.state_changed.connect(states.append)
+        self.transport.state_changed.emit("ready")
+        self.transport.state_changed.emit("connected")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        self.transport.state_changed.emit("ready")
+        self.transport.session_disconnected.emit()
+
+        self.assertEqual(states.count("ready"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
