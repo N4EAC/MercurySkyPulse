@@ -42,6 +42,7 @@ from .panels import (
     StationSummaryPanel,
 )
 from .themes import Appearance, PlatformPreset, Theme, apply_appearance
+from .release import RELEASE_DISPLAY
 from platform_runtime import MercuryProcessConfig, MercuryProcessSupervisor
 from transport.mercury.telemetry import MercuryTelemetryClient
 
@@ -507,7 +508,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Mercury SkyPulse",
-            f"Mercury SkyPulse {self._app.applicationVersion()}",
+            RELEASE_DISPLAY,
         )
 
     def _show_plugins(self) -> None:

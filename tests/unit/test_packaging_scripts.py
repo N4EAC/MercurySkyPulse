@@ -12,8 +12,10 @@ ROOT = Path(__file__).resolve().parents[2]
 class PackagingScriptTests(unittest.TestCase):
     def test_macos_bundle_sets_the_product_version(self) -> None:
         builder = (ROOT / "build.app.sh").read_text(encoding="utf-8")
+        dmg_builder = (ROOT / "build.dmg.sh").read_text(encoding="utf-8")
         gate = (ROOT / "scripts/check_local.sh").read_text(encoding="utf-8")
-        self.assertIn('VERSION="${MSP_VERSION:-0.1.0}"', builder)
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.2}"', builder)
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.2}"', dmg_builder)
         self.assertIn("Set :CFBundleShortVersionString $VERSION", builder)
         self.assertIn("Add :CFBundleVersion string $VERSION", builder)
         self.assertIn("CFBundleShortVersionString", gate)
@@ -30,9 +32,11 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("recursesubdirs createallsubdirs", installer)
         self.assertIn("call :build_installer", builder)
         self.assertIn("Inno Setup 6", builder)
+        self.assertIn("/DMyAppVersion=0.1.2", builder)
 
     def test_linux_builder_requires_and_bundles_mercury(self) -> None:
         builder = (ROOT / "build.linux.sh").read_text(encoding="utf-8")
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.2}"', builder)
         self.assertIn('candidate="${MERCURY_EXECUTABLE:-}"', builder)
         self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
         self.assertIn('curl -L --fail --show-error "$MERCURY_ARCHIVE_URL"', builder)

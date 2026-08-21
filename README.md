@@ -75,19 +75,19 @@ in Activity and the persistent log.
 | Windows 10/11 x86-64 | Supported for engineering builds and live-radio testing through `build.exe.bat` |
 | macOS Apple Silicon | Supported for engineering builds and live-radio testing through `build.app.sh` |
 | Fedora 42 Linux x86-64 | Alpha RPM built, installed, and launched successfully; further radio/hardware validation remains |
-| Ubuntu Linux x86-64 | Initial DEB engineering builder; native validation required |
+| Ubuntu Linux x86-64 | Alpha DEB built and installed successfully; further radio/hardware validation remains |
 
 Fedora 42 RPM packaging, installation, desktop registration, and application
 launch have been validated. Further Fedora audio, CAT/PTT, GPS, and RF testing is
-still required. Ubuntu remains an unvalidated native packaging target. Intel
-macOS is not part of the presently validated build matrix.
+still required. Ubuntu package creation and installation have been validated;
+audio, CAT/PTT, GPS, and RF testing remain. Intel macOS is not part of the
+presently validated build matrix.
 
 ### Alpha downloads
 
 [Mercury SkyPulse 0.1.0 Alpha 2](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.2)
-provides the current unsigned Apple Silicon macOS engineering installer and its
-SHA-256 checksum. Native Windows 10/11 and Fedora 42 Alpha 2 packages are pending
-rebuild and validation on those operating systems.
+provides Apple Silicon macOS, Windows 10/11 x86-64, Fedora 42 x86-64, and Ubuntu
+x86-64 engineering installers with SHA-256 checksums.
 
 [Mercury SkyPulse 0.1.0 Alpha 1](https://github.com/N4EAC/MercurySkyPulse/releases/tag/v0.1.0-alpha.1)
 remains available with the earlier unsigned engineering installers for:
@@ -97,7 +97,13 @@ remains available with the earlier unsigned engineering installers for:
 - Fedora 42 x86-64 (`.rpm`).
 
 All alpha artifacts are intended for controlled testing rather than production use.
-Ubuntu will be added only after its native package is built and validated.
+Active development after Alpha 2 identifies itself as **0.1.2 — Sirius**.
+
+The Sirius development cycle hardens station establishment for half-duplex RF:
+only the caller initiates MSP peer validation, the listener acknowledges that
+probe, and validation observes Mercury BUFFER progress under a separate bounded
+safety deadline. Activity and persistent logs identify each probe/ack stage
+without recording station-specific diagnostic narratives.
 
 ### Station chat and short voice messages
 
@@ -460,11 +466,11 @@ For a conventional drag-to-Applications disk image, run:
 This first builds and validates `MercurySkyPulse.app`, then creates:
 
 ```text
-dist/installer/MercurySkyPulse-0.1.0-macos-arm64.dmg
+dist/installer/MercurySkyPulse-0.1.2-macos-arm64.dmg
 ```
 
 When the DMG exceeds 50 MiB, the script also creates the repository-ready
-`MercurySkyPulse-0.1.0-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
+`MercurySkyPulse-0.1.2-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
 DMG so large installer updates do not trigger GitHub's 50-MB warning.
 
 Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
@@ -528,7 +534,7 @@ When [Inno Setup 6](https://jrsoftware.org/isdl.php) is installed, the same
 command compiles `packaging\windows\MercurySkyPulse.iss` and creates:
 
 ```text
-dist\installer\MercurySkyPulse-0.1.0-windows-x86_64-setup.exe
+dist\installer\MercurySkyPulse-0.1.2-windows-x86_64-setup.exe
 ```
 
 The installer displays the MSP icon, installs per user without an administrator
@@ -596,12 +602,12 @@ sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
 
 The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
-either `dist/packages/mercury-skypulse_0.1.0_amd64.deb` or an x86-64 RPM in the
+either `dist/packages/mercury-skypulse_0.1.2_amd64.deb` or an x86-64 RPM in the
 same directory. The Fedora 42 RPM path has been built, installed, and launched
 successfully. It installs MSP under `/opt/mercuryskypulse`, adds the
 `mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or
-failed tests stop packaging. Fedora hardware/RF validation and all Ubuntu native
-validation remain required before broader distribution.
+failed tests stop packaging. Fedora and Ubuntu hardware/RF validation remain
+required before broader distribution.
 
 Fedora's RPM metadata intentionally disables automatic `debugsource` package
 generation because MSP is packaged as an already-built PyInstaller application;

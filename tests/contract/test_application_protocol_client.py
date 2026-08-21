@@ -17,6 +17,7 @@ class FakeByteTransport(QObject):
     session_disconnected = Signal()
     data_received = Signal(bytes)
     error_received = Signal(str)
+    queued_bytes_changed = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -121,10 +122,11 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client.state_changed.connect(states.append)
         self.client.session_connected.connect(lambda *values: sessions.append(values))
 
+        self.client.connect_station("N0CALL", "K1ABC")
         self.transport.state_changed.emit("connected")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
 
-        self.assertEqual(states, ["validating"])
+        self.assertEqual(states, ["linking", "validating"])
         self.assertEqual(sessions, [])
         probe = FrameDecoder().feed(self.transport.writes[-1])[0]
         self.assertEqual(probe.kind, "session_probe")
@@ -138,6 +140,7 @@ class ApplicationProtocolClientTests(unittest.TestCase):
     def test_wrong_probe_ack_does_not_validate_session(self) -> None:
         sessions = []
         self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.client.connect_station("N0CALL", "K1ABC")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
         self.transport.data_received.emit(encode_event(
             "session_probe_ack", "ack-1", self.now, probe_id="wrong"
@@ -147,6 +150,7 @@ class ApplicationProtocolClientTests(unittest.TestCase):
     def test_validation_timeout_disconnects_false_local_connection(self) -> None:
         errors = []
         self.client.error_received.connect(errors.append)
+        self.client.connect_station("N0CALL", "K1ABC")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
 
         self.client._validation_timed_out()
@@ -165,16 +169,52 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertIn("60 seconds", errors[-1])
 
     def test_peer_probe_is_acknowledged_with_matching_identifier(self) -> None:
+        sessions = []
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.assertEqual(self.transport.writes, [])
         self.transport.data_received.emit(encode_event(
             "session_probe", "peer-probe", self.now
         ))
         response = FrameDecoder().feed(self.transport.writes[-1])[0]
         self.assertEqual(response.kind, "session_probe_ack")
         self.assertEqual(response.values["probe_id"], "peer-probe")
+        self.assertEqual(sessions, [("K1ABC", "N0CALL", 2300)])
+
+    def test_only_calling_station_initiates_session_probe(self) -> None:
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.assertEqual(self.transport.writes, [])
+        self.assertTrue(self.client._validation_timer.isActive())
+        self.assertTrue(self.client._validation_maximum_timer.isActive())
+
+    def test_mercury_buffer_progress_extends_no_progress_window(self) -> None:
+        self.client.connect_station("N0CALL", "K1ABC")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        timer_id = self.client._validation_timer.timerId()
+        self.transport.queued_bytes_changed.emit(122)
+        self.assertEqual(self.client._validation_queued_bytes, 122)
+        self.transport.queued_bytes_changed.emit(100)
+        self.assertEqual(self.client._validation_queued_bytes, 100)
+        self.assertTrue(self.client._validation_timer.isActive())
+        self.assertNotEqual(self.client._validation_timer.timerId(), timer_id)
+
+    def test_hard_validation_deadline_disconnects_even_with_progress(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.client.connect_station("N0CALL", "K1ABC")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        self.transport.queued_bytes_changed.emit(122)
+        self.transport.queued_bytes_changed.emit(100)
+
+        self.client._validation_maximum_timed_out()
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("safety deadline", errors[-1])
 
     def test_manual_cancel_ignores_late_probe_ack(self) -> None:
         sessions = []
         self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.client.connect_station("N0CALL", "K1ABC")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
         probe = FrameDecoder().feed(self.transport.writes[-1])[0]
 
@@ -214,6 +254,7 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client.state_changed.connect(states.append)
         self.transport.state_changed.emit("ready")
         self.transport.state_changed.emit("connected")
+        self.client.connect_station("N0CALL", "K1ABC")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
         self.transport.state_changed.emit("ready")
         self.transport.session_disconnected.emit()

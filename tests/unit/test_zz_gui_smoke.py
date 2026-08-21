@@ -51,6 +51,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
+        self.assertEqual(self.app.applicationVersion(), "0.1.2")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -64,6 +65,15 @@ class GuiSmokeTests(unittest.TestCase):
         help_menu = help_action.menu()
         self.assertNotIn(
             "License Information", [action.text() for action in help_menu.actions()]
+        )
+
+    def test_about_displays_version_and_release_codename(self) -> None:
+        with patch.object(QMessageBox, "about") as about:
+            self.window._show_about()
+        about.assert_called_once_with(
+            self.window,
+            "About Mercury SkyPulse",
+            "Mercury SkyPulse 0.1.2 — Sirius",
         )
 
     def test_chat_is_central_and_operational_pages_are_dockable(self) -> None:

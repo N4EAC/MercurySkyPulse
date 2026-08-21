@@ -44,8 +44,8 @@ test -f "$APP/Contents/Resources/mercury/SOURCE.txt"
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 [[ "$(plutil -extract CFBundleDisplayName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
-[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.0" ]]
-[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.0" ]]
+[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.2" ]]
+[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.2" ]]
 [[ -n "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 

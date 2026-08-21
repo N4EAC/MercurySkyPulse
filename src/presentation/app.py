@@ -46,6 +46,7 @@ from platform_runtime.macos_application import (
 from platform_runtime.psk_reporter import PskReporterUploader
 from platform_runtime.weather_provider import WttrWeatherProvider
 from platform_runtime.voice_audio import VoiceAudioEngine
+from .release import APPLICATION_VERSION
 
 
 def create_application(argv: list[str] | None = None) -> QApplication:
@@ -55,7 +56,7 @@ def create_application(argv: list[str] | None = None) -> QApplication:
 
     QCoreApplication.setOrganizationName("MercurySkyPulse")
     QCoreApplication.setApplicationName("MercurySkyPulse")
-    QCoreApplication.setApplicationVersion("0.1.0")
+    QCoreApplication.setApplicationVersion(APPLICATION_VERSION)
 
     existing = QApplication.instance()
     if existing is not None:

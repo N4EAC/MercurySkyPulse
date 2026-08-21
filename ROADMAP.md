@@ -46,6 +46,8 @@ timing, disconnect, missing-callsign, and queue/backpressure tests.
 
 ### 2. Harden connection and recovery behavior
 
+- Validate the new caller-initiated, BUFFER-aware MSP session handshake over RF
+  in both call directions and with a previous MSP build for compatibility.
 - Finish moving process and connection lifecycle logic out of `MainWindow` and
   behind stable application ports.
 - Improve cancellation, reconnects, backpressure, startup readiness,

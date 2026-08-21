@@ -9,6 +9,8 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
+The active development release is **0.1.2 — Sirius**. Subsequent milestones use
+the unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this
 repository. Mercury remains a separate process and implementation boundary.
@@ -18,7 +20,7 @@ the application.
 MSP is licensed under GPL-3.0-or-later. Windows 10/11 x86-64 and Apple Silicon
 macOS are the current engineering-test platforms. The Fedora 42 x86-64 `.rpm`
 has been built, installed, and launched successfully; its hardware/RF paths still
-need validation. The Ubuntu `.deb` builder is implemented but not natively tested.
+need validation. The Ubuntu `.deb` has also been built and installed successfully.
 The repository also includes two approved 4K MSP wallpaper assets; installers do
 not bundle them.
 
@@ -239,7 +241,8 @@ Continue controlled two-station RF testing on representative Windows and macOS
 systems. Capture the persistent log from both stations and validate:
 
 1. startup, audio routing, CAT/PTT, and clean shutdown;
-2. chat acknowledgement and reconnect behavior;
+2. caller-initiated session validation, listener acknowledgement, BUFFER
+   progress, timeout recovery, chat acknowledgement, and reconnect behavior;
 3. file transfer, duplicate handling, pause/resume, and checksum completion;
 4. beacon, ping, BBS, and location exchange;
 5. TX Level Test gain changes, reported peak, ALC response, and 12-second stop;
@@ -247,6 +250,17 @@ systems. Capture the persistent log from both stations and validate:
 
 Real-RF tests remain operator-controlled and are never part of unattended
 automation.
+
+Session establishment now avoids symmetric application probes on the
+half-duplex ARQ link. The caller queues the existing bounded `session_probe`; the
+listener returns the existing `session_probe_ack` and accepts the session after
+that acknowledgement is queued. Unsolicited probes are still acknowledged for
+mixed-version compatibility. A 30-second no-progress timer restarts only when
+Mercury's reported BUFFER decreases, while an independent 90-second ceiling
+prevents indefinite validation. Probe, acknowledgement, and queue-progress
+events are written to Activity and the persistent diagnostic log. This change
+addresses a privacy-neutral field issue in which Mercury established ARQ but
+simultaneous application validation traffic did not complete.
 
 ## Engineering rules for the next session
 
