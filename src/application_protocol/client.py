@@ -12,6 +12,7 @@ from .messaging import FrameDecoder, encode_ack, encode_event, encode_message
 
 
 CALLSIGN = re.compile(r"^[A-Z0-9][A-Z0-9/-]{0,14}$")
+SESSION_HANDSHAKE_VERSION = 2
 
 
 class ApplicationMessagingClient(QObject):
@@ -32,13 +33,15 @@ class ApplicationMessagingClient(QObject):
     queued_bytes_changed = Signal(int)
 
     def __init__(self, transport, parent=None, *, call_timeout_ms: int = 60_000,
-                 validation_timeout_ms: int = 30_000,
-                 validation_maximum_ms: int = 90_000) -> None:
+                 validation_timeout_ms: int = 60_000,
+                 validation_maximum_ms: int = 180_000) -> None:
         super().__init__(parent)
         self.transport = transport
         self._decoder = FrameDecoder()
         self._pending_session: tuple[str, str, int] | None = None
         self._probe_id = ""
+        self._peer_probe_id = ""
+        self._waiting_for_ready = False
         self._outgoing_call = False
         self._validation_queued_bytes: int | None = None
         self._published_state = "disconnected"
@@ -123,6 +126,8 @@ class ApplicationMessagingClient(QObject):
                 self._acknowledge_session_probe(envelope)
             elif envelope.kind == "session_probe_ack":
                 self._accept_session_probe_ack(envelope)
+            elif envelope.kind == "session_ready":
+                self._accept_session_ready(envelope)
             elif envelope.kind == "message":
                 self.message_received.emit(envelope)
                 try:
@@ -172,7 +177,8 @@ class ApplicationMessagingClient(QObject):
         self._probe_id = str(uuid4())
         try:
             self.transport.write(encode_event(
-                "session_probe", self._probe_id, datetime.now(UTC).isoformat()
+                "session_probe", self._probe_id, datetime.now(UTC).isoformat(),
+                handshake_version=SESSION_HANDSHAKE_VERSION,
             ))
         except (OSError, RuntimeError) as error:
             self.error_received.emit(f"Could not validate the station link: {error}")
@@ -182,20 +188,47 @@ class ApplicationMessagingClient(QObject):
 
     def _acknowledge_session_probe(self, envelope) -> None:
         self.control_event.emit("MSP validation: peer probe received")
+        values = envelope.values or {}
+        handshake_version = values.get("handshake_version", 1)
+        supported_version = (
+            isinstance(handshake_version, int)
+            and not isinstance(handshake_version, bool)
+            and handshake_version in {1, SESSION_HANDSHAKE_VERSION}
+        )
+        if not supported_version:
+            self.error_received.emit(
+                "Peer uses an unsupported station-validation handshake"
+            )
+            self._abort_unconfirmed_session()
+            return
         try:
             self.transport.write(encode_event(
                 "session_probe_ack", str(uuid4()), datetime.now(UTC).isoformat(),
                 probe_id=envelope.message_id,
+                handshake_version=SESSION_HANDSHAKE_VERSION,
             ))
         except (OSError, RuntimeError) as error:
             self.error_received.emit(f"Could not confirm the peer station link: {error}")
+            self._abort_unconfirmed_session()
             return
         self.control_event.emit("MSP validation: probe acknowledgement queued")
-        # A listener validates the session by receiving and successfully
-        # acknowledging the caller's probe.  Legacy peers that send a probe
-        # from either role remain compatible with the same frame format.
         if self._pending_session and not self._outgoing_call:
-            self._confirm_pending_session()
+            modern_handshake = handshake_version == SESSION_HANDSHAKE_VERSION
+            if modern_handshake:
+                self._peer_probe_id = envelope.message_id
+                self._waiting_for_ready = True
+                self._validation_queued_bytes = None
+                self._validation_timer.start()
+                self.control_event.emit(
+                    "MSP validation: waiting for caller readiness confirmation"
+                )
+            else:
+                # Earlier callers do not send session_ready. Preserve mixed-
+                # version compatibility after successfully queuing their ACK.
+                self.control_event.emit(
+                    "MSP validation: legacy peer accepted after acknowledgement"
+                )
+                self._confirm_pending_session()
 
     def _accept_session_probe_ack(self, envelope) -> None:
         values = envelope.values or {}
@@ -203,6 +236,31 @@ class ApplicationMessagingClient(QObject):
                 or values.get("probe_id") != self._probe_id):
             return
         self.control_event.emit("MSP validation: probe acknowledgement received")
+        self._validation_timer.start()
+        try:
+            self.transport.write(encode_event(
+                "session_ready", str(uuid4()), datetime.now(UTC).isoformat(),
+                probe_id=self._probe_id,
+                handshake_version=SESSION_HANDSHAKE_VERSION,
+            ))
+        except (OSError, RuntimeError) as error:
+            self.error_received.emit(
+                f"Could not complete station validation: {error}"
+            )
+            self._abort_unconfirmed_session()
+            return
+        self.control_event.emit("MSP validation: caller readiness queued")
+        self._confirm_pending_session()
+
+    def _accept_session_ready(self, envelope) -> None:
+        values = envelope.values or {}
+        if (not self._pending_session or self._outgoing_call
+                or not self._waiting_for_ready
+                or values.get("probe_id") != self._peer_probe_id
+                or values.get("handshake_version") != SESSION_HANDSHAKE_VERSION):
+            return
+        self.control_event.emit("MSP validation: caller readiness received")
+        self._validation_timer.start()
         self._confirm_pending_session()
 
     def _confirm_pending_session(self) -> None:
@@ -213,6 +271,8 @@ class ApplicationMessagingClient(QObject):
         self._validation_maximum_timer.stop()
         self._pending_session = None
         self._probe_id = ""
+        self._peer_probe_id = ""
+        self._waiting_for_ready = False
         self._validation_queued_bytes = None
         self._outgoing_call = False
         self._set_state("connected")
@@ -221,7 +281,7 @@ class ApplicationMessagingClient(QObject):
 
     def _on_queued_bytes_changed(self, queued: int) -> None:
         self.queued_bytes_changed.emit(queued)
-        if not self._pending_session or not self._outgoing_call:
+        if not self._pending_session or not self._validation_timer.isActive():
             return
         previous = self._validation_queued_bytes
         self._validation_queued_bytes = queued
@@ -245,13 +305,15 @@ class ApplicationMessagingClient(QObject):
     def _validation_timed_out(self) -> None:
         if not self._pending_session:
             return
-        # Only the caller owns locally observable validation traffic. A
-        # listener waits for the independently bounded maximum deadline.
-        if not self._outgoing_call:
+        if not self._outgoing_call and not self._waiting_for_ready:
             return
-        if self._outgoing_call and self._validation_queued_bytes:
+        if self._validation_queued_bytes:
             self.error_received.emit(
                 "Station validation made no Mercury buffer progress; connection cancelled"
+            )
+        elif self._waiting_for_ready:
+            self.error_received.emit(
+                "Caller readiness confirmation did not arrive; connection cancelled"
             )
         else:
             self.error_received.emit(
@@ -265,7 +327,7 @@ class ApplicationMessagingClient(QObject):
         if self._outgoing_call:
             message = "Station validation exceeded its safety deadline; connection cancelled"
         else:
-            message = "Caller confirmation was not received within 90 seconds; connection cancelled"
+            message = "Caller confirmation was not received within 180 seconds; connection cancelled"
         self.error_received.emit(message)
         self._abort_unconfirmed_session()
 
@@ -291,6 +353,8 @@ class ApplicationMessagingClient(QObject):
         self._validation_maximum_timer.stop()
         self._pending_session = None
         self._probe_id = ""
+        self._peer_probe_id = ""
+        self._waiting_for_ready = False
         self._validation_queued_bytes = None
         self._outgoing_call = False
 

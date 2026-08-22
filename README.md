@@ -102,11 +102,14 @@ Active development after Alpha 2 identifies itself as **0.1.3 — Sirius**.
 The Sirius development cycle hardens station establishment for half-duplex RF:
 only the caller initiates MSP peer validation, the listener acknowledges that
 probe, and caller validation observes Mercury BUFFER progress under a separate
-bounded safety deadline. The listener uses the 90-second safety deadline because
-it cannot observe progress in the remote caller's BUFFER. Activity and persistent
-logs identify each probe/ack stage without recording station-specific diagnostic
-narratives. The privacy-neutral failure and correction record is maintained in
-`docs/FAILURES_AND_CORRECTIONS.md`.
+bounded safety deadline. Current peers complete a three-way probe, acknowledgement,
+and readiness exchange so neither endpoint releases feature traffic from a
+one-sided provisional session. An endpoint with queued handshake traffic uses a
+60-second no-progress guard that follows BUFFER decreases and valid handshake
+events; an independent 180-second ceiling bounds the attempt. Activity and
+persistent logs identify each stage without recording station-specific
+diagnostic narratives. The privacy-neutral failure and correction record is
+maintained in `docs/FAILURES_AND_CORRECTIONS.md`.
 
 ### Station chat and short voice messages
 

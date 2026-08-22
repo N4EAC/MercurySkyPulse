@@ -134,6 +134,9 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.transport.data_received.emit(encode_event(
             "session_probe_ack", "ack-1", self.now, probe_id=probe.message_id
         ))
+        ready = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(ready.kind, "session_ready")
+        self.assertEqual(ready.values["probe_id"], probe.message_id)
         self.assertEqual(states[-1], "connected")
         self.assertEqual(sessions, [("N0CALL", "K1ABC", 2300)])
 
@@ -181,6 +184,61 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertEqual(response.values["probe_id"], "peer-probe")
         self.assertEqual(sessions, [("K1ABC", "N0CALL", 2300)])
 
+    def test_modern_listener_waits_for_matching_caller_ready(self) -> None:
+        states, sessions = [], []
+        self.client.state_changed.connect(states.append)
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.transport.data_received.emit(encode_event(
+            "session_probe", "peer-probe", self.now, handshake_version=2
+        ))
+
+        self.assertEqual(sessions, [])
+        self.assertTrue(self.client._validation_timer.isActive())
+        response = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(response.kind, "session_probe_ack")
+
+        self.transport.data_received.emit(encode_event(
+            "session_ready", "ready", self.now, probe_id="wrong",
+            handshake_version=2,
+        ))
+        self.assertEqual(sessions, [])
+        self.transport.data_received.emit(encode_event(
+            "session_ready", "ready", self.now, probe_id="peer-probe",
+            handshake_version=2,
+        ))
+
+        self.assertEqual(states[-1], "connected")
+        self.assertEqual(sessions, [("K1ABC", "N0CALL", 2300)])
+
+    def test_malformed_handshake_version_cannot_downgrade_to_legacy(self) -> None:
+        errors, sessions = [], []
+        self.client.error_received.connect(errors.append)
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+
+        self.transport.data_received.emit(encode_event(
+            "session_probe", "peer-probe", self.now,
+            handshake_version=True,
+        ))
+
+        self.assertEqual(sessions, [])
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("unsupported", errors[-1].lower())
+
+    def test_probe_acknowledgement_write_failure_aborts_validation(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.transport.write_error = RuntimeError("data socket closed")
+
+        self.transport.data_received.emit(encode_event(
+            "session_probe", "peer-probe", self.now, handshake_version=2
+        ))
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("Could not confirm", errors[-1])
+
     def test_only_calling_station_initiates_session_probe(self) -> None:
         states = []
         self.client.state_changed.connect(states.append)
@@ -209,7 +267,21 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client._validation_maximum_timed_out()
 
         self.assertEqual(self.transport.controls[-1], "DISCONNECT")
-        self.assertIn("90 seconds", errors[-1])
+        self.assertIn("180 seconds", errors[-1])
+
+    def test_listener_ack_no_progress_timeout_disconnects(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.transport.data_received.emit(encode_event(
+            "session_probe", "peer-probe", self.now, handshake_version=2
+        ))
+        self.transport.queued_bytes_changed.emit(128)
+
+        self.client._validation_timed_out()
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("buffer progress", errors[-1])
 
     def test_mercury_buffer_progress_extends_no_progress_window(self) -> None:
         self.client.connect_station("N0CALL", "K1ABC")

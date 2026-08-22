@@ -27,3 +27,20 @@ belongs only to the caller and restarts when its Mercury BUFFER decreases. The
 listener waits for the caller probe under the independent 90-second maximum
 deadline. Both roles retain bounded cancellation and restore listening after a
 failed validation.
+
+## 0.1.3 — Progress arrived at the caller timeout boundary
+
+**Observed failure:** The caller's first BUFFER decrease and its 30-second timer
+event arrived in the same event-loop interval. The timer was processed first and
+cancelled validation. Mercury later delivered the already-queued probe, causing
+the listener to queue an acknowledgement and briefly expose a one-sided
+connected state.
+
+**Correction:** Validation is now a three-way, progress-driven state machine:
+caller probe, listener acknowledgement, and caller readiness. The listener stays
+provisional until readiness arrives, so feature traffic cannot be released into
+a cancelled peer session. Any endpoint with locally queued handshake traffic
+uses a 60-second no-progress guard which restarts on BUFFER decreases and valid
+handshake events. A separate 180-second ceiling bounds the entire attempt.
+Versioned probes retain the earlier behavior only when communicating with a
+legacy client that cannot send the readiness frame.

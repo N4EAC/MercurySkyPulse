@@ -254,17 +254,17 @@ automation.
 
 Session establishment now avoids symmetric application probes on the
 half-duplex ARQ link. The caller queues the existing bounded `session_probe`; the
-listener returns the existing `session_probe_ack` and accepts the session after
-that acknowledgement is queued. Unsolicited probes are still acknowledged for
-mixed-version compatibility. The caller's 30-second no-progress timer restarts
-only when Mercury's reported BUFFER decreases. The listener cannot observe that
-remote BUFFER and therefore waits under the independent 90-second ceiling rather
-than cancelling at the caller's local no-progress deadline. Probe,
-acknowledgement, completion, and queue-progress
-events are written to Activity and the persistent diagnostic log. This change
-addresses a privacy-neutral field issue in which Mercury established ARQ but
-application validation traffic did not complete. The sanitized engineering
-history is retained in `docs/FAILURES_AND_CORRECTIONS.md`.
+listener returns the existing `session_probe_ack`. Current peers then use a third
+`session_ready` frame: the listener remains provisional after queuing its ACK and
+does not release feature traffic until caller readiness arrives. Unsolicited
+legacy probes are still acknowledged for mixed-version compatibility. An
+endpoint with queued validation traffic uses a 60-second progress guard that
+restarts when Mercury's reported BUFFER decreases or a valid handshake frame
+arrives; every attempt has a separate 180-second ceiling. Probe,
+acknowledgement, readiness,
+completion, and queue-progress events are written to Activity and the persistent
+diagnostic log. The sanitized engineering history is retained in
+`docs/FAILURES_AND_CORRECTIONS.md`.
 
 ## Engineering rules for the next session
 
