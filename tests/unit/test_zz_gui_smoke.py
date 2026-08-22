@@ -51,7 +51,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
-        self.assertEqual(self.app.applicationVersion(), "0.1.2")
+        self.assertEqual(self.app.applicationVersion(), "0.1.3")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -73,7 +73,21 @@ class GuiSmokeTests(unittest.TestCase):
         about.assert_called_once_with(
             self.window,
             "About Mercury SkyPulse",
-            "Mercury SkyPulse 0.1.2 — Sirius",
+            "Mercury SkyPulse 0.1.3 — Sirius\n\n"
+            "Created by N4EAC Eduardo\n"
+            "K5CG Danny (Contributor)",
+        )
+
+    def test_validation_roles_have_operator_facing_labels(self) -> None:
+        self.window.chat_page.set_state("validating-sending")
+        self.assertEqual(
+            self.window.chat_page.link_state.text(),
+            "TNC: sending link confirmation",
+        )
+        self.window._display_link_state("validating-receiving")
+        self.assertEqual(
+            self.window.station_summary.values["link"].text(),
+            "Receiving confirmation",
         )
 
     def test_chat_is_central_and_operational_pages_are_dockable(self) -> None:

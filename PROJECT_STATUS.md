@@ -9,7 +9,8 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
-The active development release is **0.1.2 — Sirius**. Subsequent milestones use
+The active development release is **0.1.3 — Sirius**. This corrective release
+retains the Sirius codename. Subsequent milestones use
 the unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this
@@ -255,12 +256,15 @@ Session establishment now avoids symmetric application probes on the
 half-duplex ARQ link. The caller queues the existing bounded `session_probe`; the
 listener returns the existing `session_probe_ack` and accepts the session after
 that acknowledgement is queued. Unsolicited probes are still acknowledged for
-mixed-version compatibility. A 30-second no-progress timer restarts only when
-Mercury's reported BUFFER decreases, while an independent 90-second ceiling
-prevents indefinite validation. Probe, acknowledgement, and queue-progress
+mixed-version compatibility. The caller's 30-second no-progress timer restarts
+only when Mercury's reported BUFFER decreases. The listener cannot observe that
+remote BUFFER and therefore waits under the independent 90-second ceiling rather
+than cancelling at the caller's local no-progress deadline. Probe,
+acknowledgement, completion, and queue-progress
 events are written to Activity and the persistent diagnostic log. This change
 addresses a privacy-neutral field issue in which Mercury established ARQ but
-simultaneous application validation traffic did not complete.
+application validation traffic did not complete. The sanitized engineering
+history is retained in `docs/FAILURES_AND_CORRECTIONS.md`.
 
 ## Engineering rules for the next session
 

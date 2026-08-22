@@ -42,7 +42,7 @@ from .panels import (
     StationSummaryPanel,
 )
 from .themes import Appearance, PlatformPreset, Theme, apply_appearance
-from .release import RELEASE_DISPLAY
+from .release import RELEASE_CREDITS, RELEASE_DISPLAY
 from platform_runtime import MercuryProcessConfig, MercuryProcessSupervisor
 from transport.mercury.telemetry import MercuryTelemetryClient
 
@@ -508,7 +508,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About Mercury SkyPulse",
-            RELEASE_DISPLAY,
+            f"{RELEASE_DISPLAY}\n\n{RELEASE_CREDITS}",
         )
 
     def _show_plugins(self) -> None:
@@ -599,7 +599,7 @@ class MainWindow(QMainWindow):
             self.chat_page.set_listening_identity
         )
         service.state_changed.connect(
-            lambda state: self.station_summary.set_value("link", state.title())
+            self._display_link_state
         )
         service.state_changed.connect(
             lambda state: self.activity_panel.append_log(f"ARQ state: {state}")
@@ -761,6 +761,13 @@ class MainWindow(QMainWindow):
                 audio.set_input_gain(
                     int(self._settings.value("voice/input_gain_percent", 100))
                 )
+
+    def _display_link_state(self, state: str) -> None:
+        label = {
+            "validating-sending": "Sending confirmation",
+            "validating-receiving": "Receiving confirmation",
+        }.get(state, state.title())
+        self.station_summary.set_value("link", label)
 
     def _start_voice_recording(self) -> None:
         if not self.voice_message_service or not self.voice_audio_engine:

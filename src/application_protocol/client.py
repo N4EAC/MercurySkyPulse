@@ -159,15 +159,16 @@ class ApplicationMessagingClient(QObject):
     ) -> None:
         self._call_timer.stop()
         self._pending_session = (source, destination, bandwidth)
-        self._set_state("validating")
         self._validation_queued_bytes = None
-        self._validation_timer.start()
         self._validation_maximum_timer.start()
         if not self._outgoing_call:
+            self._set_state("validating-receiving")
             self.control_event.emit(
                 "MSP validation: listening peer is waiting for the caller probe"
             )
             return
+        self._set_state("validating-sending")
+        self._validation_timer.start()
         self._probe_id = str(uuid4())
         try:
             self.transport.write(encode_event(
@@ -215,6 +216,7 @@ class ApplicationMessagingClient(QObject):
         self._validation_queued_bytes = None
         self._outgoing_call = False
         self._set_state("connected")
+        self.control_event.emit("MSP validation: completed")
         self.session_connected.emit(*session)
 
     def _on_queued_bytes_changed(self, queued: int) -> None:
@@ -243,6 +245,10 @@ class ApplicationMessagingClient(QObject):
     def _validation_timed_out(self) -> None:
         if not self._pending_session:
             return
+        # Only the caller owns locally observable validation traffic. A
+        # listener waits for the independently bounded maximum deadline.
+        if not self._outgoing_call:
+            return
         if self._outgoing_call and self._validation_queued_bytes:
             self.error_received.emit(
                 "Station validation made no Mercury buffer progress; connection cancelled"
@@ -256,9 +262,11 @@ class ApplicationMessagingClient(QObject):
     def _validation_maximum_timed_out(self) -> None:
         if not self._pending_session:
             return
-        self.error_received.emit(
-            "Station validation exceeded its safety deadline; connection cancelled"
-        )
+        if self._outgoing_call:
+            message = "Station validation exceeded its safety deadline; connection cancelled"
+        else:
+            message = "Caller confirmation was not received within 90 seconds; connection cancelled"
+        self.error_received.emit(message)
         self._abort_unconfirmed_session()
 
     def _abort_unconfirmed_session(self) -> None:

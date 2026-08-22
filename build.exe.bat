@@ -120,7 +120,7 @@ echo.
 echo Build complete: dist\MercurySkyPulse\MercurySkyPulse.exe
 echo Mercury included: dist\MercurySkyPulse\mercury\mercury.exe
 if defined MSP_ISCC (
-    echo Installer complete: dist\installer\MercurySkyPulse-0.1.2-windows-x86_64-setup.exe
+    echo Installer complete: dist\installer\MercurySkyPulse-0.1.3-windows-x86_64-setup.exe
 ) else (
     echo Portable package complete. Copy the entire dist\MercurySkyPulse directory.
 )
@@ -206,7 +206,7 @@ if not defined MSP_ISCC (
     exit /b 0
 )
 echo Building the Inno Setup installer...
-"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.2 packaging\windows\MercurySkyPulse.iss
+"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.3 packaging\windows\MercurySkyPulse.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed to create the Windows installer.
     exit /b 1

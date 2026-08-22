@@ -271,7 +271,11 @@ class ChatPage(QWidget):
         self._presence_expiry_timer.timeout.connect(self._clear_peer_presence)
 
     def set_state(self, state: str) -> None:
-        self.link_state.setText(f"TNC: {state}")
+        label = {
+            "validating-sending": "sending link confirmation",
+            "validating-receiving": "receiving link confirmation",
+        }.get(state, state)
+        self.link_state.setText(f"TNC: {label}")
         self.link_state.setToolTip(f"Mercury TNC state: {state}")
 
     def set_startup_issue(self, summary: str, action: str) -> None:

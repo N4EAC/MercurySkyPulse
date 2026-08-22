@@ -97,13 +97,16 @@ remains available with the earlier unsigned engineering installers for:
 - Fedora 42 x86-64 (`.rpm`).
 
 All alpha artifacts are intended for controlled testing rather than production use.
-Active development after Alpha 2 identifies itself as **0.1.2 — Sirius**.
+Active development after Alpha 2 identifies itself as **0.1.3 — Sirius**.
 
 The Sirius development cycle hardens station establishment for half-duplex RF:
 only the caller initiates MSP peer validation, the listener acknowledges that
-probe, and validation observes Mercury BUFFER progress under a separate bounded
-safety deadline. Activity and persistent logs identify each probe/ack stage
-without recording station-specific diagnostic narratives.
+probe, and caller validation observes Mercury BUFFER progress under a separate
+bounded safety deadline. The listener uses the 90-second safety deadline because
+it cannot observe progress in the remote caller's BUFFER. Activity and persistent
+logs identify each probe/ack stage without recording station-specific diagnostic
+narratives. The privacy-neutral failure and correction record is maintained in
+`docs/FAILURES_AND_CORRECTIONS.md`.
 
 ### Station chat and short voice messages
 
@@ -466,11 +469,11 @@ For a conventional drag-to-Applications disk image, run:
 This first builds and validates `MercurySkyPulse.app`, then creates:
 
 ```text
-dist/installer/MercurySkyPulse-0.1.2-macos-arm64.dmg
+dist/installer/MercurySkyPulse-0.1.3-macos-arm64.dmg
 ```
 
 When the DMG exceeds 50 MiB, the script also creates the repository-ready
-`MercurySkyPulse-0.1.2-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
+`MercurySkyPulse-0.1.3-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
 DMG so large installer updates do not trigger GitHub's 50-MB warning.
 
 Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
@@ -534,7 +537,7 @@ When [Inno Setup 6](https://jrsoftware.org/isdl.php) is installed, the same
 command compiles `packaging\windows\MercurySkyPulse.iss` and creates:
 
 ```text
-dist\installer\MercurySkyPulse-0.1.2-windows-x86_64-setup.exe
+dist\installer\MercurySkyPulse-0.1.3-windows-x86_64-setup.exe
 ```
 
 The installer displays the MSP icon, installs per user without an administrator
@@ -602,7 +605,7 @@ sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
 
 The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
-either `dist/packages/mercury-skypulse_0.1.2_amd64.deb` or an x86-64 RPM in the
+either `dist/packages/mercury-skypulse_0.1.3_amd64.deb` or an x86-64 RPM in the
 same directory. The Fedora 42 RPM path has been built, installed, and launched
 successfully. It installs MSP under `/opt/mercuryskypulse`, adds the
 `mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or

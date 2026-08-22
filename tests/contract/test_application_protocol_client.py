@@ -126,7 +126,7 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.transport.state_changed.emit("connected")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
 
-        self.assertEqual(states, ["linking", "validating"])
+        self.assertEqual(states, ["linking", "validating-sending"])
         self.assertEqual(sessions, [])
         probe = FrameDecoder().feed(self.transport.writes[-1])[0]
         self.assertEqual(probe.kind, "session_probe")
@@ -182,10 +182,34 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.assertEqual(sessions, [("K1ABC", "N0CALL", 2300)])
 
     def test_only_calling_station_initiates_session_probe(self) -> None:
+        states = []
+        self.client.state_changed.connect(states.append)
         self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
         self.assertEqual(self.transport.writes, [])
-        self.assertTrue(self.client._validation_timer.isActive())
+        self.assertEqual(states, ["validating-receiving"])
+        self.assertFalse(self.client._validation_timer.isActive())
         self.assertTrue(self.client._validation_maximum_timer.isActive())
+
+    def test_listener_ignores_caller_no_progress_deadline(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+
+        self.client._validation_timed_out()
+
+        self.assertEqual(errors, [])
+        self.assertNotIn("DISCONNECT", self.transport.controls)
+        self.assertTrue(self.client._validation_maximum_timer.isActive())
+
+    def test_listener_disconnects_at_maximum_validation_deadline(self) -> None:
+        errors = []
+        self.client.error_received.connect(errors.append)
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+
+        self.client._validation_maximum_timed_out()
+
+        self.assertEqual(self.transport.controls[-1], "DISCONNECT")
+        self.assertIn("90 seconds", errors[-1])
 
     def test_mercury_buffer_progress_extends_no_progress_window(self) -> None:
         self.client.connect_station("N0CALL", "K1ABC")
