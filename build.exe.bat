@@ -81,18 +81,10 @@ echo Building MercurySkyPulse.exe...
     --icon assets\icons\mercuryskypulse.ico ^
     --add-data "assets\icons\mercuryskypulse.png;assets\icons" ^
     --add-data "THIRD_PARTY_NOTICES.md;." ^
-    --add-data "licenses\PYAV_LICENSE.txt;licenses" ^
     --paths src ^
     apps\desktop\main.py
 if errorlevel 1 (
     echo ERROR: PyInstaller failed to create the executable.
-    goto failed
-)
-
-echo Verifying Qt Multimedia, bounded Opus compression, bilateral bitrate gating, and voice protocol 2 support...
-"%MSP_PYTHON%" tools\validate_voice_package.py dist\MercurySkyPulse
-if errorlevel 1 (
-    echo ERROR: The Windows package is missing the Qt Multimedia backend required for voice recording and playback.
     goto failed
 )
 
@@ -120,7 +112,7 @@ echo.
 echo Build complete: dist\MercurySkyPulse\MercurySkyPulse.exe
 echo Mercury included: dist\MercurySkyPulse\mercury\mercury.exe
 if defined MSP_ISCC (
-    echo Installer complete: dist\installer\MercurySkyPulse-0.1.3-windows-x86_64-setup.exe
+    echo Installer complete: dist\installer\MercurySkyPulse-0.1.4-windows-x86_64-setup.exe
 ) else (
     echo Portable package complete. Copy the entire dist\MercurySkyPulse directory.
 )
@@ -206,7 +198,7 @@ if not defined MSP_ISCC (
     exit /b 0
 )
 echo Building the Inno Setup installer...
-"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.3 packaging\windows\MercurySkyPulse.iss
+"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.4 packaging\windows\MercurySkyPulse.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed to create the Windows installer.
     exit /b 1

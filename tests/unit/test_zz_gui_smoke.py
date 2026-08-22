@@ -51,7 +51,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
-        self.assertEqual(self.app.applicationVersion(), "0.1.3")
+        self.assertEqual(self.app.applicationVersion(), "0.1.4")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -73,7 +73,7 @@ class GuiSmokeTests(unittest.TestCase):
         about.assert_called_once_with(
             self.window,
             "About Mercury SkyPulse",
-            "Mercury SkyPulse 0.1.3 — Sirius\n\n"
+            "Mercury SkyPulse 0.1.4 — Canopus\n\n"
             "Created by N4EAC Eduardo\n"
             "K5CG Danny (Contributor)",
         )
@@ -82,12 +82,12 @@ class GuiSmokeTests(unittest.TestCase):
         self.window.chat_page.set_state("validating-sending")
         self.assertEqual(
             self.window.chat_page.link_state.text(),
-            "TNC: sending link confirmation",
+            "TNC: verifying peer",
         )
         self.window._display_link_state("validating-receiving")
         self.assertEqual(
             self.window.station_summary.values["link"].text(),
-            "Receiving confirmation",
+            "Verifying Peer",
         )
 
     def test_chat_is_central_and_operational_pages_are_dockable(self) -> None:
@@ -102,6 +102,13 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertIs(self.window._docks["beacon"].widget(), self.window.beacon_page)
         self.assertIs(self.window._docks["ping"].widget(), self.window.ping_page)
         self.assertIs(self.window._docks["bbs"].widget(), self.window.bbs_page)
+
+    def test_voice_chat_and_second_audio_configuration_are_removed(self) -> None:
+        self.assertFalse(hasattr(self.window.chat_page, "voice_record_button"))
+        page = AudioSetupPage()
+        self.assertFalse(hasattr(page, "voice_input_device"))
+        self.assertFalse(hasattr(page, "voice_output_device"))
+        page.deleteLater()
 
     def test_docks_are_resizable_movable_and_floatable(self) -> None:
         self.assertTrue(self.window._toolbar.isMovable())
@@ -409,30 +416,6 @@ class GuiSmokeTests(unittest.TestCase):
             applied[0],
             ("capture:native", "playback:native"),
         )
-        page.deleteLater()
-
-    def test_voice_device_selection_survives_device_refresh_and_confirms_save(self) -> None:
-        page = AudioSetupPage()
-        page.set_voice_devices("Saved Microphone", "Saved Speaker")
-        page.set_devices(
-            "capture_dev_list", (MercuryDevice("Other Microphone", "Other Microphone"),)
-        )
-        page.set_devices(
-            "playback_dev_list", (MercuryDevice("Other Speaker", "Other Speaker"),)
-        )
-        self.assertEqual(page.voice_input_device.currentText(), "Saved Microphone")
-        self.assertEqual(page.voice_output_device.currentText(), "Saved Speaker")
-        saved = []
-        gains = []
-        page.voice_apply_requested.connect(lambda *values: saved.append(values))
-        page.voice_gain_requested.connect(gains.append)
-        page.set_voice_gain(72)
-        page.voice_save_button.click()
-        self.assertEqual(saved[-1], ("Saved Microphone", "Saved Speaker"))
-        self.assertIn("saved", page.voice_save_status.text().lower())
-        self.assertEqual(gains[-1], 72)
-        page.set_voice_input_level(-24.5)
-        self.assertIn("-24.5 dBFS", page.voice_input_level.format())
         page.deleteLater()
 
     def test_psk_reporter_setup_is_opt_in_with_mercury_frequency(self) -> None:

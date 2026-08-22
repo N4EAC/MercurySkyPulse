@@ -159,18 +159,6 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         font-weight: 600;
     }}
     QPushButton#PrimaryButton:hover {{ background: {colors['accent_hover']}; }}
-    QPushButton#VoiceRecordingButton {{
-        background: {colors['danger']};
-        color: white;
-        border-color: {colors['danger']};
-        font-weight: 600;
-    }}
-    QPushButton#VoicePlayingButton {{
-        background: {colors['success']};
-        color: white;
-        border-color: {colors['success']};
-        font-weight: 600;
-    }}
     QListWidget, QTreeWidget, QTableWidget, QPlainTextEdit, QTextEdit {{
         background: {colors['surface']};
         alternate-background-color: {colors['surface_alt']};

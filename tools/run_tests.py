@@ -38,7 +38,27 @@ SUITES = {
 }
 
 
+def _install_offscreen_qt_filter() -> None:
+    """Hide only Qt diagnostics known to be artifacts of the offscreen plugin."""
+    if os.environ.get("QT_QPA_PLATFORM") != "offscreen":
+        return
+    from PySide6.QtCore import qInstallMessageHandler
+
+    ignored = (
+        "This plugin does not support propagateSizeHints()",
+        "This plugin does not support raise()",
+    )
+
+    def handler(_message_type, _context, message: str) -> None:
+        if message in ignored:
+            return
+        print(message, file=sys.stderr)
+
+    qInstallMessageHandler(handler)
+
+
 def main() -> int:
+    _install_offscreen_qt_filter()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("suite", nargs="?", default="all",
                         choices=("all", *SUITES), help="test group to run")

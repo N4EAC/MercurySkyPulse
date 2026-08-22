@@ -44,3 +44,19 @@ uses a 60-second no-progress guard which restarts on BUFFER decreases and valid
 handshake events. A separate 180-second ceiling bounds the entire attempt.
 Versioned probes retain the earlier behavior only when communicating with a
 legacy client that cannot send the readiness frame.
+
+## 0.1.3 — Validation and optional traffic exhausted a low-rate session
+
+**Observed failure:** A successful direct call required more than two minutes
+for both applications to show connected. A short text message then waited almost
+three minutes for delivery because automatic voice-capability events had placed
+roughly 750–800 bytes in Mercury's queue. In a subsequent CQ-answer attempt, the
+listener's 198-byte JSON acknowledgement was still making BUFFER progress when
+the caller's response deadline expired and cancelled the link.
+
+**Correction in 0.1.4 — Canopus:** Voice chat, separate voice audio, codec
+dependencies, capability negotiation, and disposable presence events are
+removed. The three peer-confirmation events now use fixed 14-byte, versioned
+binary frames with one shared random token. Caller role is established before
+issuing Mercury controls, so direct calls and CQ answers use the same race-safe
+path. Operator text no longer waits behind automatic voice or presence traffic.

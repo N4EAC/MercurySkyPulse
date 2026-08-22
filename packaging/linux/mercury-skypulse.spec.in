@@ -17,7 +17,7 @@ BuildArch:      x86_64
 Requires:       glibc, mesa-libEGL, mesa-libGL, libxkbcommon-x11, alsa-lib, pulseaudio-libs, pipewire-libs, hamlib
 
 %description
-Mercury SkyPulse provides chat, short voice messages, beacon, ping, file transfer,
+Mercury SkyPulse provides chat, beacon, ping, file transfer,
 BBS, location, reporting, and station controls through a bundled Mercury modem runtime.
 
 %prep

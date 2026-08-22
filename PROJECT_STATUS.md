@@ -9,9 +9,11 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
-The active development release is **0.1.3 — Sirius**. This corrective release
-retains the Sirius codename. Subsequent milestones use
-the unused star codenames listed in `assets/stars/stars`, in order.
+The active development release is **0.1.4 — Canopus**. Canopus prioritizes fast,
+reliable text operation: it removes voice chat and its codec/audio dependencies,
+removes disposable presence traffic, and replaces verbose JSON station
+validation with compact versioned control frames. Subsequent milestones use the
+unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this
 repository. Mercury remains a separate process and implementation boundary.
@@ -58,37 +60,18 @@ Mercury internals.
   under the saved station callsign.
 - Outgoing calls stop after 60 seconds if unanswered. A local Mercury
   `CONNECTED` indication remains provisional until a bounded MSP session probe
-  is acknowledged by the peer; unconfirmed links are disconnected after 30
-  seconds and never expose chat, file, voice, or BBS traffic as connected.
+  is acknowledged by the peer; queued validation uses a 60-second no-progress
+  guard and a 180-second absolute ceiling, and never exposes chat, file, or BBS
+  traffic as connected.
   Every Mercury `DISCONNECTED` event explicitly restores the MSP application
   state to ready, including unanswered calls where Mercury's raw transport never
   left ready, so automatic listening reliably re-arms under the saved callsign.
   Session cleanup clears peer-specific controls without overwriting the newer
   authoritative `Listening` presentation with a stale disconnected label.
-- Session-scoped compressed voice messages with separate system audio devices,
-  deterministic full-10-second 8-kHz mono Opus encoding within an 8-KiB bound,
-  peer capability negotiation, conservative
-  sustained sender-and-receiver bitrate gating, file-transfer exclusion, checksum verification, disconnect
-  cleanup, sparse typing/recording presence, and a 120-second post-delivery cooldown.
-  Local recording, playback, discard, and replacement work while disconnected;
-  transmission remains session/capability/link gated. Separate voice-device and
-  microphone-level choices persist locally; Setup shows the active endpoints and
-  a non-transmitting live dBFS diagnostic. Windows media-player file handles are
-  released before draft replacement, and cleanup failures cannot strand the UI.
-  Chat uses a stable two-line voice status: recording shows only a fixed-width
-  `10` through `00` countdown, Record is red only during capture, Play is green
-  only during playback, and send availability returns after capture stops.
-  Protocol 2 uses stop-and-wait 384-byte chunks, receiver-confirmed progress,
-  a BUFFER-0 gate for the offer, Mercury BUFFER low-water pacing, response
-  timeouts that begin only after the local queue drains, local incoming and
-  delivery snapshots, bilateral sustained-link readiness advertised only when
-  it changes, a unified Transfer status card, Chat timeline entries that advance
-  from queued to sent to receiver-verified delivered/failed, locally visible deferred
-  text, and suppression of disposable presence traffic while bulk data is
-  pending. Beacons advertise `voice-chat` support.
-- Voice protocol errors are copied into the persistent Activity log, late peer
-  results cannot rewrite terminal transfer outcomes, and an intentional Mercury
-  shutdown no longer appears as a process crash.
+- Compact 14-byte, versioned peer-confirmation frames replace the previous
+  144–198-byte JSON validation events. Direct calls and CQ answers share the
+  same caller role established before Mercury callbacks can arrive. Voice and
+  presence protocols are retired so optional traffic cannot precede text.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, a dedicated download directory,
   receiver-confirmed Chat status, and a clean outgoing control row after delivery.
@@ -122,8 +105,7 @@ Mercury internals.
   modem sync, TX/RX, SNR, bitrate, current Mercury-reported ARQ TX/RX payload modes,
   frequency, peer, current GRID, next-beacon
   countdown or paused state, and workflow state.
-- Completed incoming and outgoing voice messages are timestamp-ordered with text
-  in Chat and provide per-message playback. File transfers can be cancelled;
+- File transfers can be cancelled;
   disconnects terminate incomplete session transfers and release the send queue.
 - Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:
   solid green for receive and solid red for transmit. UTC date/time is displayed

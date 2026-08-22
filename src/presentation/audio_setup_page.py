@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QPushButton,
-    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -22,8 +21,6 @@ NO_ENERGY_WARNING_MS = 5_000
 
 class AudioSetupPage(QWidget):
     apply_requested = Signal(str, str)
-    voice_apply_requested = Signal(str, str)
-    voice_gain_requested = Signal(int)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -60,46 +57,6 @@ class AudioSetupPage(QWidget):
             )
         )
         layout.addWidget(save)
-
-        voice = QGroupBox("Voice Message Audio")
-        voice_form = QFormLayout(voice)
-        self.voice_input_device = self._combo("System default microphone")
-        self.voice_output_device = self._combo("System default speaker")
-        voice_form.addRow("Voice microphone", self.voice_input_device)
-        voice_form.addRow("Voice playback", self.voice_output_device)
-        self.voice_input_gain = QSlider(Qt.Orientation.Horizontal)
-        self.voice_input_gain.setRange(0, 100)
-        self.voice_input_gain.setValue(100)
-        self.voice_input_gain.setToolTip(
-            "Voice microphone capture level. Use the operating-system input "
-            "level if additional amplification is needed."
-        )
-        self.voice_gain_value = QLabel("100%")
-        gain_row = QWidget()
-        gain_layout = QVBoxLayout(gain_row)
-        gain_layout.setContentsMargins(0, 0, 0, 0)
-        gain_layout.addWidget(self.voice_input_gain)
-        gain_layout.addWidget(self.voice_gain_value)
-        voice_form.addRow("Microphone level", gain_row)
-        self.voice_input_gain.valueChanged.connect(
-            lambda value: self.voice_gain_value.setText(f"{value}%")
-        )
-        self.voice_save_button = QPushButton("Save Voice Devices")
-        self.voice_save_button.clicked.connect(self._save_voice_devices)
-        voice_form.addRow(self.voice_save_button)
-        self.voice_save_status = QLabel()
-        self.voice_save_status.setObjectName("Muted")
-        voice_form.addRow("Saved configuration", self.voice_save_status)
-        self.voice_input_level = QProgressBar()
-        self.voice_input_level.setRange(0, 100)
-        self.voice_input_level.setValue(0)
-        self.voice_input_level.setFormat("Open this Audio tab to monitor the microphone")
-        voice_form.addRow("Live microphone", self.voice_input_level)
-        self.voice_active_devices = QLabel("Voice endpoints: system defaults")
-        self.voice_active_devices.setWordWrap(True)
-        self.voice_active_devices.setObjectName("Muted")
-        voice_form.addRow(self.voice_active_devices)
-        layout.addWidget(voice)
 
         diagnostics = QGroupBox("Live Audio Diagnostics")
         diagnostic_layout = QVBoxLayout(diagnostics)
@@ -157,46 +114,6 @@ class AudioSetupPage(QWidget):
         index = combo.findData(current)
         combo.setCurrentIndex(index) if index >= 0 else combo.setCurrentText(current)
         self._update_identifiers()
-
-        voice_combo = (
-            self.voice_input_device if kind == "capture_dev_list"
-            else self.voice_output_device
-        )
-        voice_current = self._value(voice_combo)
-        voice_combo.clear()
-        voice_combo.addItem("System default", "")
-        for device in devices:
-            voice_combo.addItem(device.name, device.identifier)
-        voice_index = voice_combo.findData(voice_current)
-        if voice_index >= 0:
-            voice_combo.setCurrentIndex(voice_index)
-        elif voice_current:
-            voice_combo.setEditText(voice_current)
-
-    def set_voice_devices(self, input_device: str, output_device: str) -> None:
-        self.voice_input_device.setCurrentText(input_device)
-        self.voice_output_device.setCurrentText(output_device)
-
-    def set_voice_gain(self, percent: int) -> None:
-        self.voice_input_gain.setValue(max(0, min(100, int(percent))))
-
-    def set_voice_input_level(self, dbfs: float) -> None:
-        bounded = max(-100.0, min(0.0, float(dbfs)))
-        self.voice_input_level.setValue(round(bounded + 100.0))
-        self.voice_input_level.setFormat(f"{bounded:.1f} dBFS")
-
-    def set_active_voice_devices(self, input_device: str, output_device: str) -> None:
-        self.voice_active_devices.setText(
-            f"Active microphone: {input_device or 'system default'} · "
-            f"Playback: {output_device or 'system default'}"
-        )
-
-    def _save_voice_devices(self) -> None:
-        self.voice_apply_requested.emit(
-            self._value(self.voice_input_device), self._value(self.voice_output_device)
-        )
-        self.voice_gain_requested.emit(self.voice_input_gain.value())
-        self.voice_save_status.setText("Voice audio devices and level saved")
 
     def set_diagnostics_active(self, active: bool) -> None:
         self._diagnostics_active = bool(active)

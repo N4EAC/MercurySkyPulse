@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Superseded by the 0.1.4 Canopus efficiency release. Voice chat, its separate
+audio configuration, codec dependencies, capability advertisement, and RF
+events were removed after field testing showed that their negotiation and
+transfer costs conflicted with MSP's text-first emergency-communications goal.
 
 ## Decision
 

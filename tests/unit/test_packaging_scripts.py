@@ -14,8 +14,8 @@ class PackagingScriptTests(unittest.TestCase):
         builder = (ROOT / "build.app.sh").read_text(encoding="utf-8")
         dmg_builder = (ROOT / "build.dmg.sh").read_text(encoding="utf-8")
         gate = (ROOT / "scripts/check_local.sh").read_text(encoding="utf-8")
-        self.assertIn('VERSION="${MSP_VERSION:-0.1.3}"', builder)
-        self.assertIn('VERSION="${MSP_VERSION:-0.1.3}"', dmg_builder)
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.4}"', builder)
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.4}"', dmg_builder)
         self.assertIn("Set :CFBundleShortVersionString $VERSION", builder)
         self.assertIn("Add :CFBundleVersion string $VERSION", builder)
         self.assertIn("CFBundleShortVersionString", gate)
@@ -32,11 +32,11 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("recursesubdirs createallsubdirs", installer)
         self.assertIn("call :build_installer", builder)
         self.assertIn("Inno Setup 6", builder)
-        self.assertIn("/DMyAppVersion=0.1.3", builder)
+        self.assertIn("/DMyAppVersion=0.1.4", builder)
 
     def test_linux_builder_requires_and_bundles_mercury(self) -> None:
         builder = (ROOT / "build.linux.sh").read_text(encoding="utf-8")
-        self.assertIn('VERSION="${MSP_VERSION:-0.1.3}"', builder)
+        self.assertIn('VERSION="${MSP_VERSION:-0.1.4}"', builder)
         self.assertIn('candidate="${MERCURY_EXECUTABLE:-}"', builder)
         self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
         self.assertIn('curl -L --fail --show-error "$MERCURY_ARCHIVE_URL"', builder)
@@ -62,7 +62,7 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("private hash-named wheel-library dependency", builder)
         self.assertIn("[[:xdigit:]]{8}", builder)
         self.assertIn("plugins/multimedia/.*mediaplugin", builder)
-        self.assertIn("tools/validate_voice_package.py", builder)
+        self.assertNotIn("validate_voice_package", builder)
         self.assertIn("pipewire-libs", rpm_spec)
         deb_control = (ROOT / "packaging/linux/debian-control.in").read_text(
             encoding="utf-8"

@@ -55,8 +55,6 @@ class MainWindow(QMainWindow):
         app: QApplication,
         chat_service: ChatService | None = None,
         file_transfer_service: FileTransferService | None = None,
-        voice_message_service=None,
-        voice_audio_engine=None,
         location_service: LocationService | None = None,
         beacon_service: BeaconService | None = None,
         ping_service: PingService | None = None,
@@ -98,12 +96,7 @@ class MainWindow(QMainWindow):
         self.plugin_registry = plugin_registry
         self.chat_service = chat_service
         self.file_transfer_service = file_transfer_service
-        self.voice_message_service = voice_message_service
-        self.voice_audio_engine = voice_audio_engine
-        self._voice_draft: tuple[str, str] | None = None
-        self._voice_log_snapshot: tuple[str, str, int] | None = None
         self._file_transfer_snapshot = []
-        self._voice_transfer_snapshot = []
         self._last_transfer_kind = ""
         self.location_service = location_service
         self.activity_panel = ActivityPanel()
@@ -589,7 +582,6 @@ class MainWindow(QMainWindow):
         self.chat_page.connect_requested.connect(service.connect_station)
         self.chat_page.disconnect_requested.connect(service.disconnect_station)
         self.chat_page.send_requested.connect(service.send_text)
-        self.chat_page.presence_requested.connect(service.send_presence)
         self.chat_page.conversation_selected.connect(service.select_conversation)
         self.chat_page.conversation_delete_requested.connect(
             service.delete_conversation
@@ -609,7 +601,6 @@ class MainWindow(QMainWindow):
         service.active_conversation_changed.connect(
             self.chat_page.set_active_conversation
         )
-        service.peer_presence_changed.connect(self.chat_page.set_peer_presence)
         service.error_received.connect(self.chat_page.show_error)
         service.error_received.connect(
             lambda error: self.activity_panel.append_log(f"Chat error: {error}")
@@ -681,154 +672,20 @@ class MainWindow(QMainWindow):
                     f"File transfer error: {error}"
                 )
             )
-        if self.voice_message_service and self.voice_audio_engine:
-            voice = self.voice_message_service
-            audio = self.voice_audio_engine
-            self.chat_page.voice_record_requested.connect(self._start_voice_recording)
-            self.chat_page.voice_stop_requested.connect(audio.stop_recording)
-            self.chat_page.voice_send_requested.connect(self._send_voice_recording)
-            self.chat_page.voice_play_requested.connect(audio.play)
-            self.chat_page.voice_discard_requested.connect(self._clear_voice_draft)
-            audio.recording_changed.connect(self.chat_page.set_voice_recording)
-            audio.recording_ready.connect(self._voice_recording_ready)
-            audio.error_received.connect(self.chat_page.show_error)
-            audio.error_received.connect(
-                lambda error: self.activity_panel.append_log(
-                    f"Voice audio error: {error}"
-                )
+        self.chat_service.set_bulk_busy_check(
+            lambda: bool(
+                self.file_transfer_service
+                and self.file_transfer_service.transfer_busy()
             )
-            voice.availability_changed.connect(self.chat_page.set_voice_availability)
-            voice.messages_changed.connect(self.chat_page.set_voice_messages)
-            voice.messages_changed.connect(self._log_voice_messages)
-            voice.messages_changed.connect(self._update_voice_transfer_summary)
-            voice.messages_changed.connect(
-                lambda _values: self.chat_service.flush_deferred_messages()
-            )
-            voice.error_received.connect(self.chat_page.show_error)
-            voice.error_received.connect(
-                lambda error: self.activity_panel.append_log(
-                    f"Voice protocol error: {error}"
-                )
-            )
-            self.chat_service.set_bulk_busy_check(
-                lambda: voice.transfer_busy()
-                or bool(
-                    self.file_transfer_service
-                    and self.file_transfer_service.transfer_busy()
-                )
-            )
-            audio.playback_changed.connect(
-                lambda playing: self.activity_panel.append_log(
-                    "Voice audio: playback started" if playing
-                    else "Voice audio: playback stopped"
-                )
-            )
-            audio.playback_changed.connect(self.chat_page.set_voice_playback)
-            audio.devices_configured.connect(
-                lambda input_name, output_name: self.activity_panel.append_log(
-                    f"Voice audio endpoints: microphone={input_name or 'system default'}; "
-                    f"playback={output_name or 'system default'}"
-                )
-            )
-            service.client.session_disconnected.connect(self._clear_voice_draft)
-            if self.file_transfer_service:
-                self.file_transfer_service.set_external_busy_check(voice.transfer_busy)
-                self.file_transfer_service.transfers_changed.connect(
-                    voice.set_file_transfers
-                )
-            self.telemetry.status_received.connect(
-                lambda status: voice.set_modem_bitrate(status.bitrate_bps)
-            )
-            if self.setup_window:
-                self.setup_window.voice_devices_changed.connect(audio.configure)
-                self.setup_window.voice_gain_changed.connect(audio.set_input_gain)
-                self.setup_window.voice_diagnostics_changed.connect(
-                    lambda active: (
-                        audio.start_input_diagnostics()
-                        if active else audio.stop_input_diagnostics()
-                    )
-                )
-                audio.input_level_changed.connect(
-                    self.setup_window.audio_page.set_voice_input_level
-                )
-                audio.devices_configured.connect(
-                    self.setup_window.audio_page.set_active_voice_devices
-                )
-                audio.configure(
-                    str(self._settings.value("voice/input_device", "")),
-                    str(self._settings.value("voice/output_device", "")),
-                )
-                audio.set_input_gain(
-                    int(self._settings.value("voice/input_gain_percent", 100))
-                )
+        )
 
     def _display_link_state(self, state: str) -> None:
         label = {
-            "validating-sending": "Sending confirmation",
-            "validating-receiving": "Receiving confirmation",
+            "validating-sending": "Verifying Peer",
+            "validating-receiving": "Verifying Peer",
         }.get(state, state.title())
         self.station_summary.set_value("link", label)
 
-    def _start_voice_recording(self) -> None:
-        if not self.voice_message_service or not self.voice_audio_engine:
-            return
-        if self._voice_draft:
-            self._clear_voice_draft()
-        if not self.voice_message_service.transfer_busy():
-            self.chat_service.send_presence("recording_audio")
-        self.activity_panel.append_log("Voice audio: recording started")
-        self.voice_audio_engine.start_recording()
-
-    def _voice_recording_ready(self, path: str, mime_type: str) -> None:
-        self._voice_draft = (path, mime_type)
-        self.chat_page.set_voice_draft(True, path)
-        try:
-            size = Path(path).stat().st_size
-        except OSError:
-            size = 0
-        self.activity_panel.append_log(
-            f"Voice audio: recording ready ({mime_type}, {size} bytes)"
-        )
-
-    def _send_voice_recording(self) -> None:
-        if not self._voice_draft or not self.voice_message_service:
-            return
-        if self.voice_message_service.send_recording(*self._voice_draft):
-            self.activity_panel.append_log(
-                "Voice message queued; keep the station connected until delivery is verified"
-            )
-
-    def _log_voice_messages(self, messages) -> None:
-        if not messages:
-            self._voice_log_snapshot = None
-            return
-        message = messages[-1]
-        snapshot = (message.id, message.status, message.progress)
-        if snapshot == self._voice_log_snapshot:
-            return
-        self._voice_log_snapshot = snapshot
-        if message.direction == "incoming" and message.status == "receiving" \
-                and message.progress == 0:
-            text = f"Incoming voice message offered ({message.size} bytes)"
-        elif message.direction == "incoming" and message.status == "received":
-            text = "Incoming voice message verified and ready to play"
-        elif message.direction == "outgoing" and message.status == "delivered":
-            text = "Voice message delivered and verified by receiving station"
-        else:
-            text = (
-                f"Voice message {message.direction}: {message.status} "
-                f"({message.progress}% receiver-confirmed)"
-            )
-        self.activity_panel.append_log(text)
-
-    def _clear_voice_draft(self) -> None:
-        try:
-            if self.voice_audio_engine:
-                self.voice_audio_engine.discard_recording()
-        finally:
-            # UI recovery must never depend on platform-specific temp-file cleanup.
-            self._voice_draft = None
-            self.chat_page.set_voice_draft(False)
 
     def _start_mercury(self) -> None:
         self.activity_panel.append_log(
@@ -1147,31 +1004,7 @@ class MainWindow(QMainWindow):
         self._last_transfer_kind = "file"
         self._refresh_transfer_summary()
 
-    def _update_voice_transfer_summary(self, messages) -> None:
-        self._voice_transfer_snapshot = list(messages)
-        self._last_transfer_kind = "voice"
-        self._refresh_transfer_summary()
-
     def _refresh_transfer_summary(self) -> None:
-        active_voice = next(
-            (
-                message for message in reversed(self._voice_transfer_snapshot)
-                if message.status in {
-                    "queued", "offered", "transmitting", "receiving", "verifying",
-                }
-            ),
-            None,
-        )
-        if active_voice:
-            labels = {
-                "queued": "Voice: waiting for Mercury",
-                "offered": "Voice: awaiting receiver",
-                "transmitting": f"Voice: {active_voice.progress}% confirmed",
-                "receiving": f"Voice: receiving {active_voice.progress}%",
-                "verifying": "Voice: verifying",
-            }
-            self.station_summary.set_value("transfer", labels[active_voice.status])
-            return
         active_file = next(
             (
                 transfer for transfer in reversed(self._file_transfer_snapshot)
@@ -1183,23 +1016,6 @@ class MainWindow(QMainWindow):
             label = str(active_file.status).replace("_", " ").title()
             if active_file.size:
                 label = f"File: {label} {active_file.progress}%"
-            self.station_summary.set_value("transfer", label)
-            return
-        terminal_voice = (
-            self._voice_transfer_snapshot[-1]
-            if self._last_transfer_kind == "voice" and self._voice_transfer_snapshot
-            else None
-        )
-        if terminal_voice and terminal_voice.status in {
-            "failed", "busy", "link-poor", "delivered", "received",
-        }:
-            label = {
-                "failed": "Voice: failed",
-                "busy": "Voice: receiver busy",
-                "link-poor": "Voice: link too weak",
-                "delivered": "Voice: delivered",
-                "received": "Voice: ready to play",
-            }[terminal_voice.status]
             self.station_summary.set_value("transfer", label)
             return
         terminal_file = (
@@ -1275,7 +1091,6 @@ class MainWindow(QMainWindow):
             self.location_service.stop()
         if self.file_transfer_service:
             self.file_transfer_service.stop()
-        self._clear_voice_draft()
         if self.chat_service:
             self.chat_service.close()
         self.telemetry.stop()

@@ -7,7 +7,7 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 MERCURY_SOURCE="${MERCURY_EXECUTABLE:-$PROJECT_ROOT/../mercury/mercury}"
 MERCURY_ROOT="${MERCURY_SOURCE:h}"
 MERCURY_RUNTIME="$PROJECT_ROOT/build/mercury-macos-runtime"
-VERSION="${MSP_VERSION:-0.1.3}"
+VERSION="${MSP_VERSION:-0.1.4}"
 
 cd "$PROJECT_ROOT"
 
@@ -65,7 +65,6 @@ fi
     --icon "$PROJECT_ROOT/assets/icons/mercuryskypulse.icns" \
     --add-data "$PROJECT_ROOT/assets/icons/mercuryskypulse.png:assets/icons" \
     --add-data "$PROJECT_ROOT/THIRD_PARTY_NOTICES.md:." \
-    --add-data "$PROJECT_ROOT/licenses/PYAV_LICENSE.txt:licenses" \
     --add-binary "$MERCURY_RUNTIME/mercury:mercury" \
     --add-data "$MERCURY_RUNTIME/LICENSE:mercury" \
     --add-data "$MERCURY_RUNTIME/LICENSE-freedv:mercury" \
@@ -84,12 +83,6 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$PLIST"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PLIST" >/dev/null 2>&1 || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Mercury SkyPulse" "$PLIST"
-/usr/libexec/PlistBuddy -c "Delete :NSMicrophoneUsageDescription" "$PLIST" >/dev/null 2>&1 || true
-/usr/libexec/PlistBuddy -c \
-    "Add :NSMicrophoneUsageDescription string Mercury SkyPulse records short voice messages when the operator presses Record Voice." \
-    "$PLIST"
-print "Verifying Qt Multimedia, bounded Opus compression, bilateral bitrate gating, and voice protocol 2 support..."
-"$BUILD_VENV/bin/python" tools/validate_voice_package.py "$APP"
 # Editing Info.plist invalidates PyInstaller's ad-hoc signature.
 codesign --force --deep --sign - "$APP"
 

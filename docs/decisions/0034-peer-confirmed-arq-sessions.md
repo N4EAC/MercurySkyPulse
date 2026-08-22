@@ -20,8 +20,12 @@ ARQ byte stream. The listening endpoint returns one `session_probe_ack`
 containing the probe identifier but remains provisional. The caller then sends
 `session_ready`; stream ordering ensures the listener receives that final frame
 before any feature traffic queued after the caller enters connected state.
-Unsolicited legacy probes remain acknowledged and use the earlier two-frame
-completion behavior for compatibility.
+Version 3 encodes each handshake step as a fixed 14-byte binary control frame
+containing a four-byte magic, version, kind, and random 64-bit session token.
+This keeps each step within one Mercury payload at every supported DATAC mode.
+Legacy JSON probes remain accepted when received, but a Canopus caller does not
+transmit the verbose legacy probe because doing so would restore the RF delay
+this decision corrects.
 
 An outgoing Mercury call is cancelled after 60 seconds without a local
 `CONNECTED` indication. Once Mercury reports local connection, an endpoint that
@@ -34,14 +38,14 @@ command, reports an actionable operator message, and allows automatic listening
 to resume after Mercury returns ready.
 
 The probe is MSP application framing, not a Mercury protocol extension. Chat,
-voice, files, BBS, location, and other session traffic remain disabled during
+files, BBS, location, and other session traffic remain disabled during
 the provisional `validating` state.
 
 ## Consequences
 
 - A one-sided Mercury connection is no longer presented as a usable MSP link.
-- Two current MSP clients exchange a probe, acknowledgement, and final readiness
-  frame at session startup.
+- Two current MSP clients exchange three 14-byte control frames at session
+  startup instead of hundreds of bytes of JSON.
 - Clients without this validation protocol cannot establish an application
   session with this MSP version and time out safely.
 - Mercury remains responsible for ARQ establishment; MSP independently verifies

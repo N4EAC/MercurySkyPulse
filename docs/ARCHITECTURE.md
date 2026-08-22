@@ -818,47 +818,27 @@ Expansion rules:
 
 ### Implemented messaging slice
 
-The initial product slice implements station text chat and bounded compressed
-voice-message transfer through Mercury's
-documented TNC control and ARQ data sockets. `src/transport/mercury/tnc.py`
+The product slice implements station text chat and verified file transfer through
+Mercury's documented TNC control and ARQ data sockets. `src/transport/mercury/tnc.py`
 owns socket lifecycle and opaque reliable bytes; `src/application_protocol`
 owns the bounded `MSP1` framing contract, feature-event demultiplexing, and
 connectionless beacon codec;
 `src/application/chat_service.py` owns conversation use cases and status
 transitions; `src/persistence/chat_repository.py` owns the SQLite schema; and
 `src/presentation/chat_page.py` renders conversations. Peer acknowledgements mean
-application delivery, not human reading.
+application delivery, not human reading. Canopus removes voice chat, separate
+voice audio, codec dependencies, capability negotiation, and disposable
+presence events. Operator text therefore enters the reliable stream without
+waiting behind optional application traffic. File timeline entries use `queued`
+before peer acceptance, `sent` only after peer participation, and `delivered`
+only after the receiver's final checksum result.
 
-`src/application/voice_message.py` owns session capability negotiation, bitrate
-and transfer gating, BUFFER-aware stop-and-wait chunk transfer, peer-confirmed
-progress, checksum completion, response timeouts, and cooldown.
-`src/platform_runtime/voice_audio.py` owns separate Qt Multimedia capture,
-playback, voice-only microphone level, and local diagnostics. Voice recording and
-review are local operations; only sending requires a compatible ARQ session.
-`src/platform_runtime/voice_compression.py` treats Qt output as temporary capture,
-resamples at most ten seconds to 8-kHz mono, and encodes constant-bitrate Opus in
-an Ogg container. It verifies the completed artifact against the 8-KiB protocol
-ceiling before the draft becomes sendable and retries at lower bounded bitrates
-if platform/container overhead requires it.
-The presentation locks recording state against asynchronous bitrate availability
-updates, uses a fixed-width two-digit countdown, and derives Record/Play colors
-from actual recorder/player state rather than click state.
-Connectionless beacons advertise `voice-chat`, but the session event remains the
-authoritative compatibility negotiation.
-Presentation derives incoming, progress, verification, and delivered snapshots
-from those existing protocol transitions and does not send separate notification
-traffic. Outgoing file and voice timeline entries use `queued` before peer
-acceptance, `sent` only after peer participation, and `delivered` only after the
-receiver's final checksum result. A voice offer waits locally for Mercury BUFFER 0, and response timeouts
-run only after Mercury drains the corresponding local write. Chat text is stored
-and rendered as queued while voice or file data owns the half-duplex session,
-then submitted in order; disposable presence is suppressed.
-Both endpoints independently qualify their received bitrate and advertise only
-readiness transitions through the bounded session capability event. The sender
-remains disabled until both endpoints report a sustained qualifying link, and an
-inbound endpoint still rejects a stale offer if its link falls below threshold.
-Compressed voice
-is capped at 8 KiB, and late peer results cannot rewrite terminal state.
+Peer confirmation uses a fixed 14-byte binary frame with a distinct magic,
+version, kind, and random 64-bit token. The caller sends probe, the listener
+returns acknowledgement, and the caller returns readiness. Caller role is set
+before Mercury controls are issued, so direct calls and CQ answers follow the
+same race-safe path. Legacy JSON probes remain decodable for incoming
+compatibility, but current callers do not transmit them.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral
@@ -972,9 +952,7 @@ history. Application protocol timestamps were already UTC. Mercury-originated
 relative timings and telemetry remain authoritative and are not rewritten by the
 presentation layer.
 
-Voice messages retain their creation timestamp so the Chat presentation can
-interleave completed playable rows with text rather than maintaining a separate
-static transfer block. File transfer state is scoped to one ARQ session: an
+File transfer state is scoped to one ARQ session: an
 operator cancellation or session disconnect releases bulk ownership, and partial
 incoming files are deleted. MSP deliberately does not resume a transfer across a
 new ARQ session because the remote offset and identity binding are no longer

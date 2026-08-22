@@ -14,7 +14,6 @@ controlled amateur-radio field testing. The implemented application includes:
   acknowledged remote endpoint profiles;
 - station listening, connectionless CQ discovery, ARQ chat, acknowledgements,
   ping, periodic beaconing, and location exchange;
-- bounded ten-second Opus voice messages with capability and link-quality gates;
 - verified file and image transfer with consent, progress, pause/resume,
   cancellation, checksums, and receiver-confirmed delivery;
 - a persistent BBS with optional password protection and authenticated role
@@ -29,6 +28,25 @@ The project is still alpha engineering software. Real-RF validation, connection
 hardening, native package validation, signing, upgrades, and release policy are
 not complete.
 
+## Current release — 0.1.4 Canopus
+
+- Remove voice chat, separate voice audio configuration, PyAV/Opus dependencies,
+  disposable typing/recording presence events, and prerecorded announcement
+  assets. Mercury modem audio configuration remains unchanged.
+- Replace the verbose station-validation JSON events with three fixed 14-byte,
+  versioned control frames so direct calls and CQ answers can confirm both peers
+  without several minutes of low-rate queue drain.
+- Establish caller role before issuing Mercury controls, use the same path for
+  direct calls and CQ answers, and reserve the RF queue for operator text and
+  explicitly requested file/BBS traffic.
+- Suppress the known benign Qt platform-plugin diagnostics emitted by automated
+  offscreen GUI tests and packaging checks (for example, unsupported
+  `propagateSizeHints()` and `raise()` operations). Keep unexpected Qt,
+  multimedia, application-startup, and runtime failures visible and actionable.
+
+Canopus requires paired-station RF validation in both call directions and through
+CQ discovery before its connection changes are considered complete.
+
 ## Next milestone — Safe and predictable station operation
 
 These items should be completed before expanding the feature set.
@@ -38,7 +56,7 @@ These items should be completed before expanding the feature set.
 Design and implement FCC-compatible station identification for an active radio
 communication. MSP should identify with the configured station callsign at the
 required interval and at the end of a communication without disrupting ARQ,
-voice, file transfer, or operator traffic.
+file transfer, or operator traffic.
 
 Before implementation, confirm the applicable rule, record the behavior in an
 ADR, define exactly which over-the-air frame provides identification, and add
@@ -63,13 +81,12 @@ tests and save the persistent log from both ends. Validate in this order:
 
 1. startup, audio routing, CAT/PTT, frequency telemetry, and clean shutdown;
 2. listen, connect, disconnect, and reconnect;
-3. text acknowledgement and queued/sent/delivered/failed presentation;
-4. voice recording, link gating, transfer progress, playback, and cooldown;
-5. file offer, acceptance, transfer, pause/resume, cancellation, duplicate
+3. text acknowledgement, queue latency, and queued/sent/delivered/failed presentation;
+4. file offer, acceptance, transfer, pause/resume, cancellation, duplicate
    handling, and checksum completion;
-6. beacon scheduling, CQ hold, ping, GPS/location, BBS, weather, and PSK Reporter;
-7. recovery from temporary audio, TNC, KISS, or telemetry interruption; and
-8. layout restoration, panel density, peer targeting, and at-a-glance status on
+5. beacon scheduling, CQ hold, ping, GPS/location, BBS, weather, and PSK Reporter;
+6. recovery from temporary audio, TNC, KISS, or telemetry interruption; and
+7. layout restoration, panel density, peer targeting, and at-a-glance status on
    representative displays.
 
 Real-RF tests remain operator-controlled and must never run unattended.
@@ -111,17 +128,18 @@ initiated. Protected mode must wait for authenticated identity binding; open
 mode must continue to mark claimed identity as untrusted. Add adversarial
 identity and session tests before implementation.
 
-### Optional operator voice announcements
+### Optional operator announcements
 
-The MP3 files under `assets/voices/` are reference assets. A later feature may
-play them for CQ, beacon, connection, and disconnection events through the
-voice-chat output device, controlled by a persistent mute/enable setting.
+A future release may generate basic local spoken notices from text with a
+bundled, offline text-to-speech engine. It must not depend on operating-system
+speech services, transmit over RF, add a second station-audio configuration, or
+delay operator traffic. No prerecorded voice assets are retained.
 
 ## Native packages and Alpha validation
 
 - Apple Silicon macOS Alpha 2 DMG: built and locally validated.
 - Windows 10/11 x86-64: rebuild the Alpha 2 Inno Setup installer and repeat
-  audio, CAT/PTT, GPS, voice, and RF tests.
+  audio, CAT/PTT, GPS, text/file, and RF tests.
 - Fedora 42 x86-64: rebuild the Alpha 2 RPM and validate installation, desktop
   registration, audio, CAT/PTT, GPS, RF behavior, and uninstall.
 - Ubuntu x86-64: build and validate the DEB on a native Ubuntu machine.

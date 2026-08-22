@@ -12,7 +12,7 @@ MERCURY_ROOT=""
 MERCURY_SOURCE=""
 MERCURY_REVISION=""
 MERCURY_REMOTE=""
-VERSION="${MSP_VERSION:-0.1.3}"
+VERSION="${MSP_VERSION:-0.1.4}"
 ARCH="$(uname -m)"
 
 cd "$PROJECT_ROOT"
@@ -132,14 +132,10 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --icon "$PROJECT_ROOT/assets/icons/linux/mercuryskypulse-256.png" \
     --add-data "$PROJECT_ROOT/assets/icons/mercuryskypulse.png:assets/icons" \
     --add-data "$PROJECT_ROOT/THIRD_PARTY_NOTICES.md:." \
-    --add-data "$PROJECT_ROOT/licenses/PYAV_LICENSE.txt:licenses" \
     --distpath "$PROJECT_ROOT/dist" \
     --workpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     "$PROJECT_ROOT/apps/desktop/main.py"
-
-printf 'Verifying Qt Multimedia, bounded Opus compression, bilateral bitrate gating, and voice protocol 2 support...\n'
-"$BUILD_VENV/bin/python" tools/validate_voice_package.py dist/MercurySkyPulse
 
 mkdir -p dist/MercurySkyPulse/mercury
 install -m 0755 "$MERCURY_SOURCE" dist/MercurySkyPulse/mercury/mercury

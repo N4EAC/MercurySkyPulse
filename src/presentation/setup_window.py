@@ -15,9 +15,6 @@ from .weather_setup_page import WeatherSetupPage
 
 class SetupWindow(QDialog):
     audio_diagnostics_changed = Signal(bool)
-    voice_diagnostics_changed = Signal(bool)
-    voice_devices_changed = Signal(str, str)
-    voice_gain_changed = Signal(int)
 
     def __init__(self, radio_service, beacon_service, location_service,
                  tx_level_service=None, psk_reporter_service=None,
@@ -52,15 +49,6 @@ class SetupWindow(QDialog):
         layout.addWidget(self.tabs)
 
         self._connect_services()
-        self.audio_page.voice_apply_requested.connect(self._save_voice_devices)
-        self.audio_page.voice_gain_requested.connect(self._save_voice_gain)
-        self.audio_page.set_voice_devices(
-            str(self._settings.value("voice/input_device", "")),
-            str(self._settings.value("voice/output_device", "")),
-        )
-        self.audio_page.set_voice_gain(
-            int(self._settings.value("voice/input_gain_percent", 100))
-        )
         self.tabs.currentChanged.connect(self._update_audio_diagnostics)
         geometry = self._settings.value("setup/geometry")
         if geometry is not None:
@@ -144,18 +132,6 @@ class SetupWindow(QDialog):
     def set_audio_devices(self, kind: str, devices, selected: str = "") -> None:
         self.audio_page.set_devices(kind, devices, selected)
 
-    def _save_voice_devices(self, input_device: str, output_device: str) -> None:
-        self._settings.setValue("voice/input_device", input_device)
-        self._settings.setValue("voice/output_device", output_device)
-        self._settings.sync()
-        self.voice_devices_changed.emit(input_device, output_device)
-
-    def _save_voice_gain(self, percent: int) -> None:
-        bounded = max(0, min(100, int(percent)))
-        self._settings.setValue("voice/input_gain_percent", bounded)
-        self._settings.sync()
-        self.voice_gain_changed.emit(bounded)
-
     def _save_identity(self, callsign: str, grid: str) -> None:
         config = self.beacon_service.config
         self.beacon_service.configure(
@@ -181,11 +157,9 @@ class SetupWindow(QDialog):
     def hideEvent(self, event: QHideEvent) -> None:  # noqa: N802 - Qt API
         self.audio_page.set_diagnostics_active(False)
         self.audio_diagnostics_changed.emit(False)
-        self.voice_diagnostics_changed.emit(False)
         super().hideEvent(event)
 
     def _update_audio_diagnostics(self, _index: int = -1) -> None:
         active = self.isVisible() and self.tabs.currentWidget() is self.audio_page
         self.audio_page.set_diagnostics_active(active)
         self.audio_diagnostics_changed.emit(active)
-        self.voice_diagnostics_changed.emit(active)

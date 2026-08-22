@@ -4,17 +4,22 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import re
+import secrets
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from .messaging import FrameDecoder, encode_ack, encode_event, encode_message
+from .messaging import (
+    FrameDecoder,
+    SESSION_HANDSHAKE_VERSION,
+    encode_ack,
+    encode_event,
+    encode_message,
+    encode_session_control,
+)
 
 
 CALLSIGN = re.compile(r"^[A-Z0-9][A-Z0-9/-]{0,14}$")
-SESSION_HANDSHAKE_VERSION = 2
-
-
 class ApplicationMessagingClient(QObject):
     state_changed = Signal(str)
     control_event = Signal(str)
@@ -27,8 +32,6 @@ class ApplicationMessagingClient(QObject):
     location_received = Signal(object)
     ping_event_received = Signal(object)
     bbs_event_received = Signal(object)
-    presence_received = Signal(object)
-    voice_event_received = Signal(object)
     error_received = Signal(str)
     queued_bytes_changed = Signal(int)
 
@@ -91,10 +94,12 @@ class ApplicationMessagingClient(QObject):
     def connect_station(self, local_call: str, remote_call: str) -> None:
         local = self.normalize_callsign(local_call)
         remote = self.normalize_callsign(remote_call)
+        # Establish the role before any transport callback can report CONNECTED.
+        # CQ answers and direct calls share this exact caller-initiated path.
+        self._outgoing_call = True
         self.transport.send_control(f"MYCALL {local}")
         self.transport.send_control("LISTEN ON")
         self.transport.send_control(f"CONNECT {local} {remote}")
-        self._outgoing_call = True
         self._call_timer.start()
         self._set_state("linking")
 
@@ -109,13 +114,6 @@ class ApplicationMessagingClient(QObject):
     def send_file_event(self, kind: str, event_id: str, timestamp: str,
                         **values: object) -> None:
         self.transport.write(encode_event(kind, event_id, timestamp, **values))
-
-    def send_presence(self, event_id: str, timestamp: str, state: str,
-                      ttl_seconds: int) -> None:
-        self.transport.write(encode_event(
-            "presence", event_id, timestamp,
-            state=state, ttl_seconds=ttl_seconds,
-        ))
 
     def file_write_ready(self) -> bool:
         return self.transport.write_ready()
@@ -148,10 +146,6 @@ class ApplicationMessagingClient(QObject):
                 self.ping_event_received.emit(envelope)
             elif envelope.kind.startswith("bbs_"):
                 self.bbs_event_received.emit(envelope)
-            elif envelope.kind == "presence":
-                self.presence_received.emit(envelope)
-            elif envelope.kind.startswith("voice_"):
-                self.voice_event_received.emit(envelope)
 
     def _on_transport_state(self, state: str) -> None:
         # A local Mercury CONNECTED indication is provisional.  Application
@@ -174,12 +168,9 @@ class ApplicationMessagingClient(QObject):
             return
         self._set_state("validating-sending")
         self._validation_timer.start()
-        self._probe_id = str(uuid4())
+        self._probe_id = secrets.token_hex(8)
         try:
-            self.transport.write(encode_event(
-                "session_probe", self._probe_id, datetime.now(UTC).isoformat(),
-                handshake_version=SESSION_HANDSHAKE_VERSION,
-            ))
+            self.transport.write(encode_session_control("session_probe", self._probe_id))
         except (OSError, RuntimeError) as error:
             self.error_received.emit(f"Could not validate the station link: {error}")
             self._abort_unconfirmed_session()
@@ -193,7 +184,7 @@ class ApplicationMessagingClient(QObject):
         supported_version = (
             isinstance(handshake_version, int)
             and not isinstance(handshake_version, bool)
-            and handshake_version in {1, SESSION_HANDSHAKE_VERSION}
+            and handshake_version in {1, 2, SESSION_HANDSHAKE_VERSION}
         )
         if not supported_version:
             self.error_received.emit(
@@ -202,11 +193,16 @@ class ApplicationMessagingClient(QObject):
             self._abort_unconfirmed_session()
             return
         try:
-            self.transport.write(encode_event(
-                "session_probe_ack", str(uuid4()), datetime.now(UTC).isoformat(),
-                probe_id=envelope.message_id,
-                handshake_version=SESSION_HANDSHAKE_VERSION,
-            ))
+            if handshake_version == SESSION_HANDSHAKE_VERSION:
+                self.transport.write(encode_session_control(
+                    "session_probe_ack", envelope.message_id
+                ))
+            else:
+                self.transport.write(encode_event(
+                    "session_probe_ack", str(uuid4()), datetime.now(UTC).isoformat(),
+                    probe_id=envelope.message_id,
+                    handshake_version=2,
+                ))
         except (OSError, RuntimeError) as error:
             self.error_received.emit(f"Could not confirm the peer station link: {error}")
             self._abort_unconfirmed_session()
@@ -238,11 +234,7 @@ class ApplicationMessagingClient(QObject):
         self.control_event.emit("MSP validation: probe acknowledgement received")
         self._validation_timer.start()
         try:
-            self.transport.write(encode_event(
-                "session_ready", str(uuid4()), datetime.now(UTC).isoformat(),
-                probe_id=self._probe_id,
-                handshake_version=SESSION_HANDSHAKE_VERSION,
-            ))
+            self.transport.write(encode_session_control("session_ready", self._probe_id))
         except (OSError, RuntimeError) as error:
             self.error_received.emit(
                 f"Could not complete station validation: {error}"

@@ -33,20 +33,18 @@ MSP_SKIP_TESTS=1 ./build.app.sh
 
 APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"
 MERCURY="$APP/Contents/Frameworks/mercury/mercury"
-print "[6/7] Validating bundle identity, signature, icon, voice audio, and Mercury runtime"
+print "[6/7] Validating bundle identity, signature, icon, and Mercury runtime"
 test -x "$APP/Contents/MacOS/MercurySkyPulse"
 test -x "$MERCURY"
 test -f "$APP/Contents/Resources/mercuryskypulse.icns"
 test -f "$APP/Contents/Resources/mercury/LICENSE"
 test -f "$APP/Contents/Resources/mercury/LICENSE-freedv"
 test -f "$APP/Contents/Resources/mercury/SOURCE.txt"
-"$LOCAL_PYTHON" tools/validate_voice_package.py "$APP"
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 [[ "$(plutil -extract CFBundleDisplayName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
-[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.3" ]]
-[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.3" ]]
-[[ -n "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" ]]
+[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.4" ]]
+[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.4" ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 
 print "[7/7] Local quality gate passed"

@@ -28,7 +28,8 @@ class WindowsBuilderContractTests(unittest.TestCase):
         self.assertIn("arq_rx_mode", script)
         self.assertIn("--icon assets\\icons\\mercuryskypulse.ico", script)
         self.assertIn("mercuryskypulse.png;assets\\icons", script)
-        self.assertIn("tools\\validate_voice_package.py", script)
+        self.assertNotIn("validate_voice_package", script)
+        self.assertNotIn("pyav_license", script)
         self.assertIn("goto failed", script)
 
 

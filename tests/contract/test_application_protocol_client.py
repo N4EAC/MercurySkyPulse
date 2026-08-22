@@ -7,7 +7,10 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
 from application_protocol.client import ApplicationMessagingClient
-from application_protocol.messaging import FrameDecoder, encode_ack, encode_event, encode_message
+from application_protocol.messaging import (
+    FrameDecoder, SESSION_HANDSHAKE_VERSION, encode_ack, encode_event,
+    encode_message, encode_session_control,
+)
 
 
 class FakeByteTransport(QObject):
@@ -54,6 +57,24 @@ class ApplicationProtocolClientTests(unittest.TestCase):
                          ["MYCALL N0CALL", "LISTEN ON", "CONNECT N0CALL K1ABC"])
         self.assertEqual(states, ["linking"])
 
+    def test_caller_role_precedes_synchronous_connected_callback(self) -> None:
+        sessions = []
+        original = self.transport.send_control
+
+        def send_control(command):
+            original(command)
+            if command.startswith("CONNECT "):
+                self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+
+        self.transport.send_control = send_control
+        self.client.session_connected.connect(lambda *values: sessions.append(values))
+        self.client.connect_station("N0CALL", "K1ABC")
+
+        probe = FrameDecoder().feed(self.transport.writes[-1])[0]
+        self.assertEqual(probe.kind, "session_probe")
+        self.assertEqual(len(self.transport.writes[-1]), 14)
+        self.assertEqual(sessions, [])
+
     def test_listening_publishes_explicit_state(self) -> None:
         states = []
         self.client.state_changed.connect(states.append)
@@ -86,29 +107,19 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         )
 
     def test_feature_events_are_routed_above_mercury_transport(self) -> None:
-        files, bbs, pings, presence = [], [], [], []
+        files, bbs, pings = [], [], []
         self.client.file_event_received.connect(files.append)
         self.client.bbs_event_received.connect(bbs.append)
         self.client.ping_event_received.connect(pings.append)
-        self.client.presence_received.connect(presence.append)
         frames = (
             encode_event("file_pause", "file", self.now),
             encode_event("bbs_file_request", "bbs", self.now),
             encode_event("ping_request", "ping", self.now),
-            encode_event("presence", "presence", self.now,
-                         state="typing", ttl_seconds=45),
         )
         self.transport.data_received.emit(b"".join(frames))
         self.assertEqual([item.kind for item in files], ["file_pause"])
         self.assertEqual([item.kind for item in bbs], ["bbs_file_request"])
         self.assertEqual([item.kind for item in pings], ["ping_request"])
-        self.assertEqual([item.kind for item in presence], ["presence"])
-
-    def test_presence_is_encoded_as_opaque_application_data(self) -> None:
-        self.client.send_presence("presence-1", self.now, "recording_audio", 20)
-        envelope = FrameDecoder().feed(self.transport.writes[-1])[0]
-        self.assertEqual(envelope.kind, "presence")
-        self.assertEqual(envelope.values["state"], "recording_audio")
 
     def test_ack_is_protocol_data_not_a_mercury_command(self) -> None:
         delivered = []
@@ -131,8 +142,8 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         probe = FrameDecoder().feed(self.transport.writes[-1])[0]
         self.assertEqual(probe.kind, "session_probe")
 
-        self.transport.data_received.emit(encode_event(
-            "session_probe_ack", "ack-1", self.now, probe_id=probe.message_id
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe_ack", probe.message_id
         ))
         ready = FrameDecoder().feed(self.transport.writes[-1])[0]
         self.assertEqual(ready.kind, "session_ready")
@@ -189,8 +200,9 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client.state_changed.connect(states.append)
         self.client.session_connected.connect(lambda *values: sessions.append(values))
         self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
-        self.transport.data_received.emit(encode_event(
-            "session_probe", "peer-probe", self.now, handshake_version=2
+        token = "0123456789abcdef"
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe", token
         ))
 
         self.assertEqual(sessions, [])
@@ -200,12 +212,11 @@ class ApplicationProtocolClientTests(unittest.TestCase):
 
         self.transport.data_received.emit(encode_event(
             "session_ready", "ready", self.now, probe_id="wrong",
-            handshake_version=2,
+            handshake_version=SESSION_HANDSHAKE_VERSION,
         ))
         self.assertEqual(sessions, [])
-        self.transport.data_received.emit(encode_event(
-            "session_ready", "ready", self.now, probe_id="peer-probe",
-            handshake_version=2,
+        self.transport.data_received.emit(encode_session_control(
+            "session_ready", token
         ))
 
         self.assertEqual(states[-1], "connected")
@@ -273,10 +284,10 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         errors = []
         self.client.error_received.connect(errors.append)
         self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
-        self.transport.data_received.emit(encode_event(
-            "session_probe", "peer-probe", self.now, handshake_version=2
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe", "0123456789abcdef"
         ))
-        self.transport.queued_bytes_changed.emit(128)
+        self.transport.queued_bytes_changed.emit(14)
 
         self.client._validation_timed_out()
 
@@ -315,8 +326,8 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         probe = FrameDecoder().feed(self.transport.writes[-1])[0]
 
         self.client.disconnect_station()
-        self.transport.data_received.emit(encode_event(
-            "session_probe_ack", "late", self.now, probe_id=probe.message_id
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe_ack", probe.message_id
         ))
 
         self.assertEqual(sessions, [])

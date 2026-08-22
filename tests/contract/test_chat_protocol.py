@@ -6,6 +6,7 @@ from application_protocol.messaging import (
     encode_ack,
     encode_event,
     encode_message,
+    encode_session_control,
 )
 
 
@@ -78,23 +79,19 @@ class ChatProtocolTests(unittest.TestCase):
         self.assertEqual(envelope.kind, "bbs_auth_proof")
         self.assertEqual(envelope.values["callsign"], "N0CALL")
 
-    def test_presence_event_is_bounded_application_data(self) -> None:
-        frame = encode_event(
-            "presence", "presence-1", datetime.now(UTC).isoformat(),
-            state="typing", ttl_seconds=45,
-        )
+    def test_session_control_is_compact_and_versioned(self) -> None:
+        frame = encode_session_control("session_probe", "0123456789abcdef")
+        self.assertEqual(len(frame), 14)
         envelope = FrameDecoder().feed(frame)[0]
-        self.assertEqual(envelope.kind, "presence")
-        self.assertEqual(envelope.values, {"state": "typing", "ttl_seconds": 45})
+        self.assertEqual(envelope.kind, "session_probe")
+        self.assertEqual(envelope.message_id, "0123456789abcdef")
+        self.assertEqual(envelope.values["handshake_version"], 3)
 
-    def test_voice_chunk_ack_is_bounded_application_data(self) -> None:
-        frame = encode_event(
-            "voice_chunk_ack", "voice-1", datetime.now(UTC).isoformat(),
-            offset=384,
-        )
-        envelope = FrameDecoder().feed(frame)[0]
-        self.assertEqual(envelope.kind, "voice_chunk_ack")
-        self.assertEqual(envelope.values, {"offset": 384})
+    def test_retired_voice_and_presence_events_are_rejected(self) -> None:
+        now = datetime.now(UTC).isoformat()
+        for kind in ("voice_capability", "voice_offer", "presence"):
+            with self.subTest(kind=kind), self.assertRaises(ValueError):
+                encode_event(kind, "retired", now)
 
     def test_decoder_recovers_from_garbage_before_valid_frame(self) -> None:
         now = datetime.now(UTC).isoformat()

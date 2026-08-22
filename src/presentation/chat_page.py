@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-import math
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
@@ -47,12 +46,6 @@ class ChatPage(QWidget):
     answer_cq_requested = Signal(str)
     weather_requested = Signal()
     conversation_delete_requested = Signal(int)
-    presence_requested = Signal(str)
-    voice_record_requested = Signal()
-    voice_stop_requested = Signal()
-    voice_send_requested = Signal()
-    voice_play_requested = Signal(str)
-    voice_discard_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -94,10 +87,6 @@ class ChatPage(QWidget):
         identity_row = QHBoxLayout()
         identity_row.addWidget(self.listening_identity)
         identity_row.addStretch(1)
-        self.peer_presence = QLabel()
-        self.peer_presence.setObjectName("Muted")
-        self.peer_presence.setVisible(False)
-        identity_row.addWidget(self.peer_presence)
         root.addLayout(identity_row)
 
         cq_row = QHBoxLayout()
@@ -162,25 +151,6 @@ class ChatPage(QWidget):
         compose_row.addWidget(self.send_button)
         chat_layout.addLayout(compose_row)
 
-        voice_row = QHBoxLayout()
-        self.voice_record_button = QPushButton("Record Voice")
-        self.voice_stop_button = QPushButton("Stop")
-        self.voice_send_button = QPushButton("Send Voice")
-        self.voice_play_button = QPushButton("Play")
-        self.voice_discard_button = QPushButton("Discard")
-        self.voice_status = QLabel("Ready to record locally")
-        self.voice_stop_button.setEnabled(False)
-        self.voice_send_button.setEnabled(False)
-        self.voice_play_button.setEnabled(False)
-        self.voice_discard_button.setEnabled(False)
-        voice_row.addWidget(self.voice_record_button)
-        voice_row.addWidget(self.voice_stop_button)
-        voice_row.addWidget(self.voice_send_button)
-        voice_row.addWidget(self.voice_play_button)
-        voice_row.addWidget(self.voice_discard_button)
-        voice_row.addWidget(self.voice_status, 1)
-        chat_layout.addLayout(voice_row)
-
         transfer_row = QHBoxLayout()
         self.send_file_button = QPushButton("Send File…")
         self.pause_file_button = QPushButton("Pause")
@@ -226,13 +196,6 @@ class ChatPage(QWidget):
         )
         self.send_button.clicked.connect(self._send)
         self.weather_button.clicked.connect(self.weather_requested)
-        self.voice_record_button.clicked.connect(self.voice_record_requested)
-        self.voice_stop_button.clicked.connect(self.voice_stop_requested)
-        self.voice_send_button.clicked.connect(self.voice_send_requested)
-        self.voice_play_button.clicked.connect(
-            lambda: self.voice_play_requested.emit(self._voice_play_path)
-        )
-        self.voice_discard_button.clicked.connect(self.voice_discard_requested)
         self.send_file_button.clicked.connect(self._choose_file)
         self.pause_file_button.clicked.connect(self._pause_transfer)
         self.resume_file_button.clicked.connect(self._resume_transfer)
@@ -247,33 +210,17 @@ class ChatPage(QWidget):
         self.delete_conversation_button.clicked.connect(self._delete_conversation)
         self._transfer_id = ""
         self._transfer_path = ""
-        self._voice_play_path = ""
-        self._voice_available = False
-        self._voice_draft_ready = False
-        self._voice_send_reason = "Connect to a station before sending voice"
-        self._voice_transfer_active = False
-        self._voice_recording = False
         self._chat_messages: list[ChatMessage] = []
         self._file_transfers: list[object] = []
-        self._voice_messages: list[object] = []
         self._cq_expiry_timer = QTimer(self)
         self._cq_expiry_timer.setInterval(30_000)
         self._cq_expiry_timer.timeout.connect(self._expire_cq_calls)
         self._cq_expiry_timer.start()
-        self._typing_announced = False
-        self._typing_timer = QTimer(self)
-        self._typing_timer.setSingleShot(True)
-        self._typing_timer.setInterval(10_000)
-        self._typing_timer.timeout.connect(self._announce_typing)
-        self.composer.textChanged.connect(self._composer_changed)
-        self._presence_expiry_timer = QTimer(self)
-        self._presence_expiry_timer.setSingleShot(True)
-        self._presence_expiry_timer.timeout.connect(self._clear_peer_presence)
 
     def set_state(self, state: str) -> None:
         label = {
-            "validating-sending": "sending link confirmation",
-            "validating-receiving": "receiving link confirmation",
+            "validating-sending": "verifying peer",
+            "validating-receiving": "verifying peer",
         }.get(state, state)
         self.link_state.setText(f"TNC: {label}")
         self.link_state.setToolTip(f"Mercury TNC state: {state}")
@@ -336,126 +283,7 @@ class ChatPage(QWidget):
 
     def set_disconnected(self) -> None:
         self._session_connected = False
-        self._typing_timer.stop()
-        self._typing_announced = False
-        self._clear_peer_presence()
         self._update_weather_button()
-
-    def set_peer_presence(self, state: str, ttl_seconds: int) -> None:
-        peer = self.remote_call.text().strip().upper() or "Remote station"
-        descriptions = {
-            "typing": f"{peer} is typing…",
-            "recording_audio": f"{peer} is recording audio…",
-        }
-        if state not in descriptions or ttl_seconds <= 0:
-            self._clear_peer_presence()
-            return
-        self.peer_presence.setText(descriptions[state])
-        self.peer_presence.setVisible(True)
-        self._presence_expiry_timer.start(min(ttl_seconds, 45) * 1000)
-
-    def set_voice_availability(self, available: bool, reason: str) -> None:
-        self._voice_available = available
-        self._voice_send_reason = reason
-        self.voice_send_button.setEnabled(self._voice_draft_ready and available)
-        if not self._voice_transfer_active and not self._voice_recording:
-            self._show_voice_readiness()
-
-    def set_voice_recording(self, recording: bool, duration_ms: int) -> None:
-        self._voice_recording = recording
-        self._set_button_state(
-            self.voice_record_button, "VoiceRecordingButton" if recording else ""
-        )
-        self.voice_record_button.setEnabled(not recording)
-        self.voice_stop_button.setEnabled(recording)
-        self.voice_discard_button.setEnabled(
-            not recording and self._voice_draft_ready
-        )
-        if recording:
-            remaining = max(0, min(10, math.ceil((10_000 - duration_ms) / 1000)))
-            # Preserve the normal two-line label height without showing send
-            # availability while capture duration updates arrive.
-            self.voice_status.setText(f"Recording · {remaining:02d}\n\u00a0")
-        else:
-            self._show_voice_readiness()
-
-    def set_voice_playback(self, playing: bool) -> None:
-        self._set_button_state(
-            self.voice_play_button, "VoicePlayingButton" if playing else ""
-        )
-
-    @staticmethod
-    def _set_button_state(button: QPushButton, object_name: str) -> None:
-        if button.objectName() == object_name:
-            return
-        button.setObjectName(object_name)
-        button.style().unpolish(button)
-        button.style().polish(button)
-        button.update()
-
-    def set_voice_draft(self, ready: bool, path: str = "") -> None:
-        self._voice_draft_ready = ready
-        self._voice_play_path = path if ready else ""
-        self.voice_record_button.setEnabled(True)
-        self.voice_send_button.setEnabled(ready and self._voice_available)
-        self.voice_play_button.setEnabled(ready and bool(self._voice_play_path))
-        self.voice_discard_button.setEnabled(ready)
-        if ready:
-            self._show_voice_readiness()
-        else:
-            self._show_voice_readiness()
-
-    def set_voice_messages(self, messages) -> None:
-        self._voice_messages = list(messages)
-        self._render_messages()
-        if not messages:
-            self._voice_transfer_active = False
-            self._show_voice_readiness()
-            return
-        message = messages[-1]
-        active = message.status in {
-            "queued", "offered", "transmitting", "receiving", "verifying",
-        }
-        self._voice_transfer_active = active
-        labels = {
-            "queued": "Voice queued locally — waiting for Mercury BUFFER 0",
-            "offered": "Voice offer sent — waiting for receiving station",
-            "transmitting": f"Voice transmitting — {message.progress}% confirmed by receiver",
-            "receiving": f"Incoming voice message — {message.progress}% received",
-            "verifying": "Voice sent — waiting for receiver verification",
-            "delivered": "Voice delivered — verified by receiving station",
-            "received": "Incoming voice message ready to play",
-            "failed": "Voice message failed — recording retained for review",
-            "busy": "Receiving station was busy — recording retained",
-            "link-poor": "Receiving station reports link too weak for voice",
-        }
-        self.voice_status.setText(
-            labels.get(message.status, f"Voice {message.direction} · {message.status}")
-        )
-        self.voice_record_button.setEnabled(not active)
-        self.voice_send_button.setEnabled(
-            not active and self._voice_draft_ready and self._voice_available
-        )
-        self.voice_discard_button.setEnabled(
-            not active and self._voice_draft_ready
-        )
-        if message.status in {"received", "delivered"}:
-            self._voice_play_path = message.path
-            self.voice_play_button.setEnabled(bool(message.path))
-        else:
-            self.voice_play_button.setEnabled(
-                not active and self._voice_draft_ready and bool(self._voice_play_path)
-            )
-
-    def _show_voice_readiness(self) -> None:
-        if self._voice_transfer_active or self._voice_recording:
-            return
-        if self._voice_available:
-            detail = "Peer voice compatible — ready to send"
-        else:
-            detail = f"Send unavailable: {self._voice_send_reason}"
-        prefix = "Voice recording ready" if self._voice_draft_ready else "Ready to record locally"
-        self.voice_status.setText(f"{prefix}\n{detail}")
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""
@@ -540,27 +368,7 @@ class ChatPage(QWidget):
             (message.sent_at, 0, index, "text", message)
             for index, message in enumerate(self._chat_messages)
         ]
-        entries.extend(
-            (getattr(message, "created_at", "") or "9999", 1, index, "voice", message)
-            for index, message in enumerate(self._voice_messages)
-        )
         for _timestamp, _order, _index, kind, message in sorted(entries):
-            if kind == "voice":
-                state = {
-                    "queued": "queued",
-                    "offered": "queued · awaiting receiver",
-                    "transmitting": "sent · receiver confirming chunks",
-                    "receiving": f"receiving · {message.progress}%",
-                    "verifying": "sent · awaiting delivery confirmation",
-                    "delivered": "delivered",
-                    "received": "received · ready to play",
-                    "failed": "failed",
-                    "busy": "failed · receiving station busy",
-                    "link-poor": "failed · receiving link below voice threshold",
-                }.get(message.status)
-                if state:
-                    self._add_voice_message(message, state)
-                continue
             direction = (
                 "You" if message.direction is MessageDirection.OUTGOING
                 else (self.remote_call.text().strip().upper() or "Remote station")
@@ -607,46 +415,6 @@ class ChatPage(QWidget):
         )
         self.messages.addItem(item)
 
-    def _add_voice_message(self, message, state: str) -> None:
-        direction = "You" if message.direction == "outgoing" else (
-            self.remote_call.text().strip().upper() or "Remote station"
-        )
-        text = f"{direction} · Voice message: {state}"
-        item = QListWidgetItem(text)
-        playable = message.status in {"delivered", "received"} and bool(message.path)
-        if not playable:
-            if message.direction == "outgoing":
-                item.setTextAlignment(Qt.AlignmentFlag.AlignRight)
-            self.messages.addItem(item)
-            return
-        item.setText("")
-        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, text)
-        row = QWidget()
-        row.setObjectName("VoiceMessageRow")
-        row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(10, 6, 10, 6)
-        row_layout.setSpacing(10)
-        label = QLabel(text)
-        label.setWordWrap(True)
-        label.setMinimumWidth(220)
-        play = QPushButton("Play")
-        play.setToolTip("Play this completed voice message")
-        play.clicked.connect(
-            lambda _checked=False, path=message.path: self.voice_play_requested.emit(path)
-        )
-        if message.direction == "outgoing":
-            row_layout.addStretch(1)
-            row_layout.addWidget(label)
-            row_layout.addWidget(play)
-        else:
-            row_layout.addWidget(play)
-            row_layout.addWidget(label)
-            row_layout.addStretch(1)
-        size = row.sizeHint()
-        size.setHeight(max(44, size.height()))
-        item.setSizeHint(size)
-        self.messages.addItem(item)
-        self.messages.setItemWidget(item, row)
 
     def set_transfers(self, transfers: list[object]) -> None:
         self._file_transfers = list(transfers)
@@ -721,25 +489,6 @@ class ChatPage(QWidget):
         if text.strip():
             self.send_requested.emit(text)
             self.composer.clear()
-
-    def _composer_changed(self) -> None:
-        if not self._session_connected or not self.composer.toPlainText().strip():
-            self._typing_timer.stop()
-            self._typing_announced = False
-            return
-        if not self._typing_announced and not self._typing_timer.isActive():
-            self._typing_timer.start()
-
-    def _announce_typing(self) -> None:
-        if (self._session_connected and self.composer.toPlainText().strip()
-                and not self._typing_announced):
-            self.presence_requested.emit("typing")
-            self._typing_announced = True
-
-    def _clear_peer_presence(self) -> None:
-        self._presence_expiry_timer.stop()
-        self.peer_presence.clear()
-        self.peer_presence.setVisible(False)
 
     def _choose_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Send file")

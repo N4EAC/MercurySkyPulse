@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="${0:A:h}"
-VERSION="${MSP_VERSION:-0.1.3}"
+VERSION="${MSP_VERSION:-0.1.4}"
 APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"
 OUTPUT_DIR="$PROJECT_ROOT/dist/installer"
 OUTPUT="$OUTPUT_DIR/MercurySkyPulse-$VERSION-macos-arm64.dmg"
@@ -36,10 +36,6 @@ fi
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 test -x "$APP/Contents/Frameworks/mercury/mercury"
-print "Verifying bounded Opus compression, bilateral bitrate gating, and voice protocol 2 in the DMG payload..."
-"$PROJECT_ROOT/.venv-build-macos/bin/python" \
-    tools/validate_voice_package.py "$APP"
-
 ditto "$APP" "$STAGING/MercurySkyPulse.app"
 ln -s /Applications "$STAGING/Applications"
 cp LICENSE "$STAGING/LICENSE.txt"

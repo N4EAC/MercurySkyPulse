@@ -18,7 +18,6 @@ CAPABILITIES = {
     "beacon": 1 << 0, "bbs": 1 << 1, "chat": 1 << 2,
     "file-transfer": 1 << 3, "gps-history": 1 << 4,
     "image": 1 << 5, "location": 1 << 6,
-    "voice-chat": 1 << 7,
 }
 CALLSIGN = re.compile(r"^[A-Z0-9][A-Z0-9/-]{0,14}$")
 GRID = re.compile(r"^[A-R]{2}\d{2}(?:[A-X]{2}(?:\d{2})?)?$")

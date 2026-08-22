@@ -59,7 +59,7 @@ separately.
 Recent connection reliability work adds a 60-second unanswered-call timeout and
 peer-confirmed session startup. Mercury's local `CONNECTED` notification is
 provisional until the remote MSP acknowledges a bounded application probe; an
-asymmetric or false connection is cancelled before chat, voice, file, BBS, or
+asymmetric or false connection is cancelled before chat, file, BBS, or
 other session traffic is enabled.
 
 MSP also translates known fatal Mercury startup failures into actionable ARQ
@@ -97,21 +97,19 @@ remains available with the earlier unsigned engineering installers for:
 - Fedora 42 x86-64 (`.rpm`).
 
 All alpha artifacts are intended for controlled testing rather than production use.
-Active development after Alpha 2 identifies itself as **0.1.3 — Sirius**.
+Active development after Alpha 2 identifies itself as **0.1.4 — Canopus**.
 
-The Sirius development cycle hardens station establishment for half-duplex RF:
-only the caller initiates MSP peer validation, the listener acknowledges that
-probe, and caller validation observes Mercury BUFFER progress under a separate
-bounded safety deadline. Current peers complete a three-way probe, acknowledgement,
-and readiness exchange so neither endpoint releases feature traffic from a
-one-sided provisional session. An endpoint with queued handshake traffic uses a
-60-second no-progress guard that follows BUFFER decreases and valid handshake
-events; an independent 180-second ceiling bounds the attempt. Activity and
-persistent logs identify each stage without recording station-specific
-diagnostic narratives. The privacy-neutral failure and correction record is
-maintained in `docs/FAILURES_AND_CORRECTIONS.md`.
+Canopus prioritizes efficient text communication over constrained half-duplex
+RF. Peer confirmation uses three compact 14-byte, versioned control frames:
+probe, acknowledgement, and readiness. This preserves bilateral confirmation
+without the earlier 144–198-byte JSON handshake frames. Voice chat, typing and
+recording presence traffic, separate voice audio settings, and PyAV/Opus are
+removed, so no optional voice negotiation can enter Mercury's queue ahead of
+operator text. Activity and persistent logs identify each validation stage. The
+privacy-neutral failure and correction record is maintained in
+`docs/FAILURES_AND_CORRECTIONS.md`.
 
-### Station chat and short voice messages
+### Station chat
 
 The central Chat workspace provides station-to-station text conversations. On the receiving
 station, enter a callsign and choose **Listen**. On the initiating station, enter
@@ -119,32 +117,7 @@ both callsigns and choose **Connect**. Messages include timestamps and queued,
 sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
 
-Compatible MSP peers can also exchange compressed voice messages of up to 10
-seconds and 8 KiB. MSP always converts the complete recording to constant-bitrate,
-8 kHz mono Opus and verifies the finished Ogg artifact is no larger than 8 KiB
-before enabling Send; the operator does not manage file size or codec settings.
-Voice uses separate system microphone/playback devices selected under
-**Setup → Audio** and is transferred as verified application data over the active
-Mercury ARQ session; it is not live FreeDV audio. MSP permits local recording,
-review playback, discard, and replacement without requiring a station connection.
-**Send Voice** is enabled only after the connected peer advertises `voice-chat`,
-after both stations advertise sustained bitrate readiness of at least 500 bps,
-and while no file transfer is pending—including
-paused transfers. One voice message may be outstanding, and successful delivery
-starts a 120-second sending cooldown. Disconnecting discards incomplete session audio.
-Readiness is sent only when it changes; the receiver also rechecks its link when
-an offer arrives, protecting asymmetric or recently degraded links.
-Voice transfer is deliberately paced against Mercury's reported BUFFER and peer
-chunk acknowledgements. Both operators see local incoming/transmitting progress;
-the sender sees **delivered** only after receiver checksum verification. Completed
-incoming and outgoing voice entries remain in Chat with their own **Play** button,
-so either operator can review the exact received or sent recording. Voice and
-text entries share timestamp order and scroll together as one conversation. While
-voice or file data is pending, MSP displays new text locally as **queued**, sends
-it after the bulk transfer releases the session, and suppresses disposable
-presence traffic. The Station Status Transfer card shows voice as well as file
-activity.
-Chat renders outgoing file and voice lifecycle snapshots as **queued**, **sent**,
+Chat renders outgoing file lifecycle snapshots as **queued**, **sent**,
 **delivered**, or **failed**. Sent requires receiver participation; delivered
 requires the receiving application's final checksum result. A delivered outgoing
 file clears the send controls and progress bar for the next transfer.
@@ -152,16 +125,6 @@ An operator can cancel any offered, active, paused, or verifying file transfer.
 Loss of the ARQ session marks unfinished transfers interrupted, deletes incomplete
 received data, releases the transfer queue, and requires a fresh send after
 reconnection rather than attempting an unsafe cross-session resume.
-Voice recording uses a stable `10` through `00` countdown. Record is red only
-during capture, Play is green only during playback, and send availability is
-shown below the local recording state but hidden throughout capture.
-Sparse `is typing…` and `is recording audio…` indicators use one expiring event
-per activity period rather than continuous RF presence traffic.
-The Audio tab confirms the active voice endpoints, saves a voice-only microphone
-level, and displays a local live dBFS microphone meter while that tab is open.
-This diagnostic never records or transmits audio and does not change Mercury's
-modem audio devices or gain.
-
 Conversation history is stored locally in the platform application-data directory.
 Direct station calls stop automatically after 60 seconds when unanswered. A
 Mercury `CONNECTED` indication is shown as provisional until the remote MSP
@@ -211,7 +174,7 @@ existing history available for later export.
 ### Station beacon
 
 The dockable Beacon panel advertises the station callsign, Maidenhead grid,
-software version, and supported capabilities—including `voice-chat`—over
+software version and supported data capabilities over
 Mercury's connectionless KISS broadcast port.
 Beaconing
 is Off by default and supports 1, 5, 10, 15, 30, or 60-minute intervals plus a
@@ -383,7 +346,6 @@ are enabled, and the schema upgrades existing chat-history databases in place.
 ```text
 MercurySkyPulse/
 ├── assets/icons/                # ICNS, ICO, and multi-resolution PNG artwork
-├── assets/voices/               # Proposed operator voice prompts and mapping notes
 ├── assets/wallpapers/           # Approved 3840×2160 MSP desktop wallpapers
 ├── packaging/                   # Inno Setup and native Linux package metadata
 ├── apps/
@@ -472,11 +434,11 @@ For a conventional drag-to-Applications disk image, run:
 This first builds and validates `MercurySkyPulse.app`, then creates:
 
 ```text
-dist/installer/MercurySkyPulse-0.1.3-macos-arm64.dmg
+dist/installer/MercurySkyPulse-0.1.4-macos-arm64.dmg
 ```
 
 When the DMG exceeds 50 MiB, the script also creates the repository-ready
-`MercurySkyPulse-0.1.3-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
+`MercurySkyPulse-0.1.4-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
 DMG so large installer updates do not trigger GitHub's 50-MB warning.
 
 Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
@@ -517,10 +479,6 @@ The MSP designs use the phrases **Mercury Modem ARQ Data-Link Technology** and
 design uses the original Mercury emblem with **Mercury Modem**. These
 wallpapers are project artwork and are not bundled into application installers.
 
-The repository also contains proposed operator voice prompts and their design
-notes under `assets/voices/`. They are reference assets only and are not yet
-enabled or bundled by the application.
-
 ### Windows test executable
 
 On a Windows 10 or 11 development machine with Python 3.11 or newer installed,
@@ -540,7 +498,7 @@ When [Inno Setup 6](https://jrsoftware.org/isdl.php) is installed, the same
 command compiles `packaging\windows\MercurySkyPulse.iss` and creates:
 
 ```text
-dist\installer\MercurySkyPulse-0.1.3-windows-x86_64-setup.exe
+dist\installer\MercurySkyPulse-0.1.4-windows-x86_64-setup.exe
 ```
 
 The installer displays the MSP icon, installs per user without an administrator
@@ -608,7 +566,7 @@ sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
 
 The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
-either `dist/packages/mercury-skypulse_0.1.3_amd64.deb` or an x86-64 RPM in the
+either `dist/packages/mercury-skypulse_0.1.4_amd64.deb` or an x86-64 RPM in the
 same directory. The Fedora 42 RPM path has been built, installed, and launched
 successfully. It installs MSP under `/opt/mercuryskypulse`, adds the
 `mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or
