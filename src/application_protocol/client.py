@@ -37,16 +37,25 @@ class ApplicationMessagingClient(QObject):
 
     def __init__(self, transport, parent=None, *, call_timeout_ms: int = 60_000,
                  validation_timeout_ms: int = 60_000,
-                 validation_maximum_ms: int = 180_000) -> None:
+                 validation_maximum_ms: int = 180_000,
+                 validation_retry_limit: int = 2,
+                 validation_listener_retry_offset_ms: int = 15_000) -> None:
         super().__init__(parent)
         self.transport = transport
         self._decoder = FrameDecoder()
         self._pending_session: tuple[str, str, int] | None = None
         self._probe_id = ""
         self._peer_probe_id = ""
+        self._confirmed_probe_id = ""
         self._waiting_for_ready = False
         self._outgoing_call = False
         self._validation_queued_bytes: int | None = None
+        self._validation_retry_limit = max(0, int(validation_retry_limit))
+        self._validation_retries = 0
+        self._validation_timeout_ms = max(1, int(validation_timeout_ms))
+        self._validation_listener_retry_offset_ms = max(
+            0, int(validation_listener_retry_offset_ms)
+        )
         self._published_state = "disconnected"
         self._call_timer = QTimer(self)
         self._call_timer.setSingleShot(True)
@@ -54,7 +63,7 @@ class ApplicationMessagingClient(QObject):
         self._call_timer.timeout.connect(self._call_timed_out)
         self._validation_timer = QTimer(self)
         self._validation_timer.setSingleShot(True)
-        self._validation_timer.setInterval(validation_timeout_ms)
+        self._validation_timer.setInterval(self._validation_timeout_ms)
         self._validation_timer.timeout.connect(self._validation_timed_out)
         self._validation_maximum_timer = QTimer(self)
         self._validation_maximum_timer.setSingleShot(True)
@@ -159,6 +168,8 @@ class ApplicationMessagingClient(QObject):
         self._call_timer.stop()
         self._pending_session = (source, destination, bandwidth)
         self._validation_queued_bytes = None
+        self._validation_retries = 0
+        self._confirmed_probe_id = ""
         self._validation_maximum_timer.start()
         if not self._outgoing_call:
             self._set_state("validating-receiving")
@@ -167,6 +178,7 @@ class ApplicationMessagingClient(QObject):
             )
             return
         self._set_state("validating-sending")
+        self._validation_timer.setInterval(self._validation_timeout_ms)
         self._validation_timer.start()
         self._probe_id = secrets.token_hex(8)
         try:
@@ -214,6 +226,13 @@ class ApplicationMessagingClient(QObject):
                 self._peer_probe_id = envelope.message_id
                 self._waiting_for_ready = True
                 self._validation_queued_bytes = None
+                # Let the caller retry first if the acknowledgement was lost.
+                # The offset prevents both half-duplex peers transmitting their
+                # compact retry at the same instant.
+                self._validation_timer.setInterval(
+                    self._validation_timeout_ms
+                    + self._validation_listener_retry_offset_ms
+                )
                 self._validation_timer.start()
                 self.control_event.emit(
                     "MSP validation: waiting for caller readiness confirmation"
@@ -228,8 +247,25 @@ class ApplicationMessagingClient(QObject):
 
     def _accept_session_probe_ack(self, envelope) -> None:
         values = envelope.values or {}
+        probe_id = values.get("probe_id")
+        if (not self._pending_session and self._published_state == "connected"
+                and probe_id and probe_id == self._confirmed_probe_id):
+            # The listener did not receive our final readiness frame and
+            # repeated its ACK. Re-send readiness without reopening the
+            # application session or admitting any additional feature traffic.
+            try:
+                self.transport.write(encode_session_control(
+                    "session_ready", self._confirmed_probe_id
+                ))
+            except (OSError, RuntimeError) as error:
+                self.error_received.emit(
+                    f"Could not repeat station readiness: {error}"
+                )
+                return
+            self.control_event.emit("MSP validation: caller readiness repeated")
+            return
         if (not self._pending_session or not self._probe_id
-                or values.get("probe_id") != self._probe_id):
+                or probe_id != self._probe_id):
             return
         self.control_event.emit("MSP validation: probe acknowledgement received")
         self._validation_timer.start()
@@ -259,6 +295,8 @@ class ApplicationMessagingClient(QObject):
         if not self._pending_session:
             return
         session = self._pending_session
+        if self._outgoing_call:
+            self._confirmed_probe_id = self._probe_id
         self._validation_timer.stop()
         self._validation_maximum_timer.stop()
         self._pending_session = None
@@ -303,6 +341,34 @@ class ApplicationMessagingClient(QObject):
             self.error_received.emit(
                 "Station validation made no Mercury buffer progress; connection cancelled"
             )
+        elif self._validation_retries < self._validation_retry_limit:
+            self._validation_retries += 1
+            try:
+                if self._outgoing_call and self._probe_id:
+                    self.transport.write(encode_session_control(
+                        "session_probe", self._probe_id
+                    ))
+                    stage = "caller probe"
+                elif self._waiting_for_ready and self._peer_probe_id:
+                    self.transport.write(encode_session_control(
+                        "session_probe_ack", self._peer_probe_id
+                    ))
+                    stage = "probe acknowledgement"
+                else:
+                    return
+            except (OSError, RuntimeError) as error:
+                self.error_received.emit(
+                    f"Could not retry station validation: {error}"
+                )
+                self._abort_unconfirmed_session()
+                return
+            self._validation_queued_bytes = None
+            self._validation_timer.start()
+            self.control_event.emit(
+                f"MSP validation: {stage} retry "
+                f"{self._validation_retries}/{self._validation_retry_limit} queued"
+            )
+            return
         elif self._waiting_for_ready:
             self.error_received.emit(
                 "Caller readiness confirmation did not arrive; connection cancelled"
@@ -346,8 +412,10 @@ class ApplicationMessagingClient(QObject):
         self._pending_session = None
         self._probe_id = ""
         self._peer_probe_id = ""
+        self._confirmed_probe_id = ""
         self._waiting_for_ready = False
         self._validation_queued_bytes = None
+        self._validation_retries = 0
         self._outgoing_call = False
 
     def _set_state(self, state: str) -> None:

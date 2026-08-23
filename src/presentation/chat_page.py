@@ -262,7 +262,16 @@ class ChatPage(QWidget):
         callsign = self.cq_callers.currentData(Qt.ItemDataRole.UserRole)
         if callsign:
             self.remote_call.setText(str(callsign))
+            self.remove_cq_caller(str(callsign))
             self.answer_cq_requested.emit(str(callsign))
+
+    def remove_cq_caller(self, callsign: str) -> None:
+        target = callsign.strip().upper()
+        for index in range(self.cq_callers.count() - 1, -1, -1):
+            value = self.cq_callers.itemData(index, Qt.ItemDataRole.UserRole)
+            if str(value or "").upper() == target:
+                self.cq_callers.removeItem(index)
+        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
 
     def _expire_cq_calls(self) -> None:
         cutoff = datetime.now(UTC).timestamp() - 300

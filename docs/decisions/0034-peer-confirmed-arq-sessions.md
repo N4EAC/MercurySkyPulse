@@ -37,6 +37,13 @@ maximum deadline. Any applicable timeout sends Mercury's documented `DISCONNECT`
 command, reports an actionable operator message, and allows automatic listening
 to resume after Mercury returns ready.
 
+After a locally drained validation frame receives no response, MSP retries the
+same compact frame and session token at most twice. The caller retries first;
+the listener's acknowledgement retry is offset by 15 seconds so both
+half-duplex endpoints do not transmit retries together. A confirmed caller
+repeats `session_ready` when it receives a duplicate acknowledgement. Successful
+handshakes send no retry traffic and retain the normal three-frame exchange.
+
 The probe is MSP application framing, not a Mercury protocol extension. Chat,
 files, BBS, location, and other session traffic remain disabled during
 the provisional `validating` state.
@@ -50,3 +57,5 @@ the provisional `validating` state.
   session with this MSP version and time out safely.
 - Mercury remains responsible for ARQ establishment; MSP independently verifies
   that its peer application can exchange framed data.
+- A single lost compact validation frame can recover without extending the
+  independent 180-second attempt ceiling or adding traffic to successful calls.

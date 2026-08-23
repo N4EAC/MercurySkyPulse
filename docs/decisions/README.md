@@ -45,4 +45,5 @@ Each ADR should state status, context, decision, alternatives, and consequences.
 - [0032 — Session-scoped compressed voice messages (superseded)](0032-session-voice-messages.md)
 - [0033 — Remove product licensing and the unused encryption hook](0033-remove-product-licensing-and-encryption-hook.md)
 - [0034 — Peer-confirmed ARQ sessions](0034-peer-confirmed-arq-sessions.md)
+- [0036 — Self-contained operator speech](0036-self-contained-operator-speech.md)
 - [0035 — Text-first ARQ admission control](0035-text-first-arq-admission-control.md)

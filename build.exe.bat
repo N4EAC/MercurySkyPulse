@@ -14,6 +14,12 @@ set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.
 set "MSP_MERCURY_CACHE=%TEMP%\MercurySkyPulse-build-cache\mercury-%MSP_MERCURY_VERSION%"
 set "MSP_MERCURY_ARCHIVE=%MSP_MERCURY_CACHE%\%MSP_MERCURY_ARCHIVE_NAME%"
 set "MSP_MERCURY_RUNTIME=%MSP_MERCURY_CACHE%\runtime\mercury-%MSP_MERCURY_VERSION%"
+set "MSP_ESPEAK_VERSION=1.52.0"
+set "MSP_ESPEAK_URL=https://github.com/espeak-ng/espeak-ng/releases/download/1.52.0/espeak-ng.msi"
+set "MSP_ESPEAK_SHA256=7f673c709ea5dd579d3b5ebb98688cc575328a6ab7438d2bc405b88cedaeafb9"
+set "MSP_ESPEAK_CACHE=%TEMP%\MercurySkyPulse-build-cache\espeak-ng-%MSP_ESPEAK_VERSION%"
+set "MSP_ESPEAK_MSI=%MSP_ESPEAK_CACHE%\espeak-ng-%MSP_ESPEAK_VERSION%.msi"
+set "MSP_ESPEAK_RUNTIME=%MSP_ESPEAK_CACHE%\runtime"
 
 set "MSP_PYTHON=.venv\Scripts\python.exe"
 if exist "%MSP_PYTHON%" goto verify_venv
@@ -49,6 +55,13 @@ if errorlevel 1 (
     goto failed
 )
 echo Mercury runtime: %MSP_MERCURY_RUNTIME%
+
+call :prepare_espeak
+if errorlevel 1 (
+    echo ERROR: The pinned eSpeak NG runtime could not be prepared.
+    goto failed
+)
+echo Offline speech runtime: %MSP_ESPEAK_RUNTIME%
 
 echo Updating pip...
 "%MSP_PYTHON%" -m pip install --upgrade pip
@@ -104,6 +117,12 @@ if errorlevel 1 (
     echo ERROR: The Mercury SkyPulse GPL license could not be copied into the package.
     goto failed
 )
+echo Adding eSpeak NG to the test package...
+xcopy /E /I /Y "%MSP_ESPEAK_RUNTIME%\*" "dist\MercurySkyPulse\espeak" >nul
+if errorlevel 1 (
+    echo ERROR: The eSpeak NG runtime could not be copied into the test package.
+    goto failed
+)
 
 call :build_installer
 if errorlevel 1 goto failed
@@ -112,10 +131,41 @@ echo.
 echo Build complete: dist\MercurySkyPulse\MercurySkyPulse.exe
 echo Mercury included: dist\MercurySkyPulse\mercury\mercury.exe
 if defined MSP_ISCC (
-    echo Installer complete: dist\installer\MercurySkyPulse-0.1.4-windows-x86_64-setup.exe
+    echo Installer complete: dist\installer\MercurySkyPulse-0.1.5-windows-x86_64-setup.exe
 ) else (
     echo Portable package complete. Copy the entire dist\MercurySkyPulse directory.
 )
+exit /b 0
+
+:prepare_espeak
+if not exist "%MSP_ESPEAK_CACHE%" mkdir "%MSP_ESPEAK_CACHE%"
+if not exist "%MSP_ESPEAK_MSI%" (
+    echo Downloading pinned eSpeak NG %MSP_ESPEAK_VERSION% runtime...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri $env:MSP_ESPEAK_URL -OutFile $env:MSP_ESPEAK_MSI"
+    if errorlevel 1 exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "if ((Get-FileHash -LiteralPath $env:MSP_ESPEAK_MSI -Algorithm SHA256).Hash.ToLowerInvariant() -ne $env:MSP_ESPEAK_SHA256) { exit 1 }"
+if errorlevel 1 (
+    echo ERROR: eSpeak NG runtime SHA-256 verification failed.
+    del /Q "%MSP_ESPEAK_MSI%" >nul 2>nul
+    exit /b 1
+)
+if not exist "%MSP_ESPEAK_RUNTIME%\espeak-ng.exe" (
+    echo Extracting eSpeak NG runtime...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$extract=Join-Path $env:MSP_ESPEAK_CACHE 'extract'; if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }; New-Item $extract -ItemType Directory | Out-Null; $process=Start-Process msiexec.exe -Wait -PassThru -ArgumentList @('/a', $env:MSP_ESPEAK_MSI, '/qn', ('TARGETDIR=' + $extract)); if ($process.ExitCode -ne 0) { exit $process.ExitCode }; $exe=Get-ChildItem $extract -Filter espeak-ng.exe -Recurse | Select-Object -First 1; $data=Get-ChildItem $extract -Directory -Filter espeak-ng-data -Recurse | Select-Object -First 1; if (-not $exe -or -not $data) { exit 2 }; if (Test-Path $env:MSP_ESPEAK_RUNTIME) { Remove-Item $env:MSP_ESPEAK_RUNTIME -Recurse -Force }; New-Item $env:MSP_ESPEAK_RUNTIME -ItemType Directory | Out-Null; Copy-Item $exe.FullName (Join-Path $env:MSP_ESPEAK_RUNTIME 'espeak-ng.exe'); Get-ChildItem $exe.DirectoryName -Filter *.dll | Copy-Item -Destination $env:MSP_ESPEAK_RUNTIME; Copy-Item $data.FullName (Join-Path $env:MSP_ESPEAK_RUNTIME 'espeak-ng-data') -Recurse"
+    if errorlevel 1 exit /b 1
+    copy /Y LICENSE "%MSP_ESPEAK_RUNTIME%\LICENSE" >nul
+    (
+        echo eSpeak NG %MSP_ESPEAK_VERSION% offline speech runtime
+        echo Source: https://github.com/espeak-ng/espeak-ng/tree/1.52.0
+        echo License: GNU GPL-3.0-or-later; see LICENSE.
+    ) > "%MSP_ESPEAK_RUNTIME%\SOURCE.txt"
+)
+if not exist "%MSP_ESPEAK_RUNTIME%\espeak-ng.exe" exit /b 1
+if not exist "%MSP_ESPEAK_RUNTIME%\espeak-ng-data\en_dict" exit /b 1
 exit /b 0
 
 :find_python
@@ -198,7 +248,7 @@ if not defined MSP_ISCC (
     exit /b 0
 )
 echo Building the Inno Setup installer...
-"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.4 packaging\windows\MercurySkyPulse.iss
+"%MSP_ISCC%" /Qp /DMyAppVersion=0.1.5 packaging\windows\MercurySkyPulse.iss
 if errorlevel 1 (
     echo ERROR: Inno Setup failed to create the Windows installer.
     exit /b 1

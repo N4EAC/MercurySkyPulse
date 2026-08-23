@@ -74,3 +74,19 @@ Later messages remain locally queued until receiver-confirmed delivery and local
 Mercury `BUFFER 0`. Disconnect clears the in-memory queue so unsent text cannot
 cross station sessions. The correction adds no RF frames and preserves Mercury's
 native ISS/IRS, piggyback `HAS_DATA`, and `TURN_REQ`/`TURN_ACK` arbitration.
+
+## 0.1.4 — CQ answer lost a compact validation acknowledgement
+
+**Observed failure:** A CQ invitation and Mercury ARQ connection completed at
+both endpoints, but the caller did not decode the listener's compact MSP probe
+acknowledgement on an asymmetric RF path. Both clients remained provisional
+until their safety deadlines expired. The answered CQ invitation also remained
+visible in the discovery selector.
+
+**Correction in 0.1.5 — Arcturus:** A locally drained validation frame can be
+retried twice with its original token. The caller retries first and the listener
+retry is offset by 15 seconds, preventing both half-duplex endpoints from
+transmitting recovery frames together. A confirmed caller repeats readiness in
+response to a duplicate acknowledgement. The existing 180-second maximum still
+bounds the attempt, successful calls add no retry traffic, and Answer CQ removes
+the selected invitation immediately.

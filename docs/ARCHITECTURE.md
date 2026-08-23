@@ -840,6 +840,19 @@ before Mercury controls are issued, so direct calls and CQ answers follow the
 same race-safe path. Legacy JSON probes remain decodable for incoming
 compatibility, but current callers do not transmit them.
 
+Arcturus retries a locally drained compact validation frame at most twice with
+the same token. The caller retry window precedes the listener window by 15
+seconds so recovery does not create competing half-duplex transmissions. A
+confirmed caller repeats readiness after a duplicate acknowledgement. The
+independent 180-second maximum still bounds every provisional session.
+
+`src/platform_runtime/builtin_speech.py` provides local operator announcements
+by invoking the packaged, pinned eSpeak NG 1.52.0 runtime without a shell and
+playing its bounded WAV output through Qt Multimedia. It is process-local
+platform integration: it has no application-wire, Mercury-audio, RF,
+cloud-service, operating-system speech, trained-model, or prerecorded-asset
+dependency.
+
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral
 `ModemStatus` and `SpectrumFrame` projections live in `src/application/modem.py`,

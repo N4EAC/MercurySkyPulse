@@ -51,7 +51,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
-        self.assertEqual(self.app.applicationVersion(), "0.1.4")
+        self.assertEqual(self.app.applicationVersion(), "0.1.5")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -73,7 +73,7 @@ class GuiSmokeTests(unittest.TestCase):
         about.assert_called_once_with(
             self.window,
             "About Mercury SkyPulse",
-            "Mercury SkyPulse 0.1.4 — Canopus\n\n"
+            "Mercury SkyPulse 0.1.5 — Arcturus\n\n"
             "Created by N4EAC Eduardo\n"
             "K5CG Danny (Contributor)",
         )
@@ -229,6 +229,8 @@ class GuiSmokeTests(unittest.TestCase):
         self.window.chat_page._answer_cq()
         self.assertEqual(requested, ["K1ABC"])
         self.assertEqual(self.window.chat_page.remote_call.text(), "K1ABC")
+        self.assertEqual(self.window.chat_page.cq_callers.count(), 0)
+        self.assertFalse(self.window.chat_page.answer_cq_button.isEnabled())
 
     def test_helper_text_is_inserted_without_being_sent(self) -> None:
         sent = []

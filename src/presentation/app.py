@@ -44,6 +44,7 @@ from platform_runtime.macos_application import (
 )
 from platform_runtime.psk_reporter import PskReporterUploader
 from platform_runtime.weather_provider import WttrWeatherProvider
+from platform_runtime.builtin_speech import BuiltinSpeechEngine
 from .release import APPLICATION_VERSION
 
 
@@ -232,10 +233,20 @@ def main() -> int:
     )
     window.activity_panel.log_added.connect(diagnostic_log.write_activity)
     window.activity_panel.append_log(f"Persistent diagnostic log: {diagnostic_log.path}")
+    speech_engine = BuiltinSpeechEngine(data_directory / "speech-cache", app)
+    speech_engine.error_received.connect(window.activity_panel.append_log)
+    app._msp_speech_engine = speech_engine
     app.aboutToQuit.connect(diagnostic_log.close)
     window.show()
     set_macos_application_menu_name("Mercury SkyPulse")
     QTimer.singleShot(
         0, lambda: set_macos_application_menu_name("Mercury SkyPulse")
     )
+    def announce_startup() -> None:
+        if speech_engine.speak("Mercury Sky Pulse"):
+            window.activity_panel.append_log(
+                "Local speech announcement requested: Mercury Sky Pulse"
+            )
+
+    QTimer.singleShot(750, announce_startup)
     return app.exec()

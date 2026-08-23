@@ -12,7 +12,11 @@ MERCURY_ROOT=""
 MERCURY_SOURCE=""
 MERCURY_REVISION=""
 MERCURY_REMOTE=""
-VERSION="${MSP_VERSION:-0.1.4}"
+ESPEAK_VERSION="1.52.0"
+ESPEAK_BIN="${ESPEAK_EXECUTABLE:-$(command -v espeak-ng || true)}"
+ESPEAK_DATA_DIR="${ESPEAK_DATA_DIR:-/usr/share/espeak-ng-data}"
+ESPEAK_RUNTIME="$PROJECT_ROOT/build/espeak-linux-runtime"
+VERSION="${MSP_VERSION:-0.1.5}"
 ARCH="$(uname -m)"
 
 cd "$PROJECT_ROOT"
@@ -23,6 +27,16 @@ if [[ "$(uname -s)" != "Linux" ]]; then
 fi
 if [[ "$ARCH" != "x86_64" ]]; then
     echo "ERROR: The initial Linux packages support x86_64 only (found $ARCH)." >&2
+    exit 1
+fi
+if [[ ! -x "$ESPEAK_BIN" || ! -d "$ESPEAK_DATA_DIR" ]]; then
+    echo "ERROR: eSpeak NG $ESPEAK_VERSION is required for offline announcements." >&2
+    echo "Fedora: sudo dnf install espeak-ng" >&2
+    echo "Ubuntu: sudo apt install espeak-ng" >&2
+    exit 1
+fi
+if ! "$ESPEAK_BIN" --version 2>&1 | grep -q "$ESPEAK_VERSION"; then
+    echo "ERROR: Expected eSpeak NG $ESPEAK_VERSION (found $ESPEAK_BIN)." >&2
     exit 1
 fi
 if command -v dpkg-deb >/dev/null 2>&1; then
@@ -117,6 +131,12 @@ if ldd "$MERCURY_SOURCE" | grep -q "not found"; then
 fi
 "$MERCURY_SOURCE" -h >/dev/null
 
+rm -rf "$ESPEAK_RUNTIME"
+mkdir -p "$ESPEAK_RUNTIME"
+install -m 0644 LICENSE "$ESPEAK_RUNTIME/LICENSE"
+printf 'eSpeak NG %s offline speech runtime\nSource: https://github.com/espeak-ng/espeak-ng/tree/1.52.0\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
+    "$ESPEAK_VERSION" > "$ESPEAK_RUNTIME/SOURCE.txt"
+
 "$PYTHON_BIN" -m venv "$BUILD_VENV"
 "$BUILD_VENV/bin/python" -m pip install --upgrade pip
 "$BUILD_VENV/bin/python" -m pip install -e . pyinstaller
@@ -132,6 +152,10 @@ rm -rf build/pyinstaller-linux dist/MercurySkyPulse
     --icon "$PROJECT_ROOT/assets/icons/linux/mercuryskypulse-256.png" \
     --add-data "$PROJECT_ROOT/assets/icons/mercuryskypulse.png:assets/icons" \
     --add-data "$PROJECT_ROOT/THIRD_PARTY_NOTICES.md:." \
+    --add-binary "$ESPEAK_BIN:espeak" \
+    --add-data "$ESPEAK_DATA_DIR:espeak/espeak-ng-data" \
+    --add-data "$ESPEAK_RUNTIME/LICENSE:espeak" \
+    --add-data "$ESPEAK_RUNTIME/SOURCE.txt:espeak" \
     --distpath "$PROJECT_ROOT/dist" \
     --workpath "$PROJECT_ROOT/build/pyinstaller-linux" \
     --specpath "$PROJECT_ROOT/build/pyinstaller-linux" \

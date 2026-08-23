@@ -9,10 +9,10 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
-The active development release is **0.1.4 — Canopus**. Canopus prioritizes fast,
-reliable text operation: it removes voice chat and its codec/audio dependencies,
-removes disposable presence traffic, and replaces verbose JSON station
-validation with compact versioned control frames. Subsequent milestones use the
+The active development release is **0.1.5 — Arcturus**. Arcturus preserves the
+fast, reliable, text-first Canopus design and adds bounded, staggered recovery
+for lost compact peer-validation frames. It also begins offline operator speech
+validation with a self-contained startup phrase. Subsequent milestones use the
 unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this
@@ -72,6 +72,11 @@ Mercury internals.
   144–198-byte JSON validation events. Direct calls and CQ answers share the
   same caller role established before Mercury callbacks can arrive. Voice and
   presence protocols are retired so optional traffic cannot precede text.
+- A drained compact validation frame may be retried twice with the same session
+  token. Caller and listener retry windows are staggered by 15 seconds to avoid
+  simultaneous half-duplex retries, and duplicate acknowledgements cause a
+  confirmed caller to repeat its final readiness frame. The 180-second absolute
+  attempt ceiling remains authoritative.
 - Text submission is single-flight per station. Later messages remain visibly
   queued until the preceding message is acknowledged by the peer and Mercury's
   local transmit buffer drains to zero. This bounds application backlog without
@@ -100,6 +105,9 @@ Mercury internals.
   insertion into Chat. A connection-gated Chat WX button performs the asynchronous
   fetch without reopening Setup. Weather is not fetched automatically or added to
   beacons.
+- Self-contained offline operator speech using packaged eSpeak NG 1.52.0, with
+  a synthesized startup announcement through the default system output. It has
+  no cloud, OS speech, prerecorded voice, Mercury audio, or RF dependency.
 
 ## Desktop interface
 

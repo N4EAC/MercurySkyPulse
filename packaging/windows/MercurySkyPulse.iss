@@ -1,6 +1,6 @@
 #define MyAppName "Mercury SkyPulse"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.4"
+  #define MyAppVersion "0.1.5"
 #endif
 #define MyAppPublisher "Mercury SkyPulse contributors"
 #define MyAppExeName "MercurySkyPulse.exe"

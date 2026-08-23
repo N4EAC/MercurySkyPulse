@@ -28,7 +28,7 @@ The project is still alpha engineering software. Real-RF validation, connection
 hardening, native package validation, signing, upgrades, and release policy are
 not complete.
 
-## Current release — 0.1.4 Canopus
+## Current release — 0.1.5 Arcturus
 
 - Remove voice chat, separate voice audio configuration, PyAV/Opus dependencies,
   disposable typing/recording presence events, and prerecorded announcement
@@ -46,8 +46,15 @@ not complete.
   offscreen GUI tests and packaging checks (for example, unsupported
   `propagateSizeHints()` and `raise()` operations). Keep unexpected Qt,
   multimedia, application-startup, and runtime failures visible and actionable.
+- Recover from a lost compact validation frame with at most two same-token
+  retries. Stagger caller and listener retries so recovery does not create a
+  half-duplex collision, and repeat caller readiness after a repeated listener
+  acknowledgement.
+- Remove an answered CQ invitation from the current caller list immediately.
+- Begin self-contained announcement validation by speaking **Mercury Sky Pulse**
+  locally at startup through packaged eSpeak NG 1.52.0 and the default output.
 
-Canopus requires paired-station RF validation in both call directions and through
+Arcturus requires paired-station RF validation in both call directions and through
 CQ discovery. Validation must include simultaneous operator submissions and
 confirm that single-flight admission prevents application backlog from amplifying
 half-duplex collisions.
@@ -133,12 +140,13 @@ initiated. Protected mode must wait for authenticated identity binding; open
 mode must continue to mark claimed identity as untrusted. Add adversarial
 identity and session tests before implementation.
 
-### Optional operator announcements
+### Operator announcements
 
-A future release may generate basic local spoken notices from text with a
-bundled, offline text-to-speech engine. It must not depend on operating-system
-speech services, transmit over RF, add a second station-audio configuration, or
-delay operator traffic. No prerecorded voice assets are retained.
+Arcturus includes the self-contained offline engine and one startup phrase for
+cross-platform validation. A future release may add operator controls and a
+small set of actionable, callsign-aware notices. They must remain sparse, must
+not transmit over RF or add a second station-audio configuration, and must never
+delay operator traffic.
 
 ## Native packages and Alpha validation
 

@@ -7,12 +7,24 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 MERCURY_SOURCE="${MERCURY_EXECUTABLE:-$PROJECT_ROOT/../mercury/mercury}"
 MERCURY_ROOT="${MERCURY_SOURCE:h}"
 MERCURY_RUNTIME="$PROJECT_ROOT/build/mercury-macos-runtime"
-VERSION="${MSP_VERSION:-0.1.4}"
+ESPEAK_VERSION="1.52.0"
+ESPEAK_PREFIX="${ESPEAK_PREFIX:-$(brew --prefix espeak-ng 2>/dev/null || true)}"
+ESPEAK_RUNTIME="$PROJECT_ROOT/build/espeak-macos-runtime"
+VERSION="${MSP_VERSION:-0.1.5}"
 
 cd "$PROJECT_ROOT"
 
 if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     print -u2 "ERROR: Python 3.11 or newer is required."
+    exit 1
+fi
+if [[ ! -x "$ESPEAK_PREFIX/bin/espeak-ng" || ! -d "$ESPEAK_PREFIX/share/espeak-ng-data" ]]; then
+    print -u2 "ERROR: eSpeak NG $ESPEAK_VERSION is required for offline announcements."
+    print -u2 "Install it with: brew install espeak-ng"
+    exit 1
+fi
+if ! "$ESPEAK_PREFIX/bin/espeak-ng" --version 2>&1 | grep -q "$ESPEAK_VERSION"; then
+    print -u2 "ERROR: Expected eSpeak NG $ESPEAK_VERSION at $ESPEAK_PREFIX"
     exit 1
 fi
 
@@ -49,6 +61,17 @@ MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || pr
     print "License: GNU GPL-3.0-or-later; see LICENSE."
 } > "$MERCURY_RUNTIME/SOURCE.txt"
 
+rm -rf "$ESPEAK_RUNTIME"
+mkdir -p "$ESPEAK_RUNTIME"
+cp "$ESPEAK_PREFIX/bin/espeak-ng" "$ESPEAK_RUNTIME/espeak-ng"
+cp -R "$ESPEAK_PREFIX/share/espeak-ng-data" "$ESPEAK_RUNTIME/espeak-ng-data"
+cp "$PROJECT_ROOT/LICENSE" "$ESPEAK_RUNTIME/LICENSE"
+{
+    print "eSpeak NG $ESPEAK_VERSION offline speech runtime"
+    print "Source: https://github.com/espeak-ng/espeak-ng/tree/1.52.0"
+    print "License: GNU GPL-3.0-or-later; see LICENSE."
+} > "$ESPEAK_RUNTIME/SOURCE.txt"
+
 "$PYTHON_BIN" -m venv "$BUILD_VENV"
 "$BUILD_VENV/bin/python" -m pip install --upgrade pip
 "$BUILD_VENV/bin/python" -m pip install -e . pyinstaller
@@ -69,6 +92,10 @@ fi
     --add-data "$MERCURY_RUNTIME/LICENSE:mercury" \
     --add-data "$MERCURY_RUNTIME/LICENSE-freedv:mercury" \
     --add-data "$MERCURY_RUNTIME/SOURCE.txt:mercury" \
+    --add-binary "$ESPEAK_RUNTIME/espeak-ng:espeak" \
+    --add-data "$ESPEAK_RUNTIME/espeak-ng-data:espeak/espeak-ng-data" \
+    --add-data "$ESPEAK_RUNTIME/LICENSE:espeak" \
+    --add-data "$ESPEAK_RUNTIME/SOURCE.txt:espeak" \
     --osx-bundle-identifier org.mercuryskypulse.desktop \
     --distpath "$PROJECT_ROOT/dist" \
     --workpath "$PROJECT_ROOT/build/pyinstaller-macos" \

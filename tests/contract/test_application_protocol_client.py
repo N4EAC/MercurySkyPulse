@@ -167,7 +167,8 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client.connect_station("N0CALL", "K1ABC")
         self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
 
-        self.client._validation_timed_out()
+        for _attempt in range(3):
+            self.client._validation_timed_out()
 
         self.assertEqual(self.transport.controls[-1], "DISCONNECT")
         self.assertIn("not confirmed", errors[-1])
@@ -293,6 +294,58 @@ class ApplicationProtocolClientTests(unittest.TestCase):
 
         self.assertEqual(self.transport.controls[-1], "DISCONNECT")
         self.assertIn("buffer progress", errors[-1])
+
+    def test_caller_retries_drained_probe_with_same_compact_token(self) -> None:
+        events = []
+        self.client.control_event.connect(events.append)
+        self.client.connect_station("N0CALL", "K1ABC")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        original = self.transport.writes[-1]
+        self.transport.queued_bytes_changed.emit(14)
+        self.transport.queued_bytes_changed.emit(0)
+
+        self.client._validation_timed_out()
+
+        self.assertEqual(self.transport.writes[-1], original)
+        self.assertIn("caller probe retry 1/2 queued", events[-1])
+        self.assertNotIn("DISCONNECT", self.transport.controls)
+
+    def test_listener_retries_drained_ack_with_same_compact_token(self) -> None:
+        events = []
+        self.client.control_event.connect(events.append)
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe", "0123456789abcdef"
+        ))
+        original = self.transport.writes[-1]
+        self.transport.queued_bytes_changed.emit(14)
+        self.transport.queued_bytes_changed.emit(0)
+
+        self.client._validation_timed_out()
+
+        self.assertEqual(self.transport.writes[-1], original)
+        self.assertIn("probe acknowledgement retry 1/2 queued", events[-1])
+        self.assertNotIn("DISCONNECT", self.transport.controls)
+
+    def test_listener_retry_is_staggered_after_caller_retry(self) -> None:
+        self.transport.session_connected.emit("K1ABC", "N0CALL", 2300)
+        self.transport.data_received.emit(encode_session_control(
+            "session_probe", "0123456789abcdef"
+        ))
+
+        self.assertEqual(self.client._validation_timer.interval(), 75_000)
+
+    def test_confirmed_caller_repeats_ready_for_duplicate_ack(self) -> None:
+        self.client.connect_station("N0CALL", "K1ABC")
+        self.transport.session_connected.emit("N0CALL", "K1ABC", 2300)
+        probe = FrameDecoder().feed(self.transport.writes[-1])[0]
+        ack = encode_session_control("session_probe_ack", probe.message_id)
+        self.transport.data_received.emit(ack)
+        ready = self.transport.writes[-1]
+
+        self.transport.data_received.emit(ack)
+
+        self.assertEqual(self.transport.writes[-1], ready)
 
     def test_mercury_buffer_progress_extends_no_progress_window(self) -> None:
         self.client.connect_station("N0CALL", "K1ABC")
