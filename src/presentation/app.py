@@ -44,7 +44,7 @@ from platform_runtime.macos_application import (
 )
 from platform_runtime.psk_reporter import PskReporterUploader
 from platform_runtime.weather_provider import WttrWeatherProvider
-from platform_runtime.builtin_speech import BuiltinSpeechEngine
+from platform_runtime.builtin_speech import BuiltinSpeechEngine, callsign_for_speech
 from .release import APPLICATION_VERSION
 
 
@@ -236,6 +236,16 @@ def main() -> int:
     speech_engine = BuiltinSpeechEngine(data_directory / "speech-cache", app)
     speech_engine.error_received.connect(window.activity_panel.append_log)
     app._msp_speech_engine = speech_engine
+    def announce_connection(source: str, destination: str, _bandwidth: int) -> None:
+        local = window.chat_page.local_call.text().strip().upper()
+        peer = destination if source.upper() == local else source
+        spoken_peer = callsign_for_speech(peer)
+        if spoken_peer and speech_engine.speak(f"Connected to {spoken_peer}"):
+            window.activity_panel.append_log(
+                f"Local speech announcement requested: connected to {peer}"
+            )
+
+    chat_service.client.session_connected.connect(announce_connection)
     app.aboutToQuit.connect(diagnostic_log.close)
     window.show()
     set_macos_application_menu_name("Mercury SkyPulse")

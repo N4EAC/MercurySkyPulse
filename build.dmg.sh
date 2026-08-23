@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="${0:A:h}"
-VERSION="${MSP_VERSION:-0.1.5}"
+VERSION="${MSP_VERSION:-0.1.6}"
 APP="$PROJECT_ROOT/dist/MercurySkyPulse.app"
 OUTPUT_DIR="$PROJECT_ROOT/dist/installer"
 OUTPUT="$OUTPUT_DIR/MercurySkyPulse-$VERSION-macos-arm64.dmg"

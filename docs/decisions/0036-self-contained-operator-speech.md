@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for initial validation in 0.1.5 Arcturus.
+Accepted for initial validation in 0.1.5 Arcturus; connected callsign
+announcements expanded with ITU/NATO phonetics in 0.1.6 Vega.
 
 ## Context
 
@@ -18,7 +19,9 @@ MSP packages the pinned eSpeak NG 1.52.0 command-line runtime and its speech dat
 MSP invokes it without a shell to render bounded text into a local mono WAV;
 Qt Multimedia plays the result through the system's default output. The initial
 validation phrase is `Mercury Sky Pulse`, requested shortly after the desktop
-window opens.
+window opens. A peer-validated session also requests `Connected to` followed by
+the callsign expanded with ITU/NATO phonetic words, spoken digits, `stroke`, and
+`dash` as needed.
 
 eSpeak NG provides intelligible formant synthesis and alphanumeric pronunciation
 suitable for future callsign announcements. Generated audio is cached in MSP's

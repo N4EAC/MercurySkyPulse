@@ -9,10 +9,10 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
-The active development release is **0.1.5 — Arcturus**. Arcturus preserves the
-fast, reliable, text-first Canopus design and adds bounded, staggered recovery
-for lost compact peer-validation frames. It also begins offline operator speech
-validation with a self-contained startup phrase. Subsequent milestones use the
+The active development release is **0.1.6 — Vega**. Vega preserves the fast,
+reliable, text-first design and bounded, staggered recovery for lost compact
+peer-validation frames. It adds unmistakable connected-session presentation
+and announces connected callsigns using ITU/NATO phonetic words. Subsequent milestones use the
 unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this
@@ -117,6 +117,10 @@ Mercury internals.
   modem sync, TX/RX, SNR, bitrate, current Mercury-reported ARQ TX/RX payload modes,
   frequency, peer, current GRID, next-beacon
   countdown or paused state, and workflow state.
+- State-aware Chat controls prevent a second Connect/CQ/Answer operation during
+  calling, peer validation, or a connected session while keeping Disconnect
+  available for cancellation. A persistent high-contrast connected-station
+  banner and local spelled-callsign announcement confirm successful validation.
 - File transfers can be cancelled;
   disconnects terminate incomplete session transfers and release the send queue.
 - Explicit `Listening as: CALLSIGN` identity plus a compact status-bar radio LED:

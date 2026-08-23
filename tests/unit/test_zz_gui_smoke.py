@@ -51,7 +51,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
-        self.assertEqual(self.app.applicationVersion(), "0.1.5")
+        self.assertEqual(self.app.applicationVersion(), "0.1.6")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -73,7 +73,7 @@ class GuiSmokeTests(unittest.TestCase):
         about.assert_called_once_with(
             self.window,
             "About Mercury SkyPulse",
-            "Mercury SkyPulse 0.1.5 — Arcturus\n\n"
+            "Mercury SkyPulse 0.1.6 — Vega\n\n"
             "Created by N4EAC Eduardo\n"
             "K5CG Danny (Contributor)",
         )
@@ -89,6 +89,46 @@ class GuiSmokeTests(unittest.TestCase):
             self.window.station_summary.values["link"].text(),
             "Verifying Peer",
         )
+
+    def test_chat_connection_controls_follow_application_state(self) -> None:
+        page = self.window.chat_page
+        self.assertFalse(page.disconnect_button.isEnabledTo(page))
+        self.assertFalse(page.connect_button.isEnabledTo(page))
+
+        page.set_state("listening")
+        self.assertTrue(page.listen_button.isEnabledTo(page))
+        self.assertTrue(page.connect_button.isEnabledTo(page))
+        self.assertTrue(page.call_cq_button.isEnabledTo(page))
+        self.assertFalse(page.disconnect_button.isEnabledTo(page))
+
+        page.set_state("linking")
+        self.assertFalse(page.listen_button.isEnabledTo(page))
+        self.assertFalse(page.connect_button.isEnabledTo(page))
+        self.assertFalse(page.call_cq_button.isEnabledTo(page))
+        self.assertFalse(page.answer_cq_button.isEnabledTo(page))
+        self.assertTrue(page.disconnect_button.isEnabledTo(page))
+
+        page.set_state("validating-receiving")
+        self.assertTrue(page.disconnect_button.isEnabledTo(page))
+
+    def test_validated_session_has_prominent_peer_banner(self) -> None:
+        page = self.window.chat_page
+        page.local_call.setText("N0CALL")
+        page.set_connected_peer("N0CALL", "K1ABC", 2300)
+
+        self.assertFalse(page.connection_banner.isHidden())
+        self.assertEqual(
+            page.connection_banner.text(), "CONNECTED TO K1ABC · 2300 Hz"
+        )
+        self.assertTrue(page.disconnect_button.isEnabledTo(page))
+        self.assertFalse(page.connect_button.isEnabledTo(page))
+        self.assertFalse(page.call_cq_button.isEnabledTo(page))
+
+        page.set_state("listening")
+        page.set_disconnected()
+        self.assertTrue(page.connection_banner.isHidden())
+        self.assertFalse(page.disconnect_button.isEnabledTo(page))
+        self.assertTrue(page.connect_button.isEnabledTo(page))
 
     def test_chat_is_central_and_operational_pages_are_dockable(self) -> None:
         self.assertIs(self.window.centralWidget(), self.window.chat_page)
@@ -219,6 +259,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_chat_displays_and_selects_a_bounded_cq_caller(self) -> None:
         requested = []
+        self.window.chat_page.set_state("listening")
         self.window.chat_page.answer_cq_requested.connect(requested.append)
         self.window.chat_page.add_cq_caller(SimpleNamespace(
             callsign="K1ABC", grid="FN31",
@@ -226,6 +267,11 @@ class GuiSmokeTests(unittest.TestCase):
         ))
         self.assertEqual(self.window.chat_page.cq_callers.count(), 1)
         self.assertIn("K1ABC", self.window.chat_page.cq_callers.currentText())
+        self.assertTrue(
+            self.window.chat_page.answer_cq_button.isEnabledTo(
+                self.window.chat_page
+            )
+        )
         self.window.chat_page._answer_cq()
         self.assertEqual(requested, ["K1ABC"])
         self.assertEqual(self.window.chat_page.remote_call.text(), "K1ABC")

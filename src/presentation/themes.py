@@ -140,6 +140,13 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
         border-radius: 10px;
         padding: 3px 9px;
     }}
+    QLabel#ConnectionBanner {{
+        background: {colors['success']};
+        color: #ffffff;
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-weight: 700;
+    }}
     QPushButton, QToolButton, QComboBox, QLineEdit, QSpinBox, QDoubleSpinBox {{
         min-height: {control_height}px;
         padding: 0 {padding_x}px;

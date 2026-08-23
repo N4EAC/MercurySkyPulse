@@ -97,9 +97,9 @@ remains available with the earlier unsigned engineering installers for:
 - Fedora 42 x86-64 (`.rpm`).
 
 All alpha artifacts are intended for controlled testing rather than production use.
-Active development after Alpha 2 identifies itself as **0.1.5 — Arcturus**.
+Active development after Alpha 2 identifies itself as **0.1.6 — Vega**.
 
-Arcturus preserves Canopus's efficient text communication over constrained half-duplex
+Vega preserves Arcturus's efficient text communication over constrained half-duplex
 RF. Peer confirmation uses three compact 14-byte, versioned control frames:
 probe, acknowledgement, and readiness. This preserves bilateral confirmation
 without the earlier 144–198-byte JSON handshake frames. Voice chat, typing and
@@ -109,23 +109,25 @@ operator text. Activity and persistent logs identify each validation stage. The
 privacy-neutral failure and correction record is maintained in
 `docs/FAILURES_AND_CORRECTIONS.md`.
 
-Arcturus also bounds each station to one unacknowledged outbound text message.
+Vega also bounds each station to one unacknowledged outbound text message.
 Operators may continue composing; later messages remain visibly queued and are
 admitted only after peer-confirmed delivery and a drained local Mercury buffer.
 This adds no routine RF control traffic and leaves Mercury's native ISS/IRS,
 `HAS_DATA`, and `TURN_REQ`/`TURN_ACK` mechanisms authoritative.
 
-If a locally drained peer-validation frame is lost, Arcturus makes at most two
+If a locally drained peer-validation frame is lost, Vega makes at most two
 bounded retries using the same compact session token. Caller and listener retry
 windows are staggered so recovery does not create a simultaneous half-duplex
 transmission. Successful connections retain the normal three-frame exchange,
 and answering a CQ removes that invitation from the caller list immediately.
 
-Arcturus also begins validation of a self-contained offline operator speech
+Vega continues validation of a self-contained offline operator speech
 engine by announcing **Mercury Sky Pulse** locally at startup. Packages include
 the pinned eSpeak NG 1.52.0 formant synthesizer for clear, consistent speech.
 It uses no cloud or operating-system speech service, no prerecorded voice asset,
-and no Mercury/RF audio path.
+and no Mercury/RF audio path. Connected-station announcements expand callsigns
+with ITU/NATO phonetic words and spoken digits, for example **N4EAC** becomes
+**November four Echo Alpha Charlie**.
 
 ### Station chat
 
@@ -134,6 +136,12 @@ station, enter a callsign and choose **Listen**. On the initiating station, ente
 both callsigns and choose **Connect**. Messages include timestamps and queued,
 sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
+The connection controls follow the validated application state: Connect, Listen,
+Call CQ, and Answer CQ are unavailable during a call attempt or active session,
+while Disconnect remains available from calling through peer validation and the
+connected session. A prominent **CONNECTED TO CALLSIGN** banner remains visible
+for the full validated session, and the offline speech engine announces the
+connected station with ITU/NATO phonetic words and spoken digits.
 Only one outbound text message is admitted to Mercury at a time. Additional text
 is retained locally as queued rather than inflating Mercury's half-duplex buffer.
 
@@ -454,11 +462,11 @@ For a conventional drag-to-Applications disk image, run:
 This first builds and validates `MercurySkyPulse.app`, then creates:
 
 ```text
-dist/installer/MercurySkyPulse-0.1.5-macos-arm64.dmg
+dist/installer/MercurySkyPulse-0.1.6-macos-arm64.dmg
 ```
 
 When the DMG exceeds 50 MiB, the script also creates the repository-ready
-`MercurySkyPulse-0.1.5-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
+`MercurySkyPulse-0.1.6-macos-arm64.dmg.zip`. Commit the ZIP instead of the raw
 DMG so large installer updates do not trigger GitHub's 50-MB warning.
 
 Opening the DMG displays `MercurySkyPulse.app` and an `Applications` shortcut;
@@ -518,7 +526,7 @@ When [Inno Setup 6](https://jrsoftware.org/isdl.php) is installed, the same
 command compiles `packaging\windows\MercurySkyPulse.iss` and creates:
 
 ```text
-dist\installer\MercurySkyPulse-0.1.5-windows-x86_64-setup.exe
+dist\installer\MercurySkyPulse-0.1.6-windows-x86_64-setup.exe
 ```
 
 The installer displays the MSP icon, installs per user without an administrator
@@ -586,7 +594,7 @@ sudo dnf install gcc make pkgconf-pkg-config alsa-lib-devel \
 
 The builder then runs the aggregate offscreen suite, creates a native PyInstaller
 payload, bundles Mercury with both license files and source provenance, and emits
-either `dist/packages/mercury-skypulse_0.1.5_amd64.deb` or an x86-64 RPM in the
+either `dist/packages/mercury-skypulse_0.1.6_amd64.deb` or an x86-64 RPM in the
 same directory. The Fedora 42 RPM path has been built, installed, and launched
 successfully. It installs MSP under `/opt/mercuryskypulse`, adds the
 `mercury-skypulse` command, desktop entry, and MSP icon. Missing Mercury inputs or

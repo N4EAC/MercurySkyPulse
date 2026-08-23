@@ -90,3 +90,18 @@ transmitting recovery frames together. A confirmed caller repeats readiness in
 response to a duplicate acknowledgement. The existing 180-second maximum still
 bounds the attempt, successful calls add no retry traffic, and Answer CQ removes
 the selected invitation immediately.
+
+## 0.1.5 — Successful CQ session was not obvious to operators
+
+**Observed failure:** Both Mercury endpoints established ARQ and both MSP clients
+completed the compact three-frame validation, but operators did not recognize
+the short active session. The Disconnect button was always enabled regardless
+of link state, so it could not confirm success, and the small status text did not
+provide sufficient at-a-glance feedback.
+
+**Correction:** Connect, Listen, Call CQ, and Answer CQ are enabled only while
+the application is ready or listening. Disconnect is enabled throughout linking,
+peer validation, and the connected session so an attempt can always be cancelled.
+A high-contrast `CONNECTED TO CALLSIGN` banner persists for the validated
+session, and the offline speech engine announces the peer by spelling its
+callsign. No additional RF frame is introduced.

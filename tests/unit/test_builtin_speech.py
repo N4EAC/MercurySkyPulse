@@ -8,7 +8,11 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from platform_runtime.builtin_speech import EspeakSynthesizer, MAX_SPEECH_CHARACTERS
+from platform_runtime.builtin_speech import (
+    EspeakSynthesizer,
+    MAX_SPEECH_CHARACTERS,
+    callsign_for_speech,
+)
 
 
 class EspeakSpeechTests(unittest.TestCase):
@@ -57,6 +61,12 @@ class EspeakSpeechTests(unittest.TestCase):
             self.synthesizer.synthesize_to(
                 "Mercury Sky Pulse", self.root / "speech.wav"
             )
+
+    def test_callsign_is_spelled_for_clear_announcement(self) -> None:
+        self.assertEqual(
+            callsign_for_speech("n4eac-2/p"),
+            "November four Echo Alpha Charlie dash two stroke Papa",
+        )
 
 
 if __name__ == "__main__":

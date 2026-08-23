@@ -840,7 +840,7 @@ before Mercury controls are issued, so direct calls and CQ answers follow the
 same race-safe path. Legacy JSON probes remain decodable for incoming
 compatibility, but current callers do not transmit them.
 
-Arcturus retries a locally drained compact validation frame at most twice with
+Vega retries a locally drained compact validation frame at most twice with
 the same token. The caller retry window precedes the listener window by 15
 seconds so recovery does not create competing half-duplex transmissions. A
 confirmed caller repeats readiness after a duplicate acknowledgement. The
@@ -852,6 +852,12 @@ playing its bounded WAV output through Qt Multimedia. It is process-local
 platform integration: it has no application-wire, Mercury-audio, RF,
 cloud-service, operating-system speech, trained-model, or prerecorded-asset
 dependency.
+The Chat presentation derives control availability from the typed application
+link state rather than using button appearance as an implicit transport fact.
+Conflicting call/CQ actions are disabled during provisional and connected
+states; Disconnect remains available for operator cancellation. Only the
+peer-validated `session_connected` event reveals the persistent connected banner
+and triggers the local spelled-callsign announcement.
 
 ADR 0016 enforces the opaque transport boundary. Mercury broadcast transport owns
 KISS escaping only; capability beacon meaning is an application protocol. Neutral

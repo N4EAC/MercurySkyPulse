@@ -28,7 +28,7 @@ The project is still alpha engineering software. Real-RF validation, connection
 hardening, native package validation, signing, upgrades, and release policy are
 not complete.
 
-## Current release — 0.1.5 Arcturus
+## Current release — 0.1.6 Vega
 
 - Remove voice chat, separate voice audio configuration, PyAV/Opus dependencies,
   disposable typing/recording presence events, and prerecorded announcement
@@ -51,10 +51,15 @@ not complete.
   half-duplex collision, and repeat caller readiness after a repeated listener
   acknowledgement.
 - Remove an answered CQ invitation from the current caller list immediately.
+- Make link state unmistakable: gate conflicting Chat controls, retain
+  Disconnect throughout calling/validation/connection, show a persistent
+  connected-peer banner, and announce the connected callsign locally.
 - Begin self-contained announcement validation by speaking **Mercury Sky Pulse**
   locally at startup through packaged eSpeak NG 1.52.0 and the default output.
+- Expand connected callsigns with ITU/NATO phonetic words and spoken digits so
+  station identity is understandable without looking at the display.
 
-Arcturus requires paired-station RF validation in both call directions and through
+Vega requires paired-station RF validation in both call directions and through
 CQ discovery. Validation must include simultaneous operator submissions and
 confirm that single-flight admission prevents application backlog from amplifying
 half-duplex collisions.
@@ -142,9 +147,9 @@ identity and session tests before implementation.
 
 ### Operator announcements
 
-Arcturus includes the self-contained offline engine and one startup phrase for
-cross-platform validation. A future release may add operator controls and a
-small set of actionable, callsign-aware notices. They must remain sparse, must
+Vega includes the self-contained offline engine, a startup phrase, and a
+callsign-aware connected-station notice. A future release may add operator
+controls and a small set of additional actionable notices. They must remain sparse, must
 not transmit over RF or add a second station-audio configuration, and must never
 delay operator traffic.
 

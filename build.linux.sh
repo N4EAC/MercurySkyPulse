@@ -16,7 +16,7 @@ ESPEAK_VERSION="1.52.0"
 ESPEAK_BIN="${ESPEAK_EXECUTABLE:-$(command -v espeak-ng || true)}"
 ESPEAK_DATA_DIR="${ESPEAK_DATA_DIR:-/usr/share/espeak-ng-data}"
 ESPEAK_RUNTIME="$PROJECT_ROOT/build/espeak-linux-runtime"
-VERSION="${MSP_VERSION:-0.1.5}"
+VERSION="${MSP_VERSION:-0.1.6}"
 ARCH="$(uname -m)"
 
 cd "$PROJECT_ROOT"

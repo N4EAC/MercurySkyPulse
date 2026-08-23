@@ -14,6 +14,34 @@ from PySide6.QtMultimedia import QSoundEffect
 
 MAX_SPEECH_CHARACTERS = 256
 ESPEAK_TIMEOUT_SECONDS = 10
+DIGIT_WORDS = {
+    "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
+    "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine",
+}
+PHONETIC_WORDS = {
+    "A": "Alpha", "B": "Bravo", "C": "Charlie", "D": "Delta",
+    "E": "Echo", "F": "Foxtrot", "G": "Golf", "H": "Hotel",
+    "I": "India", "J": "Juliett", "K": "Kilo", "L": "Lima",
+    "M": "Mike", "N": "November", "O": "Oscar", "P": "Papa",
+    "Q": "Quebec", "R": "Romeo", "S": "Sierra", "T": "Tango",
+    "U": "Uniform", "V": "Victor", "W": "Whiskey", "X": "X ray",
+    "Y": "Yankee", "Z": "Zulu",
+}
+
+
+def callsign_for_speech(callsign: str) -> str:
+    """Expand a normalized amateur callsign with ITU phonetic words."""
+    spoken: list[str] = []
+    for character in callsign.strip().upper():
+        if character.isalpha():
+            spoken.append(PHONETIC_WORDS[character])
+        elif character in DIGIT_WORDS:
+            spoken.append(DIGIT_WORDS[character])
+        elif character == "/":
+            spoken.append("stroke")
+        elif character == "-":
+            spoken.append("dash")
+    return " ".join(spoken)
 
 
 def _runtime_roots() -> tuple[Path, ...]:

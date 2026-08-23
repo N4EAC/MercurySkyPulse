@@ -78,12 +78,17 @@ class ChatPage(QWidget):
         self.link_state = QLabel("TNC: disconnected")
         self.link_state.setObjectName("StatusPill")
         control_row.addWidget(self.link_state)
+        self.connection_banner = QLabel("No active station session")
+        self.connection_banner.setObjectName("ConnectionBanner")
+        self.connection_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.connection_banner.setVisible(False)
         self.listening_identity = QLabel("Listening as: not configured")
         self.listening_identity.setObjectName("Muted")
         self.listening_identity.setToolTip(
             "Station identity used to accept incoming ARQ connections"
         )
         root.addWidget(controls)
+        root.addWidget(self.connection_banner)
         identity_row = QHBoxLayout()
         identity_row.addWidget(self.listening_identity)
         identity_row.addStretch(1)
@@ -142,6 +147,7 @@ class ChatPage(QWidget):
         self._weather_enabled = False
         self._weather_fetching = False
         self._session_connected = False
+        self._client_state = "disconnected"
         self.weather_button.setEnabled(False)
         self.weather_button.setToolTip(
             "Fetch internet weather and insert it into this message draft"
@@ -192,7 +198,7 @@ class ChatPage(QWidget):
         self.call_cq_button.clicked.connect(self.cq_requested)
         self.answer_cq_button.clicked.connect(self._answer_cq)
         self.cq_callers.currentIndexChanged.connect(
-            lambda index: self.answer_cq_button.setEnabled(index >= 0)
+            lambda _index: self._update_link_controls()
         )
         self.send_button.clicked.connect(self._send)
         self.weather_button.clicked.connect(self.weather_requested)
@@ -216,14 +222,19 @@ class ChatPage(QWidget):
         self._cq_expiry_timer.setInterval(30_000)
         self._cq_expiry_timer.timeout.connect(self._expire_cq_calls)
         self._cq_expiry_timer.start()
+        self._update_link_controls()
 
     def set_state(self, state: str) -> None:
+        self._client_state = state
         label = {
             "validating-sending": "verifying peer",
             "validating-receiving": "verifying peer",
         }.get(state, state)
         self.link_state.setText(f"TNC: {label}")
         self.link_state.setToolTip(f"Mercury TNC state: {state}")
+        if state != "connected":
+            self.connection_banner.setVisible(False)
+        self._update_link_controls()
 
     def set_startup_issue(self, summary: str, action: str) -> None:
         self.link_state.setText(summary)
@@ -255,9 +266,11 @@ class ChatPage(QWidget):
             self.cq_callers.setCurrentIndex(index)
         while self.cq_callers.count() > 16:
             self.cq_callers.removeItem(0)
-        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
+        self._update_link_controls()
 
     def _answer_cq(self) -> None:
+        if self._client_state not in {"ready", "listening"}:
+            return
         self._expire_cq_calls()
         callsign = self.cq_callers.currentData(Qt.ItemDataRole.UserRole)
         if callsign:
@@ -271,7 +284,7 @@ class ChatPage(QWidget):
             value = self.cq_callers.itemData(index, Qt.ItemDataRole.UserRole)
             if str(value or "").upper() == target:
                 self.cq_callers.removeItem(index)
-        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
+        self._update_link_controls()
 
     def _expire_cq_calls(self) -> None:
         cutoff = datetime.now(UTC).timestamp() - 300
@@ -279,7 +292,7 @@ class ChatPage(QWidget):
             timestamp = self.cq_callers.itemData(index, Qt.ItemDataRole.UserRole + 1)
             if timestamp is None or float(timestamp) < cutoff:
                 self.cq_callers.removeItem(index)
-        self.answer_cq_button.setEnabled(self.cq_callers.count() > 0)
+        self._update_link_controls()
 
     def set_connected_peer(self, source: str, destination: str, bandwidth: int) -> None:
         local = self.local_call.text().strip().upper()
@@ -288,11 +301,38 @@ class ChatPage(QWidget):
         self.link_state.setText(f"Connected: {peer} · {bandwidth} Hz")
         self.link_state.setToolTip(f"ARQ session {source} ↔ {destination}")
         self._session_connected = True
+        self._client_state = "connected"
+        self.connection_banner.setText(
+            f"CONNECTED TO {peer} · {bandwidth} Hz"
+        )
+        self.connection_banner.setToolTip(
+            f"Validated MSP application session {source} ↔ {destination}"
+        )
+        self.connection_banner.setVisible(True)
+        self._update_link_controls()
         self._update_weather_button()
 
     def set_disconnected(self) -> None:
         self._session_connected = False
+        self.connection_banner.setText("No active station session")
+        self.connection_banner.setVisible(False)
+        self._update_link_controls()
         self._update_weather_button()
+
+    def _update_link_controls(self) -> None:
+        idle = self._client_state in {"ready", "listening"}
+        cancellable = self._client_state in {
+            "linking", "pending", "validating-sending",
+            "validating-receiving", "connected",
+        }
+        self.listen_button.setEnabled(idle)
+        self.connect_button.setEnabled(idle)
+        self.call_cq_button.setEnabled(idle)
+        self.answer_cq_button.setEnabled(
+            idle and self.cq_callers.count() > 0
+            and self.cq_callers.currentIndex() >= 0
+        )
+        self.disconnect_button.setEnabled(cancellable)
 
     def set_station_callsign_once(self, callsign: str) -> None:
         """Use station identity as the initial chat identity without overriding edits."""
