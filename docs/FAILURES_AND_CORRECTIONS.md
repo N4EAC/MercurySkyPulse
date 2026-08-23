@@ -60,3 +60,17 @@ removed. The three peer-confirmation events now use fixed 14-byte, versioned
 binary frames with one shared random token. Caller role is established before
 issuing Mercury controls, so direct calls and CQ answers use the same race-safe
 path. Operator text no longer waits behind automatic voice or presence traffic.
+
+## 0.1.4 — Bidirectional text submissions inflated the half-duplex queue
+
+**Observed failure:** Paired-station testing confirmed faster connection and text
+delivery, but operators submitting messages in both directions produced
+overlapping PTT intervals. A receiver acknowledgement and additional application
+messages accumulated hundreds of bytes while the reverse path was still active.
+The asymmetric low-rate direction then required repeated RF turns to drain.
+
+**Correction:** MSP now admits one outbound text message per station at a time.
+Later messages remain locally queued until receiver-confirmed delivery and local
+Mercury `BUFFER 0`. Disconnect clears the in-memory queue so unsent text cannot
+cross station sessions. The correction adds no RF frames and preserves Mercury's
+native ISS/IRS, piggyback `HAS_DATA`, and `TURN_REQ`/`TURN_ACK` arbitration.

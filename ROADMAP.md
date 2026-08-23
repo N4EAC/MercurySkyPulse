@@ -39,13 +39,18 @@ not complete.
 - Establish caller role before issuing Mercury controls, use the same path for
   direct calls and CQ answers, and reserve the RF queue for operator text and
   explicitly requested file/BBS traffic.
+- Admit one outbound text message per station at a time. Keep subsequent messages
+  visibly queued until peer acknowledgement and local Mercury `BUFFER 0`, relying
+  on Mercury's existing ISS/IRS turnover instead of adding another RF protocol.
 - Suppress the known benign Qt platform-plugin diagnostics emitted by automated
   offscreen GUI tests and packaging checks (for example, unsupported
   `propagateSizeHints()` and `raise()` operations). Keep unexpected Qt,
   multimedia, application-startup, and runtime failures visible and actionable.
 
 Canopus requires paired-station RF validation in both call directions and through
-CQ discovery before its connection changes are considered complete.
+CQ discovery. Validation must include simultaneous operator submissions and
+confirm that single-flight admission prevents application backlog from amplifying
+half-duplex collisions.
 
 ## Next milestone — Safe and predictable station operation
 

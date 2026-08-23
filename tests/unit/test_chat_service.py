@@ -19,6 +19,7 @@ class FakeMessagingClient(QObject):
     message_sent = Signal(str)
     message_delivered = Signal(str)
     error_received = Signal(str)
+    queued_bytes_changed = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
@@ -121,6 +122,54 @@ class ChatServiceAutoListenTests(unittest.TestCase):
         busy[0] = False
         self.service.flush_deferred_messages()
         self.assertEqual(self.client.message_calls[-1][1], "wait for file")
+
+    def test_only_one_text_message_is_in_flight(self) -> None:
+        conversation = self.repository.get_or_create_conversation(
+            "N4EAC", "K1ABC", "2026-08-14T12:00:00+00:00"
+        )
+        self.service.select_conversation(conversation.id)
+        self.client.state_changed.emit("connected")
+
+        self.assertTrue(self.service.send_text("first"))
+        self.assertTrue(self.service.send_text("second"))
+
+        self.assertEqual([body for _id, body in self.client.message_calls], ["first"])
+        messages = self.repository.list_messages(conversation.id)
+        self.assertEqual(messages[-1].status.value, "queued")
+
+    def test_next_text_waits_for_delivery_and_empty_mercury_buffer(self) -> None:
+        conversation = self.repository.get_or_create_conversation(
+            "N4EAC", "K1ABC", "2026-08-14T12:00:00+00:00"
+        )
+        self.service.select_conversation(conversation.id)
+        self.client.state_changed.emit("connected")
+        self.service.send_text("first")
+        first_id = self.client.message_calls[0][0]
+        self.service.send_text("second")
+        self.client.queued_bytes_changed.emit(112)
+
+        self.client.message_delivered.emit(first_id)
+        self.assertEqual([body for _id, body in self.client.message_calls], ["first"])
+
+        self.client.queued_bytes_changed.emit(0)
+        self.assertEqual(
+            [body for _id, body in self.client.message_calls], ["first", "second"]
+        )
+
+    def test_disconnect_discards_unsent_session_queue(self) -> None:
+        conversation = self.repository.get_or_create_conversation(
+            "N4EAC", "K1ABC", "2026-08-14T12:00:00+00:00"
+        )
+        self.service.select_conversation(conversation.id)
+        self.client.state_changed.emit("connected")
+        self.service.send_text("first")
+        self.service.send_text("must not cross sessions")
+
+        self.client.session_disconnected.emit()
+        self.client.state_changed.emit("connected")
+        self.client.queued_bytes_changed.emit(0)
+
+        self.assertEqual([body for _id, body in self.client.message_calls], ["first"])
 
 
 if __name__ == "__main__":

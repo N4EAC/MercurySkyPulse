@@ -29,17 +29,17 @@ class ChatService(QObject):
         self._client_state = "disconnected"
         self._bulk_busy_check = lambda: False
         self._deferred_messages: list[ChatMessage] = []
+        self._outbound_in_flight = ""
+        self._mercury_queued_bytes = 0
         self.active: Conversation | None = None
         client.state_changed.connect(self._on_client_state)
         client.session_connected.connect(self._on_session_connected)
         client.session_disconnected.connect(self._on_session_disconnected)
         client.message_received.connect(self._on_message_received)
-        client.message_sent.connect(
-            lambda message_id: self._set_status(message_id, MessageStatus.SENT)
-        )
-        client.message_delivered.connect(
-            lambda message_id: self._set_status(message_id, MessageStatus.DELIVERED)
-        )
+        client.message_sent.connect(self._on_message_sent)
+        client.message_delivered.connect(self._on_message_delivered)
+        if hasattr(client, "queued_bytes_changed"):
+            client.queued_bytes_changed.connect(self._on_queued_bytes_changed)
         client.error_received.connect(self.error_received)
 
     def start(self) -> None:
@@ -133,24 +133,27 @@ class ChatService(QObject):
         )
         self.repository.save_message(message)
         self._publish_all()
-        if self._bulk_busy_check():
-            self._deferred_messages.append(message)
-            return True
-        return self._submit_message(message)
+        self._deferred_messages.append(message)
+        self.flush_deferred_messages()
+        return True
 
     def flush_deferred_messages(self) -> None:
         """Submit locally queued chat after bulk traffic releases the RF session."""
-        if self._bulk_busy_check() or self._client_state != "connected":
+        if (self._bulk_busy_check() or self._client_state != "connected"
+                or self._outbound_in_flight or self._mercury_queued_bytes):
             return
-        pending, self._deferred_messages = self._deferred_messages, []
-        for message in pending:
-            if not self._submit_message(message):
-                break
+        if not self._deferred_messages:
+            return
+        message = self._deferred_messages.pop(0)
+        if not self._submit_message(message):
+            self.flush_deferred_messages()
 
     def _submit_message(self, message: ChatMessage) -> bool:
+        self._outbound_in_flight = message.id
         try:
             self.client.send_message(message.id, message.sent_at, message.body)
         except RuntimeError as error:
+            self._outbound_in_flight = ""
             self._set_status(message.id, MessageStatus.FAILED)
             self.error_received.emit(str(error))
             return False
@@ -174,6 +177,8 @@ class ChatService(QObject):
 
     def _on_session_disconnected(self) -> None:
         self._deferred_messages.clear()
+        self._outbound_in_flight = ""
+        self._mercury_queued_bytes = 0
         if self.active:
             self.repository.fail_unsettled(self.active.id)
             self._publish_messages()
@@ -218,6 +223,20 @@ class ChatService(QObject):
             )
         )
         self._publish_all()
+
+    def _on_message_sent(self, message_id: str) -> None:
+        self._set_status(message_id, MessageStatus.SENT)
+
+    def _on_message_delivered(self, message_id: str) -> None:
+        self._set_status(message_id, MessageStatus.DELIVERED)
+        if message_id == self._outbound_in_flight:
+            self._outbound_in_flight = ""
+        self.flush_deferred_messages()
+
+    def _on_queued_bytes_changed(self, queued: int) -> None:
+        self._mercury_queued_bytes = max(0, int(queued))
+        if self._mercury_queued_bytes == 0:
+            self.flush_deferred_messages()
 
     def _activate(self, local_call: str, remote_call: str) -> None:
         self.active = self.repository.get_or_create_conversation(

@@ -72,6 +72,10 @@ Mercury internals.
   144–198-byte JSON validation events. Direct calls and CQ answers share the
   same caller role established before Mercury callbacks can arrive. Voice and
   presence protocols are retired so optional traffic cannot precede text.
+- Text submission is single-flight per station. Later messages remain visibly
+  queued until the preceding message is acknowledged by the peer and Mercury's
+  local transmit buffer drains to zero. This bounds application backlog without
+  adding RF frames or duplicating Mercury's native ISS/IRS turn mechanism.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, a dedicated download directory,
   receiver-confirmed Chat status, and a clean outgoing control row after delivery.

@@ -109,6 +109,12 @@ operator text. Activity and persistent logs identify each validation stage. The
 privacy-neutral failure and correction record is maintained in
 `docs/FAILURES_AND_CORRECTIONS.md`.
 
+Canopus also bounds each station to one unacknowledged outbound text message.
+Operators may continue composing; later messages remain visibly queued and are
+admitted only after peer-confirmed delivery and a drained local Mercury buffer.
+This adds no routine RF control traffic and leaves Mercury's native ISS/IRS,
+`HAS_DATA`, and `TURN_REQ`/`TURN_ACK` mechanisms authoritative.
+
 ### Station chat
 
 The central Chat workspace provides station-to-station text conversations. On the receiving
@@ -116,6 +122,8 @@ station, enter a callsign and choose **Listen**. On the initiating station, ente
 both callsigns and choose **Connect**. Messages include timestamps and queued,
 sent, delivered, or failed status. Delivered means the peer application returned
 an acknowledgement; it is not a read receipt.
+Only one outbound text message is admitted to Mercury at a time. Additional text
+is retained locally as queued rather than inflating Mercury's half-duplex buffer.
 
 Chat renders outgoing file lifecycle snapshots as **queued**, **sent**,
 **delivered**, or **failed**. Sent requires receiver participation; delivered
