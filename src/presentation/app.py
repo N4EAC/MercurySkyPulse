@@ -211,6 +211,7 @@ def main() -> int:
         web_snapshot=web_snapshot,
     )
     web_snapshot.update_plugins(plugins.snapshot())
+    speech_engine = BuiltinSpeechEngine(data_directory / "speech-cache", app)
     window = MainWindow(
         app,
         chat_service=chat_service,
@@ -222,6 +223,7 @@ def main() -> int:
         tx_level_service=tx_level_service,
         psk_reporter_service=psk_reporter_service,
         weather_service=weather_service,
+        speech_engine=speech_engine,
         bbs_service=bbs_service,
         web_snapshot=web_snapshot,
         web_server=web_server,
@@ -233,7 +235,6 @@ def main() -> int:
     )
     window.activity_panel.log_added.connect(diagnostic_log.write_activity)
     window.activity_panel.append_log(f"Persistent diagnostic log: {diagnostic_log.path}")
-    speech_engine = BuiltinSpeechEngine(data_directory / "speech-cache", app)
     speech_engine.error_received.connect(window.activity_panel.append_log)
     app._msp_speech_engine = speech_engine
     def announce_connection(source: str, destination: str, _bandwidth: int) -> None:
@@ -246,6 +247,23 @@ def main() -> int:
             )
 
     chat_service.client.session_connected.connect(announce_connection)
+
+    def announce_beacon(beacon) -> None:
+        spoken_call = callsign_for_speech(beacon.callsign)
+        if spoken_call and speech_engine.speak(f"Beacon received from {spoken_call}"):
+            window.activity_panel.append_log(
+                f"Local speech announcement requested: beacon from {beacon.callsign}"
+            )
+
+    def announce_cq(cq) -> None:
+        spoken_call = callsign_for_speech(cq.callsign)
+        if spoken_call and speech_engine.speak(f"CQ call from {spoken_call}"):
+            window.activity_panel.append_log(
+                f"Local speech announcement requested: CQ from {cq.callsign}"
+            )
+
+    beacon_service.beacon_received.connect(announce_beacon)
+    beacon_service.cq_received.connect(announce_cq)
     app.aboutToQuit.connect(diagnostic_log.close)
     window.show()
     set_macos_application_menu_name("Mercury SkyPulse")

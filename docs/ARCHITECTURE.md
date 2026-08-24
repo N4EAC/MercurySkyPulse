@@ -840,7 +840,7 @@ before Mercury controls are issued, so direct calls and CQ answers follow the
 same race-safe path. Legacy JSON probes remain decodable for incoming
 compatibility, but current callers do not transmit them.
 
-Vega retries a locally drained compact validation frame at most twice with
+Capella retries a locally drained compact validation frame at most twice with
 the same token. The caller retry window precedes the listener window by 15
 seconds so recovery does not create competing half-duplex transmissions. A
 confirmed caller repeats readiness after a duplicate acknowledgement. The

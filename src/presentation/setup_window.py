@@ -5,6 +5,7 @@ from PySide6.QtGui import QCloseEvent, QHideEvent, QShowEvent
 from PySide6.QtWidgets import QDialog, QTabWidget, QVBoxLayout
 
 from application.location import to_maidenhead
+from .announcement_setup_page import AnnouncementSetupPage
 from .audio_setup_page import AudioSetupPage
 from .location_page import LocationPage
 from .radio_page import RadioPage
@@ -18,7 +19,7 @@ class SetupWindow(QDialog):
 
     def __init__(self, radio_service, beacon_service, location_service,
                  tx_level_service=None, psk_reporter_service=None,
-                 weather_service=None, parent=None) -> None:
+                 weather_service=None, speech_engine=None, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Mercury SkyPulse Setup")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
@@ -30,6 +31,7 @@ class SetupWindow(QDialog):
         self.tx_level_service = tx_level_service
         self.psk_reporter_service = psk_reporter_service
         self.weather_service = weather_service
+        self.speech_engine = speech_engine
         self._settings = QSettings()
 
         self.tabs = QTabWidget()
@@ -39,16 +41,19 @@ class SetupWindow(QDialog):
         self.gps_page = LocationPage()
         self.reporting_page = ReportingSetupPage()
         self.weather_page = WeatherSetupPage()
+        self.announcement_page = AnnouncementSetupPage()
         self.tabs.addTab(self.radio_page, "Radio")
         self.tabs.addTab(self.audio_page, "Audio")
         self.tabs.addTab(self.user_page, "User")
         self.tabs.addTab(self.gps_page, "GPS")
         self.tabs.addTab(self.reporting_page, "Reporting")
         self.tabs.addTab(self.weather_page, "Weather")
+        self.tabs.addTab(self.announcement_page, "Announcements")
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
 
         self._connect_services()
+        self._load_announcement_settings()
         self.tabs.currentChanged.connect(self._update_audio_diagnostics)
         geometry = self._settings.value("setup/geometry")
         if geometry is not None:
@@ -114,6 +119,15 @@ class SetupWindow(QDialog):
         else:
             self.weather_page.setEnabled(False)
 
+        self.announcement_page.save_requested.connect(
+            self._save_announcement_settings
+        )
+        self.announcement_page.preview_requested.connect(
+            self._preview_announcement
+        )
+        if self.speech_engine is None:
+            self.announcement_page.setEnabled(False)
+
         location = self.location_service
         page = self.gps_page
         page.manual_requested.connect(location.set_manual)
@@ -137,6 +151,43 @@ class SetupWindow(QDialog):
         self.beacon_service.configure(
             callsign, grid, config.interval_minutes, config.include_gps
         )
+
+    def _load_announcement_settings(self) -> None:
+        enabled = self._settings.value(
+            "announcements/enabled", True, type=bool
+        )
+        voice = str(self._settings.value("announcements/voice", "male"))
+        if voice not in {"male", "female"}:
+            voice = "male"
+        self.announcement_page.set_config(enabled, voice)
+        if self.speech_engine is not None:
+            self.speech_engine.configure(enabled, voice)
+
+    def _save_announcement_settings(self, enabled: bool, voice: str) -> None:
+        try:
+            if self.speech_engine is None:
+                raise RuntimeError("Voice announcement engine is unavailable")
+            self.speech_engine.configure(enabled, voice)
+            self._settings.setValue("announcements/enabled", enabled)
+            self._settings.setValue("announcements/voice", voice)
+            self._settings.sync()
+            self.announcement_page.set_config(enabled, voice)
+        except (RuntimeError, ValueError) as error:
+            self.announcement_page.show_error(str(error))
+
+    def _preview_announcement(self) -> None:
+        if self.speech_engine is None:
+            self.announcement_page.show_error(
+                "Voice announcement engine is unavailable"
+            )
+        elif not self.speech_engine.enabled:
+            self.announcement_page.show_error(
+                "Enable and save voice announcements before testing"
+            )
+        elif not self.speech_engine.speak("Mercury Sky Pulse voice test"):
+            self.announcement_page.show_error("Voice test could not be played")
+        else:
+            self.announcement_page.status.setText("Voice test requested")
 
     def _position_changed(self, location) -> None:
         self.gps_page.set_current(location)

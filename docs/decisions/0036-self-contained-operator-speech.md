@@ -4,6 +4,8 @@
 
 Accepted for initial validation in 0.1.5 Arcturus; connected callsign
 announcements expanded with ITU/NATO phonetics in 0.1.6 Vega.
+Received-beacon and CQ callsign announcements plus persistent enable and
+male/female voice controls were added in 0.1.7 Capella.
 
 ## Context
 
@@ -22,6 +24,10 @@ validation phrase is `Mercury Sky Pulse`, requested shortly after the desktop
 window opens. A peer-validated session also requests `Connected to` followed by
 the callsign expanded with ITU/NATO phonetic words, spoken digits, `stroke`, and
 `dash` as needed.
+Received beacons request `Beacon received from CALLSIGN`; received CQ calls
+request `CQ call from CALLSIGN`. Setup persists one global enable switch and a
+male/female eSpeak variant selection. Disabling announcements also suppresses
+the startup and connected-station notices.
 
 eSpeak NG provides intelligible formant synthesis and alphanumeric pronunciation
 suitable for future callsign announcements. Generated audio is cached in MSP's
@@ -40,5 +46,5 @@ voice assets.
 - The test phrase behaves consistently and offline on macOS, Windows, and Linux.
 - Packages gain a pinned GPL-3.0-or-later eSpeak NG runtime and data directory;
   corresponding source and license information travel with each package.
-- Future announcements must remain sparse, actionable, configurable, and must
+- Announcements remain sparse, actionable, configurable, and must
   never delay or compete with radio traffic.

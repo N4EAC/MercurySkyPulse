@@ -105,3 +105,15 @@ peer validation, and the connected session so an attempt can always be cancelled
 A high-contrast `CONNECTED TO CALLSIGN` banner persists for the validated
 session, and the offline speech engine announces the peer by spelling its
 callsign. No additional RF frame is introduced.
+
+## 0.1.6 — Local announcements could not be configured
+
+**Observed limitation:** The packaged offline speech engine announced startup
+and connected stations using one fixed voice, but operators could neither mute
+the feature nor choose a different voice. Beacon and CQ reception also required
+the operator to be looking at the display.
+
+**Correction in 0.1.7 — Capella:** Setup now persists one global local-voice
+enable switch and a male/female eSpeak NG voice selection. Received beacons and
+CQ calls announce the remote callsign using ITU/NATO phonetics. These notices are
+local-only and add no Mercury queue, modem, or RF traffic.

@@ -48,6 +48,25 @@ class EspeakSpeechTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.synthesizer.synthesize_to("  ", self.root / "speech.wav")
 
+    @patch("platform_runtime.builtin_speech.subprocess.run")
+    def test_female_voice_uses_packaged_espeak_variant(self, run) -> None:
+        destination = self.root / "female.wav"
+
+        def render(command, **_values):
+            destination.write_bytes(b"RIFFtest")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        run.side_effect = render
+        self.synthesizer.synthesize_to("CQ call", destination, "female")
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index("-v") + 1], "en-us+f3")
+
+    def test_unknown_voice_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "male or female"):
+            self.synthesizer.synthesize_to(
+                "CQ call", self.root / "invalid.wav", "robot"
+            )
+
     def test_oversized_phrase_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             self.synthesizer.synthesize_to(

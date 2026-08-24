@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
         tx_level_service=None,
         psk_reporter_service=None,
         weather_service=None,
+        speech_engine=None,
         bbs_service: BbsService | None = None,
         web_snapshot: WebDashboardSnapshot | None = None,
         web_server: LocalWebServer | None = None,
@@ -118,7 +119,8 @@ class MainWindow(QMainWindow):
         self.setup_window = (
             SetupWindow(
                 radio_service, beacon_service, location_service,
-                tx_level_service, psk_reporter_service, weather_service, self,
+                tx_level_service, psk_reporter_service, weather_service,
+                speech_engine, self,
             )
             if radio_service and beacon_service and location_service else None
         )

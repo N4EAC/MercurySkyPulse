@@ -48,8 +48,8 @@ test -f "$APP/Contents/Resources/espeak/SOURCE.txt"
 codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 [[ "$(plutil -extract CFBundleDisplayName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
-[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.6" ]]
-[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.6" ]]
+[[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.7" ]]
+[[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.7" ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 [[ "$(file -b "$ESPEAK")" == *"Mach-O 64-bit executable arm64"* ]]
 SPEECH_TEST="$(mktemp -d)/msp-speech.wav"

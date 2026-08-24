@@ -14,6 +14,7 @@ from PySide6.QtMultimedia import QSoundEffect
 
 MAX_SPEECH_CHARACTERS = 256
 ESPEAK_TIMEOUT_SECONDS = 10
+SPEECH_VOICES = {"male": "en-us+m3", "female": "en-us+f3"}
 DIGIT_WORDS = {
     "0": "zero", "1": "one", "2": "two", "3": "three", "4": "four",
     "5": "five", "6": "six", "7": "seven", "8": "eight", "9": "nine",
@@ -77,7 +78,9 @@ class EspeakSynthesizer:
         self.executable = Path(executable) if executable else None
         self.data_parent = Path(data_parent) if data_parent else None
 
-    def synthesize_to(self, text: str, destination: Path) -> None:
+    def synthesize_to(
+        self, text: str, destination: Path, voice: str = "male"
+    ) -> None:
         phrase = " ".join(text.split())
         if not phrase:
             raise ValueError("speech text contains no speakable characters")
@@ -85,6 +88,8 @@ class EspeakSynthesizer:
             raise ValueError(
                 f"speech text exceeds {MAX_SPEECH_CHARACTERS} characters"
             )
+        if voice not in SPEECH_VOICES:
+            raise ValueError("speech voice must be male or female")
         executable, discovered_data = (
             (self.executable, self.data_parent)
             if self.executable else locate_espeak_runtime()
@@ -93,7 +98,7 @@ class EspeakSynthesizer:
             raise FileNotFoundError("eSpeak NG executable was not found")
         data_parent = self.data_parent or discovered_data
         command = [
-            str(executable), "-v", "en-us", "-s", "155", "-p", "45",
+            str(executable), "-v", SPEECH_VOICES[voice], "-s", "155", "-p", "45",
             "-a", "175", "-w", str(destination),
         ]
         if data_parent is not None:
@@ -119,22 +124,36 @@ class BuiltinSpeechEngine(QObject):
     error_received = Signal(str)
 
     def __init__(self, cache_directory: Path, parent=None,
-                 synthesizer: EspeakSynthesizer | None = None) -> None:
+                 synthesizer: EspeakSynthesizer | None = None,
+                 enabled: bool = True, voice: str = "male") -> None:
         super().__init__(parent)
         self.cache_directory = Path(cache_directory)
         self.synthesizer = synthesizer or EspeakSynthesizer()
+        self.enabled = bool(enabled)
+        self.voice = voice if voice in SPEECH_VOICES else "male"
         self.effect = QSoundEffect(self)
         self.effect.setVolume(0.75)
 
+    def configure(self, enabled: bool, voice: str) -> None:
+        if voice not in SPEECH_VOICES:
+            raise ValueError("speech voice must be male or female")
+        self.enabled = bool(enabled)
+        self.voice = voice
+        if not self.enabled:
+            self.effect.stop()
+
     def speak(self, text: str) -> bool:
+        if not self.enabled:
+            return False
         try:
             phrase = " ".join(text.split())
             self.cache_directory.mkdir(parents=True, exist_ok=True)
-            key = hashlib.sha256(phrase.encode("utf-8")).hexdigest()[:16]
+            cache_input = f"{self.voice}\0{phrase}".encode("utf-8")
+            key = hashlib.sha256(cache_input).hexdigest()[:16]
             path = self.cache_directory / f"espeak-{key}.wav"
             if not path.exists():
                 temporary = path.with_suffix(".wav.part")
-                self.synthesizer.synthesize_to(phrase, temporary)
+                self.synthesizer.synthesize_to(phrase, temporary, self.voice)
                 temporary.replace(path)
             self.effect.setSource(QUrl.fromLocalFile(str(path)))
             self.effect.play()

@@ -10,7 +10,7 @@ MERCURY_RUNTIME="$PROJECT_ROOT/build/mercury-macos-runtime"
 ESPEAK_VERSION="1.52.0"
 ESPEAK_PREFIX="${ESPEAK_PREFIX:-$(brew --prefix espeak-ng 2>/dev/null || true)}"
 ESPEAK_RUNTIME="$PROJECT_ROOT/build/espeak-macos-runtime"
-VERSION="${MSP_VERSION:-0.1.6}"
+VERSION="${MSP_VERSION:-0.1.7}"
 
 cd "$PROJECT_ROOT"
 

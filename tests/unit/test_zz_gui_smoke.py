@@ -23,6 +23,7 @@ try:
     from presentation.main_window import MainWindow
     from presentation.radio_page import RadioPage
     from presentation.audio_setup_page import AudioSetupPage
+    from presentation.announcement_setup_page import AnnouncementSetupPage
     from presentation.location_page import LocationPage
     from presentation.reporting_setup_page import ReportingSetupPage
     from presentation.weather_setup_page import WeatherSetupPage
@@ -51,7 +52,7 @@ class GuiSmokeTests(unittest.TestCase):
 
     def test_main_window_has_required_shell_components(self) -> None:
         self.assertEqual(self.app.applicationDisplayName(), "Mercury SkyPulse")
-        self.assertEqual(self.app.applicationVersion(), "0.1.6")
+        self.assertEqual(self.app.applicationVersion(), "0.1.7")
         self.assertFalse(self.app.windowIcon().isNull())
         self.assertEqual(8, len(self.window.findChildren(QDockWidget)))
         self.assertGreater(len(self.window.menuBar().actions()), 0)
@@ -73,7 +74,7 @@ class GuiSmokeTests(unittest.TestCase):
         about.assert_called_once_with(
             self.window,
             "About Mercury SkyPulse",
-            "Mercury SkyPulse 0.1.6 — Vega\n\n"
+            "Mercury SkyPulse 0.1.7 — Capella\n\n"
             "Created by N4EAC Eduardo\n"
             "K5CG Danny (Contributor)",
         )
@@ -342,6 +343,17 @@ class GuiSmokeTests(unittest.TestCase):
         page = WeatherSetupPage()
         self.assertFalse(hasattr(page, "insert"))
         self.assertFalse(hasattr(page, "insert_requested"))
+        page.deleteLater()
+
+    def test_announcement_setup_offers_enable_and_voice_selection(self) -> None:
+        page = AnnouncementSetupPage()
+        saved = []
+        page.save_requested.connect(lambda *values: saved.append(values))
+        page.set_config(True, "female")
+        self.assertTrue(page.enabled.isChecked())
+        self.assertEqual(page.voice.currentData(), "female")
+        page.findChild(QPushButton, "PrimaryButton").click()
+        self.assertEqual(saved, [(True, "female")])
         page.deleteLater()
 
     def test_status_bar_displays_utc_date_and_time(self) -> None:

@@ -9,10 +9,11 @@ validation is required before a production release.
 
 The display name is **Mercury SkyPulse**. Stable technical identifiers and
 artifact paths continue to use `MercurySkyPulse` for upgrade compatibility.
-The active development release is **0.1.6 — Vega**. Vega preserves the fast,
+The active development release is **0.1.7 — Capella**. Capella preserves the fast,
 reliable, text-first design and bounded, staggered recovery for lost compact
 peer-validation frames. It adds unmistakable connected-session presentation
-and announces connected callsigns using ITU/NATO phonetic words. Subsequent milestones use the
+and adds configurable local announcements for connections, received beacons,
+and CQ calls using ITU/NATO phonetic callsigns. Subsequent milestones use the
 unused star codenames listed in `assets/stars/stars`, in order.
 
 The source tree, tests, documentation, and packaging are maintained in this

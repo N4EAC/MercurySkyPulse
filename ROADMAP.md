@@ -28,7 +28,7 @@ The project is still alpha engineering software. Real-RF validation, connection
 hardening, native package validation, signing, upgrades, and release policy are
 not complete.
 
-## Current release — 0.1.6 Vega
+## Current release — 0.1.7 Capella
 
 - Remove voice chat, separate voice audio configuration, PyAV/Opus dependencies,
   disposable typing/recording presence events, and prerecorded announcement
@@ -58,8 +58,10 @@ not complete.
   locally at startup through packaged eSpeak NG 1.52.0 and the default output.
 - Expand connected callsigns with ITU/NATO phonetic words and spoken digits so
   station identity is understandable without looking at the display.
+- Announce received beacons and CQ calls locally, and provide persistent Setup
+  controls to disable announcements or select the packaged male/female voice.
 
-Vega requires paired-station RF validation in both call directions and through
+Capella requires paired-station RF validation in both call directions and through
 CQ discovery. Validation must include simultaneous operator submissions and
 confirm that single-flight admission prevents application backlog from amplifying
 half-duplex collisions.
@@ -147,8 +149,9 @@ identity and session tests before implementation.
 
 ### Operator announcements
 
-Vega includes the self-contained offline engine, a startup phrase, and a
-callsign-aware connected-station notice. A future release may add operator
+Capella includes the self-contained offline engine, a startup phrase, and
+callsign-aware connection, beacon, and CQ notices with persistent enable and
+voice controls. A future release may add operator
 controls and a small set of additional actionable notices. They must remain sparse, must
 not transmit over RF or add a second station-audio configuration, and must never
 delay operator traffic.
