@@ -12,6 +12,7 @@ MERCURY_ROOT=""
 MERCURY_SOURCE=""
 MERCURY_REVISION=""
 MERCURY_REMOTE=""
+MERCURY_HAMLIB_CFLAGS=""
 ESPEAK_BIN="${ESPEAK_EXECUTABLE:-$(command -v espeak-ng || true)}"
 ESPEAK_DATA_DIR="${ESPEAK_DATA_DIR:-}"
 ESPEAK_VERSION=""
@@ -143,6 +144,19 @@ prepare_mercury() {
         exit 1
     fi
 
+    local hamlib_probe="$MERCURY_CACHE/hamlib-rigerror2-probe"
+    mkdir -p "$MERCURY_CACHE"
+    if printf '%s\n' '#include <hamlib/rig.h>' \
+            'int main(void) { return rigerror2(RIG_OK) == 0; }' \
+        | "${CC:-cc}" -Werror=implicit-function-declaration -x c - \
+            $(pkg-config --cflags --libs hamlib) -o "$hamlib_probe" \
+            >/dev/null 2>&1; then
+        echo "Hamlib $(pkg-config --modversion hamlib) provides rigerror2."
+    else
+        MERCURY_HAMLIB_CFLAGS="$(pkg-config --cflags hamlib) -DHAVE_HAMLIB -Drigerror2=rigerror"
+        echo "Hamlib $(pkg-config --modversion hamlib) uses the rigerror compatibility path."
+    fi
+
     local archive="$MERCURY_CACHE/mercury-$MERCURY_COMMIT.tar.gz"
     MERCURY_ROOT="$MERCURY_CACHE/mercury-$MERCURY_COMMIT"
     MERCURY_SOURCE="$MERCURY_ROOT/mercury"
@@ -162,8 +176,15 @@ prepare_mercury() {
         tar -xzf "$archive" -C "$MERCURY_CACHE"
     fi
     echo "Building or validating pinned Mercury runtime locally..."
-    make -C "$MERCURY_ROOT" GIT_HASH="${MERCURY_COMMIT:0:8}" \
-        -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+    make -C "$MERCURY_ROOT" clean
+    if [[ -n "$MERCURY_HAMLIB_CFLAGS" ]]; then
+        make -C "$MERCURY_ROOT" GIT_HASH="${MERCURY_COMMIT:0:8}" \
+            HAMLIB_CFLAGS="$MERCURY_HAMLIB_CFLAGS" \
+            -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+    else
+        make -C "$MERCURY_ROOT" GIT_HASH="${MERCURY_COMMIT:0:8}" \
+            -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+    fi
 }
 
 prepare_mercury

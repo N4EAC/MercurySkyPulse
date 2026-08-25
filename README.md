@@ -125,6 +125,8 @@ Capella extends the self-contained offline operator speech
 engine by announcing **Mercury Sky Pulse** locally at startup. macOS and Windows
 packages include pinned eSpeak NG 1.52.0; Linux packages bundle the compatible
 distribution runtime after validating both required voice variants.
+The Linux builder also detects older Hamlib releases without `rigerror2` and
+uses the compatible diagnostic function without disabling CAT/PTT support.
 It uses no cloud or operating-system speech service, no prerecorded voice asset,
 and no Mercury/RF audio path. Connected-station announcements expand callsigns
 with ITU/NATO phonetic words and spoken digits, for example **N4EAC** becomes

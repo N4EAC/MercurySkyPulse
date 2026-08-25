@@ -131,3 +131,17 @@ voice-data locations, honors an explicit `ESPEAK_DATA_DIR`, and validates actual
 compatibility by rendering both packaged male and female voice variants. It
 records the detected distribution version instead of rejecting a functional
 system package solely because its version string differs.
+
+## 0.1.7 — Ubuntu 22.04 Hamlib lacked `rigerror2`
+
+**Observed failure:** The pinned Mercury runtime compiled against Ubuntu 22.04's
+Hamlib headers but failed at the final link with an undefined reference to
+`rigerror2`. That diagnostic helper is absent from the older Hamlib release even
+though the CAT/PTT API required by Mercury is available.
+
+**Correction:** The Linux builder now compiles and links a small Hamlib symbol
+probe before building Mercury. When `rigerror2` is unavailable, it aliases only
+that diagnostic call to the compatible `rigerror` function; CAT, PTT, frequency
+reading, and the rest of Hamlib remain enabled. The automatic pinned build is
+cleaned before recompilation so an object left by the failed link cannot retain
+stale compiler flags.
