@@ -55,7 +55,7 @@ not complete.
   Disconnect throughout calling/validation/connection, show a persistent
   connected-peer banner, and announce the connected callsign locally.
 - Begin self-contained announcement validation by speaking **Mercury Sky Pulse**
-  locally at startup through packaged eSpeak NG 1.52.0 and the default output.
+  locally at startup through packaged eSpeak NG and the default output.
 - Expand connected callsigns with ITU/NATO phonetic words and spoken digits so
   station identity is understandable without looking at the display.
 - Announce received beacons and CQ calls locally, and provide persistent Setup

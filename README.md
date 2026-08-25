@@ -122,8 +122,9 @@ transmission. Successful connections retain the normal three-frame exchange,
 and answering a CQ removes that invitation from the caller list immediately.
 
 Capella extends the self-contained offline operator speech
-engine by announcing **Mercury Sky Pulse** locally at startup. Packages include
-the pinned eSpeak NG 1.52.0 formant synthesizer for clear, consistent speech.
+engine by announcing **Mercury Sky Pulse** locally at startup. macOS and Windows
+packages include pinned eSpeak NG 1.52.0; Linux packages bundle the compatible
+distribution runtime after validating both required voice variants.
 It uses no cloud or operating-system speech service, no prerecorded voice asset,
 and no Mercury/RF audio path. Connected-station announcements expand callsigns
 with ITU/NATO phonetic words and spoken digits, for example **N4EAC** becomes

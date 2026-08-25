@@ -117,3 +117,17 @@ the operator to be looking at the display.
 enable switch and a male/female eSpeak NG voice selection. Received beacons and
 CQ calls announce the remote callsign using ITU/NATO phonetics. These notices are
 local-only and add no Mercury queue, modem, or RF traffic.
+
+## 0.1.7 — Ubuntu rejected an installed eSpeak NG package
+
+**Observed failure:** The Linux builder required exactly eSpeak NG 1.52.0 and
+assumed its voice data was always installed under `/usr/share`. Ubuntu 22.04
+provides a compatible distribution version and may place architecture-specific
+voice data under `/usr/lib`, so the builder incorrectly asked the operator to
+install an already-installed package.
+
+**Correction:** Linux packaging now discovers standard Debian/Ubuntu and Fedora
+voice-data locations, honors an explicit `ESPEAK_DATA_DIR`, and validates actual
+compatibility by rendering both packaged male and female voice variants. It
+records the detected distribution version instead of rejecting a functional
+system package solely because its version string differs.

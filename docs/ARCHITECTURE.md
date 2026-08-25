@@ -847,8 +847,10 @@ confirmed caller repeats readiness after a duplicate acknowledgement. The
 independent 180-second maximum still bounds every provisional session.
 
 `src/platform_runtime/builtin_speech.py` provides local operator announcements
-by invoking the packaged, pinned eSpeak NG 1.52.0 runtime without a shell and
-playing its bounded WAV output through Qt Multimedia. It is process-local
+by invoking packaged eSpeak NG without a shell. macOS and Windows use the pinned
+1.52.0 runtime; Linux packages bundle the distribution runtime only after
+functional male/female rendering checks. MSP plays the bounded WAV output
+through Qt Multimedia. It is process-local
 platform integration: it has no application-wire, Mercury-audio, RF,
 cloud-service, operating-system speech, trained-model, or prerecorded-asset
 dependency.

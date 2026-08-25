@@ -70,6 +70,11 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("plugins/multimedia/.*mediaplugin", builder)
         self.assertIn('--add-binary "$ESPEAK_BIN:espeak"', builder)
         self.assertIn("espeak/espeak-ng-data", builder)
+        self.assertIn("dpkg-query -L espeak-ng-data", builder)
+        self.assertIn('"/usr/lib/$ARCH-linux-gnu/espeak-ng-data"', builder)
+        self.assertIn("en-us+m3", builder)
+        self.assertIn("en-us+f3", builder)
+        self.assertNotIn('grep -q "$ESPEAK_VERSION"', builder)
         self.assertNotIn("validate_voice_package", builder)
         self.assertIn("pipewire-libs", rpm_spec)
         deb_control = (ROOT / "packaging/linux/debian-control.in").read_text(

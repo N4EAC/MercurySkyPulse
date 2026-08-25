@@ -106,7 +106,8 @@ Mercury internals.
   insertion into Chat. A connection-gated Chat WX button performs the asynchronous
   fetch without reopening Setup. Weather is not fetched automatically or added to
   beacons.
-- Self-contained offline operator speech using packaged eSpeak NG 1.52.0, with
+- Self-contained offline operator speech using packaged eSpeak NG (pinned 1.52.0
+  on macOS/Windows and functionally validated from the distribution on Linux), with
   a synthesized startup announcement through the default system output. It has
   no cloud, OS speech, prerecorded voice, Mercury audio, or RF dependency.
 

@@ -17,7 +17,10 @@ offline field operation.
 
 ## Decision
 
-MSP packages the pinned eSpeak NG 1.52.0 command-line runtime and its speech data.
+MSP packages the pinned eSpeak NG 1.52.0 command-line runtime and speech data on
+macOS and Windows. Linux packages bundle the installed distribution runtime and
+data after functionally validating both required voice variants, accommodating
+stable distributions such as Ubuntu 22.04 without weakening the runtime check.
 MSP invokes it without a shell to render bounded text into a local mono WAV;
 Qt Multimedia plays the result through the system's default output. The initial
 validation phrase is `Mercury Sky Pulse`, requested shortly after the desktop
@@ -44,7 +47,7 @@ voice assets.
 ## Consequences
 
 - The test phrase behaves consistently and offline on macOS, Windows, and Linux.
-- Packages gain a pinned GPL-3.0-or-later eSpeak NG runtime and data directory;
+- Packages gain a GPL-3.0-or-later eSpeak NG runtime and data directory;
   corresponding source and license information travel with each package.
 - Announcements remain sparse, actionable, configurable, and must
   never delay or compete with radio traffic.

@@ -12,9 +12,9 @@ MERCURY_ROOT=""
 MERCURY_SOURCE=""
 MERCURY_REVISION=""
 MERCURY_REMOTE=""
-ESPEAK_VERSION="1.52.0"
 ESPEAK_BIN="${ESPEAK_EXECUTABLE:-$(command -v espeak-ng || true)}"
-ESPEAK_DATA_DIR="${ESPEAK_DATA_DIR:-/usr/share/espeak-ng-data}"
+ESPEAK_DATA_DIR="${ESPEAK_DATA_DIR:-}"
+ESPEAK_VERSION=""
 ESPEAK_RUNTIME="$PROJECT_ROOT/build/espeak-linux-runtime"
 VERSION="${MSP_VERSION:-0.1.7}"
 ARCH="$(uname -m)"
@@ -29,16 +29,73 @@ if [[ "$ARCH" != "x86_64" ]]; then
     echo "ERROR: The initial Linux packages support x86_64 only (found $ARCH)." >&2
     exit 1
 fi
-if [[ ! -x "$ESPEAK_BIN" || ! -d "$ESPEAK_DATA_DIR" ]]; then
-    echo "ERROR: eSpeak NG $ESPEAK_VERSION is required for offline announcements." >&2
+if [[ ! -x "$ESPEAK_BIN" ]]; then
+    echo "ERROR: eSpeak NG is required for offline announcements." >&2
     echo "Fedora: sudo dnf install espeak-ng" >&2
     echo "Ubuntu: sudo apt install espeak-ng" >&2
     exit 1
 fi
-if ! "$ESPEAK_BIN" --version 2>&1 | grep -q "$ESPEAK_VERSION"; then
-    echo "ERROR: Expected eSpeak NG $ESPEAK_VERSION (found $ESPEAK_BIN)." >&2
+
+discover_espeak_data() {
+    local candidate=""
+    if [[ -n "$ESPEAK_DATA_DIR" ]]; then
+        return
+    fi
+    for candidate in \
+        /usr/share/espeak-ng-data \
+        "/usr/lib/$ARCH-linux-gnu/espeak-ng-data" \
+        /usr/lib64/espeak-ng-data \
+        /usr/local/share/espeak-ng-data; do
+        if [[ -d "$candidate" ]]; then
+            ESPEAK_DATA_DIR="$candidate"
+            return
+        fi
+    done
+    if command -v dpkg-query >/dev/null 2>&1; then
+        candidate="$(dpkg-query -L espeak-ng-data 2>/dev/null \
+            | awk '/\/espeak-ng-data$/ { print; exit }')"
+        if [[ -d "$candidate" ]]; then
+            ESPEAK_DATA_DIR="$candidate"
+            return
+        fi
+    fi
+    if command -v rpm >/dev/null 2>&1; then
+        candidate="$(rpm -ql espeak-ng 2>/dev/null \
+            | awk '/\/espeak-ng-data$/ { print; exit }')"
+        if [[ -d "$candidate" ]]; then
+            ESPEAK_DATA_DIR="$candidate"
+        fi
+    fi
+}
+
+discover_espeak_data
+if [[ ! -d "$ESPEAK_DATA_DIR" ]]; then
+    echo "ERROR: eSpeak NG voice data could not be located." >&2
+    echo "Detected executable: $ESPEAK_BIN" >&2
+    echo "Ubuntu: sudo apt install espeak-ng espeak-ng-data" >&2
+    echo "Fedora: sudo dnf install espeak-ng" >&2
+    echo "Or set ESPEAK_DATA_DIR to the directory named espeak-ng-data." >&2
     exit 1
 fi
+ESPEAK_VERSION="$("$ESPEAK_BIN" --version 2>&1 \
+    | awk 'match($0, /[0-9]+\.[0-9]+(\.[0-9]+)?/) { print substr($0, RSTART, RLENGTH); exit }')"
+ESPEAK_VERSION="${ESPEAK_VERSION:-distribution-version}"
+ESPEAK_TEST_DIR="$PROJECT_ROOT/build/espeak-linux-smoke"
+rm -rf "$ESPEAK_TEST_DIR"
+mkdir -p "$ESPEAK_TEST_DIR"
+if ! "$ESPEAK_BIN" -v en-us+m3 -w "$ESPEAK_TEST_DIR/male.wav" \
+        "Mercury Sky Pulse" >/dev/null 2>&1 \
+    || ! "$ESPEAK_BIN" -v en-us+f3 -w "$ESPEAK_TEST_DIR/female.wav" \
+        "CQ call" >/dev/null 2>&1 \
+    || [[ ! -s "$ESPEAK_TEST_DIR/male.wav" \
+        || ! -s "$ESPEAK_TEST_DIR/female.wav" ]]; then
+    echo "ERROR: The installed eSpeak NG cannot render MSP's male/female voices." >&2
+    echo "Executable: $ESPEAK_BIN" >&2
+    echo "Voice data: $ESPEAK_DATA_DIR" >&2
+    exit 1
+fi
+echo "Using eSpeak NG $ESPEAK_VERSION: $ESPEAK_BIN"
+echo "Using eSpeak NG voice data: $ESPEAK_DATA_DIR"
 if command -v dpkg-deb >/dev/null 2>&1; then
     PACKAGE_KIND=deb
 elif command -v rpmbuild >/dev/null 2>&1; then
@@ -134,7 +191,7 @@ fi
 rm -rf "$ESPEAK_RUNTIME"
 mkdir -p "$ESPEAK_RUNTIME"
 install -m 0644 LICENSE "$ESPEAK_RUNTIME/LICENSE"
-printf 'eSpeak NG %s offline speech runtime\nSource: https://github.com/espeak-ng/espeak-ng/tree/1.52.0\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
+printf 'eSpeak NG %s offline speech runtime\nSource: Linux distribution package\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
     "$ESPEAK_VERSION" > "$ESPEAK_RUNTIME/SOURCE.txt"
 
 "$PYTHON_BIN" -m venv "$BUILD_VENV"
