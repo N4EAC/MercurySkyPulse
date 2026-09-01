@@ -18,9 +18,10 @@ filenames, Python packages, and existing application-data paths so upgrades do
 not break installations or saved configuration.
 
 Mercury runs as its own process-isolated transport engine; Mercury SkyPulse
-communicates with it through documented interfaces. A small public
-[MSP compatibility fork](https://github.com/N4EAC/mercury) carries N4EAC's
-Mercury integration work while preserving this boundary:
+communicates with it through documented interfaces. N4EAC's Mercury integration
+work was developed through the public
+[MSP compatibility fork](https://github.com/N4EAC/mercury) while preserving this
+boundary:
 
 - conservative, non-blocking Hamlib frequency telemetry with CAT-duration
   diagnostics and post-PTT quiet time;
@@ -29,9 +30,12 @@ Mercury integration work while preserving this boundary:
 - use of Mercury's configured archiver in the FreeDV build, accepted upstream
   by Rhizomatica in [PR #206](https://github.com/Rhizomatica/mercury/pull/206).
 
-The telemetry and PTT work remains in the MSP compatibility fork while upstream
-review continues. Packaged MSP builds pin the combined Mercury 1.9.12 revision
-`84d35fbc`; the package records its complete source revision and licenses.
+Rhizomatica accepted the non-blocking radio and ARQ telemetry contribution in
+[PR #176](https://github.com/Rhizomatica/mercury/pull/176). Packaged MSP builds
+now pin upstream Mercury 1.9.13 merge revision `7febb890`; every package records
+the complete source revision and licenses. Frequency CAT reads never wait behind
+Mercury's PTT path: a busy radio returns cached telemetry, and PTT activity from
+Hamlib, serial, or CM108 participates in the post-transmit quiet window.
 
 MSP uses Mercury's documented interfaces:
 
@@ -540,13 +544,13 @@ complete tested payload with Mercury and license material. Without Inno Setup,
 the portable directory remains valid and the builder reports that no installer
 was created. Both outputs are unsigned engineering artifacts.
 
-The builder downloads the pinned Mercury 1.9.12 MSP compatibility build from the
-public `N4EAC/mercury` fork, verifies its pinned archive SHA-256 digest, and
-copies the complete portable runtime into the build. The exact corresponding
-source commit is recorded in the package. This revision incorporates upstream
-review feedback for non-blocking optional CAT polling, CAT-duration diagnostics,
-and failed-PTT state correction while retaining MSP's frequency and ARQ mode
-telemetry:
+The builder downloads a pinned Mercury 1.9.13 Windows runtime hosted by the
+public `N4EAC/mercury` fork, verifies its archive SHA-256 digest, and copies the
+complete portable runtime into the build. Its exact corresponding source is
+upstream Rhizomatica merge revision `7febb890`, recorded in the package. This
+revision retains MSP's frequency and ARQ-mode telemetry with upstream-approved
+non-blocking CAT polling, CAT-duration diagnostics, and common-backend PTT-state
+protection:
 
 ```text
 dist\MercurySkyPulse\

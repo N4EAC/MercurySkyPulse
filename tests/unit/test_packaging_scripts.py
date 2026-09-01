@@ -21,6 +21,9 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("CFBundleShortVersionString", gate)
         self.assertIn("CFBundleVersion", gate)
         self.assertIn("brew --prefix espeak-ng", builder)
+        self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
+        self.assertIn("github.com/Rhizomatica/mercury/archive", builder)
+        self.assertIn("prepare_mercury", builder)
         self.assertIn("--add-binary \"$ESPEAK_RUNTIME/espeak-ng:espeak\"", builder)
         self.assertIn("espeak-ng-data:espeak/espeak-ng-data", builder)
 

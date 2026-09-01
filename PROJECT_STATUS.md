@@ -210,16 +210,18 @@ Mercury internals.
   license, and an Applications shortcut in a compressed drag-install `.dmg`.
 - `build.exe.bat` creates the Windows 10/11 engineering executable and bundles the
   pinned, checksum-verified Mercury compatibility runtime from the public
-  `N4EAC/mercury` fork. That runtime includes the read-only Hamlib frequency
-  telemetry and independent ARQ TX/peer RX payload-mode telemetry required by
-  MSP reporting and display.
+  `N4EAC/mercury` fork. The archive corresponds exactly to upstream Mercury
+  1.9.13 merge revision `7febb890`, including the read-only non-blocking Hamlib
+  frequency telemetry and independent ARQ TX/peer RX payload-mode telemetry
+  required by MSP reporting and display.
 - `packaging/windows/MercurySkyPulse.iss` wraps that payload in a per-user Inno
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
   the native target. It automatically downloads, checksum-verifies, and compiles
-  pinned Mercury compatibility commit `84d35fbc` when no override/sibling runtime
+  pinned upstream Mercury commit `7febb890` when no override/sibling runtime
   exists, verifies the read-only frequency and ARQ payload-mode telemetry, and
-  bundles the runtime.
+  bundles the runtime. `build.app.sh` applies the same checksum-verified upstream
+  source pin when an exact sibling checkout or explicit runtime is unavailable.
   Fedora packaging disables inapplicable debugsource subpackages for the
   prebuilt PyInstaller payload, filters only PySide6's unavailable optional
   `libtiff.so.5` plugin dependency, and uses a relative launcher symlink.

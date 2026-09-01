@@ -4,8 +4,14 @@ set -euo pipefail
 PROJECT_ROOT="${0:A:h}"
 BUILD_VENV="$PROJECT_ROOT/.venv-build-macos"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-MERCURY_SOURCE="${MERCURY_EXECUTABLE:-$PROJECT_ROOT/../mercury/mercury}"
-MERCURY_ROOT="${MERCURY_SOURCE:h}"
+MERCURY_COMMIT="7febb89062e1380487592b42011092d84c60cd5c"
+MERCURY_ARCHIVE_SHA256="c8730492bf1d29f2da827b214d4e6cffe44ac7e8491d8d171bf40aad90b8fd7a"
+MERCURY_ARCHIVE_URL="https://github.com/Rhizomatica/mercury/archive/$MERCURY_COMMIT.tar.gz"
+MERCURY_CACHE="$PROJECT_ROOT/build/mercury-macos-source"
+MERCURY_SOURCE=""
+MERCURY_ROOT=""
+MERCURY_REVISION=""
+MERCURY_REMOTE=""
 MERCURY_RUNTIME="$PROJECT_ROOT/build/mercury-macos-runtime"
 ESPEAK_VERSION="1.52.0"
 ESPEAK_PREFIX="${ESPEAK_PREFIX:-$(brew --prefix espeak-ng 2>/dev/null || true)}"
@@ -28,12 +34,65 @@ if ! "$ESPEAK_PREFIX/bin/espeak-ng" --version 2>&1 | grep -q "$ESPEAK_VERSION"; 
     exit 1
 fi
 
-if [[ ! -x "$MERCURY_SOURCE" ]]; then
-    print -u2 "ERROR: A runnable macOS Mercury executable was not found at:"
-    print -u2 "       $MERCURY_SOURCE"
-    print -u2 "Build the sibling Mercury checkout first or set MERCURY_EXECUTABLE."
-    exit 1
-fi
+prepare_mercury() {
+    local candidate="${MERCURY_EXECUTABLE:-}"
+    if [[ -n "$candidate" ]]; then
+        if [[ ! -x "$candidate" ]]; then
+            print -u2 "ERROR: MERCURY_EXECUTABLE is not runnable: $candidate"
+            exit 1
+        fi
+        MERCURY_SOURCE="${candidate:A}"
+        MERCURY_ROOT="${MERCURY_SOURCE:h}"
+        MERCURY_REVISION="operator-supplied-runtime"
+        MERCURY_REMOTE="operator-supplied MERCURY_EXECUTABLE"
+        return
+    fi
+
+    candidate="$PROJECT_ROOT/../mercury/mercury"
+    if [[ -x "$candidate" ]] \
+        && [[ "$(git -C "${candidate:h}" rev-parse HEAD 2>/dev/null || true)" == "$MERCURY_COMMIT" ]]; then
+        MERCURY_SOURCE="${candidate:A}"
+        MERCURY_ROOT="${MERCURY_SOURCE:h}"
+        MERCURY_REVISION="$MERCURY_COMMIT"
+        MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || print https://github.com/Rhizomatica/mercury)"
+        return
+    fi
+
+    local command archive actual_sha jobs
+    for command in curl tar make shasum; do
+        if ! command -v "$command" >/dev/null 2>&1; then
+            print -u2 "ERROR: '$command' is required to build bundled Mercury."
+            exit 1
+        fi
+    done
+    archive="$MERCURY_CACHE/mercury-$MERCURY_COMMIT.tar.gz"
+    MERCURY_ROOT="$MERCURY_CACHE/mercury-$MERCURY_COMMIT"
+    MERCURY_SOURCE="$MERCURY_ROOT/mercury"
+    MERCURY_REVISION="$MERCURY_COMMIT"
+    MERCURY_REMOTE="https://github.com/Rhizomatica/mercury"
+    mkdir -p "$MERCURY_CACHE"
+    if [[ ! -f "$archive" ]]; then
+        print "Downloading pinned Mercury source $MERCURY_COMMIT..."
+        curl -L --fail --show-error "$MERCURY_ARCHIVE_URL" -o "$archive"
+    fi
+    actual_sha="$(shasum -a 256 "$archive" | awk '{print $1}')"
+    if [[ "$actual_sha" != "$MERCURY_ARCHIVE_SHA256" ]]; then
+        print -u2 "ERROR: Mercury source archive SHA-256 verification failed."
+        print -u2 "Delete $archive and retry."
+        exit 1
+    fi
+    if [[ ! -f "$MERCURY_ROOT/Makefile" ]]; then
+        tar -xzf "$archive" -C "$MERCURY_CACHE"
+    fi
+    if [[ ! -x "$MERCURY_SOURCE" ]]; then
+        jobs="$(sysctl -n hw.logicalcpu 2>/dev/null || print 2)"
+        print "Building pinned Mercury $MERCURY_COMMIT..."
+        make -C "$MERCURY_ROOT" clean
+        make -C "$MERCURY_ROOT" -j"$jobs" GIT_HASH="${MERCURY_COMMIT[1,8]}"
+    fi
+}
+
+prepare_mercury
 if [[ ! -f "$MERCURY_ROOT/LICENSE" || ! -f "$MERCURY_ROOT/LICENSE-freedv" ]]; then
     print -u2 "ERROR: Mercury license files are missing beside $MERCURY_SOURCE"
     exit 1
@@ -52,8 +111,6 @@ cp "$MERCURY_SOURCE" "$MERCURY_RUNTIME/mercury"
 chmod 755 "$MERCURY_RUNTIME/mercury"
 cp "$MERCURY_ROOT/LICENSE" "$MERCURY_RUNTIME/LICENSE"
 cp "$MERCURY_ROOT/LICENSE-freedv" "$MERCURY_RUNTIME/LICENSE-freedv"
-MERCURY_REVISION="$(git -C "$MERCURY_ROOT" rev-parse HEAD 2>/dev/null || print unknown)"
-MERCURY_REMOTE="$(git -C "$MERCURY_ROOT" remote get-url origin 2>/dev/null || print unknown)"
 {
     print "Mercury macOS engineering runtime"
     print "Source: $MERCURY_REMOTE"

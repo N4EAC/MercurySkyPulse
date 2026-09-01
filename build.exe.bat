@@ -6,11 +6,11 @@ echo Mercury SkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
-set "MSP_MERCURY_VERSION=1.9.12-msp-84d35fbc"
-set "MSP_MERCURY_COMMIT=84d35fbcb0377e536d9123cb0650735a5b41ae01"
-set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.12-msp-84d35fbc.zip"
-set "MSP_MERCURY_ARCHIVE_SHA256=081be9fefa7d378c7b4c7fee8087d94737d8068bad4712cba3e6782793b6282c"
-set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.12-rafael-review-1/mercury-1.9.12-msp-84d35fbc.zip"
+set "MSP_MERCURY_VERSION=1.9.13-msp-7febb890"
+set "MSP_MERCURY_COMMIT=7febb89062e1380487592b42011092d84c60cd5c"
+set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.13-msp-7febb890.zip"
+set "MSP_MERCURY_ARCHIVE_SHA256=b62ab557e213bc35d58abdfc21c9c82666fad411326e55c8313a52ee474ab52a"
+set "MSP_MERCURY_URL=https://github.com/N4EAC/mercury/releases/download/msp-1.9.13-upstream-frequency-1/mercury-1.9.13-msp-7febb890.zip"
 set "MSP_MERCURY_CACHE=%TEMP%\MercurySkyPulse-build-cache\mercury-%MSP_MERCURY_VERSION%"
 set "MSP_MERCURY_ARCHIVE=%MSP_MERCURY_CACHE%\%MSP_MERCURY_ARCHIVE_NAME%"
 set "MSP_MERCURY_RUNTIME=%MSP_MERCURY_CACHE%\runtime\mercury-%MSP_MERCURY_VERSION%"
@@ -109,7 +109,7 @@ if errorlevel 1 (
 )
 (
     echo Mercury %MSP_MERCURY_VERSION%
-    echo Corresponding source: https://github.com/N4EAC/mercury/tree/%MSP_MERCURY_COMMIT%
+    echo Corresponding source: https://github.com/Rhizomatica/mercury/tree/%MSP_MERCURY_COMMIT%
     echo License: GNU GPL-3.0; see LICENSE in this directory.
 ) > "dist\MercurySkyPulse\mercury\SOURCE.txt"
 copy /Y LICENSE "dist\MercurySkyPulse\LICENSE" >nul
