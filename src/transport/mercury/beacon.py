@@ -7,13 +7,29 @@ from PySide6.QtNetwork import QAbstractSocket, QTcpSocket
 
 
 FEND, FESC, TFEND, TFESC = 0xC0, 0xDB, 0xDC, 0xDD
+KISS_STANDARD_DATA = 0x00
+KISS_MODEM_FRAME = 0x03
+MERCURY_STATION_HEADER = 0xE0  # PACKET_TYPE_STATION (7) in bits 7..5
 
 
-def kiss_frame(payload: bytes) -> bytes:
-    escaped = bytes((0,)) + payload
+def _kiss_frame(command: int, payload: bytes) -> bytes:
+    escaped = bytes((command,)) + payload
     escaped = escaped.replace(bytes((FESC,)), bytes((FESC, TFESC)))
     escaped = escaped.replace(bytes((FEND,)), bytes((FESC, TFEND)))
     return bytes((FEND,)) + escaped + bytes((FEND,))
+
+
+def kiss_frame(payload: bytes) -> bytes:
+    """Encode legacy standard KISS data used by existing transport contracts."""
+    return _kiss_frame(KISS_STANDARD_DATA, payload)
+
+
+def kiss_station_frame(payload: bytes) -> bytes:
+    """Encode one Mercury station frame so BEACONMODE selects its RF mode."""
+    return _kiss_frame(
+        KISS_MODEM_FRAME,
+        bytes((MERCURY_STATION_HEADER,)) + payload,
+    )
 
 
 class KissDecoder:
@@ -53,8 +69,15 @@ class KissDecoder:
                 continue
             frame = frame.replace(bytes((FESC, TFEND)), bytes((FEND,)))
             frame = frame.replace(bytes((FESC, TFESC)), bytes((FESC,)))
-            if frame[0] & 0x0F == 0:
+            command = frame[0] & 0x0F
+            if command == KISS_STANDARD_DATA:
                 payloads.append(frame[1:])
+            elif (command == KISS_MODEM_FRAME and len(frame) >= 2
+                  and frame[1] >> 5 == 7):
+                # Mercury returns the complete fixed-size modem frame. MSP's
+                # beacon/CQ encodings end in bounded ASCII version text, so
+                # zero padding can be removed without touching protocol data.
+                payloads.append(frame[2:].rstrip(b"\0"))
         return payloads
 
 
@@ -93,6 +116,13 @@ class MercuryBroadcastTransport(QObject):
         if self.socket.state() != QAbstractSocket.SocketState.ConnectedState:
             raise RuntimeError("Mercury broadcast socket is not connected")
         frame = kiss_frame(payload)
+        if self.socket.write(frame) != len(frame):
+            raise RuntimeError("Mercury broadcast socket rejected application bytes")
+
+    def send_station_payload(self, payload: bytes) -> None:
+        if self.socket.state() != QAbstractSocket.SocketState.ConnectedState:
+            raise RuntimeError("Mercury broadcast socket is not connected")
+        frame = kiss_station_frame(payload)
         if self.socket.write(frame) != len(frame):
             raise RuntimeError("Mercury broadcast socket rejected application bytes")
 

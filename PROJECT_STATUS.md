@@ -1,5 +1,29 @@
 # Mercury SkyPulse Project Status
 
+## Local CoreAudio #254 retest preparation — 2026-09-07
+
+The isolated `scripts/test_coreaudio_254.command` launcher retains the validated
+first-fix binary override, left CoreAudio capture, PTT none, no automatic TX,
+and independent settings. The normal bundled runtime remains untouched.
+Initial operator reception maintained spectrum updates for ten minutes without
+targeted capture errors; only four restart launches actually occurred, and all
+five processes exceeded the shutdown wait. Local evidence is preserved under
+`run/coreaudio-254/20260907T143939.521297Z/` (ignored, not published).
+
+The revised launcher tolerates TCP TIME_WAIT while rejecting live listeners,
+counts actual process starts separately from attempts, requires fresh spectrum
+after 30 seconds, and supports an explicit restart-only retest. Shutdown now
+keeps Qt event processing active and collects a bounded stack sample of its own
+child if termination is slow. Mercury source was inspected read-only; no modem
+code was changed. The shutdown root cause remains unconfirmed.
+
+Local aggregate tests passed (266), as did six focused launcher tests,
+compilation, dependency validation, shell syntax, and executable hash checks.
+Only benign font-alias and pip-cache warnings were observed. No application
+rebuild or radio-connected launch was performed; the operator must start the
+next test using `docs/COREAUDIO_254_OPERATOR_TEST.md`. No commit, push, or publish
+is authorized for this preparation.
+
 ## Current stage
 
 Mercury SkyPulse (MSP) is a cross-platform PySide6 communications application built
@@ -85,7 +109,13 @@ Mercury internals.
 - Verified file transfer with bounded framing, pause/resume, acceptance controls,
   SHA-256 verification, duplicate detection, a dedicated download directory,
   receiver-confirmed Chat status, and a clean outgoing control row after delivery.
-- Capability beacons over Mercury KISS broadcast transport.
+- Compact versioned capability beacons and CQ calls over Mercury KISS broadcast
+  transport, explicitly sent in Mercury's approximately 3.1-second, 36-bit/s,
+  187-Hz DATAC16 mode without changing the ARQ listen or connected-session
+  payload mode. The 13-byte MSP encoding preserves callsigns up to 10
+  characters, GRID, and capability flags while omitting precise coordinates and
+  version/timestamp text to fit Mercury's 14-byte station frame. Legacy MSP
+  beacon and CQ encodings remain decodable.
 - Bounded five-minute CQ discovery over the broadcast transport, with explicit
   Answer CQ handoff into the existing Mercury ARQ connection workflow.
 - Periodic beacon scheduling pauses during every active ARQ session and for 300
@@ -145,6 +175,9 @@ Mercury internals.
 
 - Radio models come from the selected Mercury runtime's compiled Hamlib catalog.
 - The user selects a model, serial/COM/USB or network CAT address, and serial speed.
+- Selecting Hamlib NET rigctl clears a stale serial-device value for fresh
+  `host:port` entry, while saved operator-entered network addresses survive
+  catalog reload and restore on later sessions.
 - MSP saves the selection and configures managed Mercury through documented
   startup/configuration inputs.
 - Mercury remains the only Hamlib and PTT owner.
@@ -183,8 +216,12 @@ Mercury internals.
   real callsign and GRID.
 - The test sends immediately and at 3, 6, and 9 seconds, then stops scheduling at
   12 seconds.
-- Modem TX gain is adjustable from -20 through 0 dB through Mercury's documented
-  `set_tx_gain` WebSocket command.
+- Modem TX gain is adjustable from -20 through +6 dB through Mercury's documented
+  `set_tx_gain` WebSocket command. The +6 dB ceiling is deliberately below
+  Mercury's broader command range and must be used with its reported TX peak to
+  avoid clipping. MSP persists the selected value and includes it in regenerated
+  managed Mercury configuration files, preserving it across application and
+  supervised modem restarts.
 - Mercury's reported TX peak is displayed in dBFS.
 - The control is explicitly named **TX Level Test** and therefore carries no
   redundant RF-warning checkbox. The test requires saved station identity, is
@@ -209,16 +246,19 @@ Mercury internals.
 - `build.dmg.sh` wraps the validated bundle, bundled Mercury runtime, project
   license, and an Applications shortcut in a compressed drag-install `.dmg`.
 - `build.exe.bat` creates the Windows 10/11 engineering executable and bundles the
-  pinned, checksum-verified Mercury compatibility runtime from the public
-  `N4EAC/mercury` fork. The archive corresponds exactly to upstream Mercury
-  1.9.13 merge revision `7febb890`, including the read-only non-blocking Hamlib
-  frequency telemetry and independent ARQ TX/peer RX payload-mode telemetry
-  required by MSP reporting and display.
+  pinned, checksum-verified official Mercury runtime. The archive corresponds
+  exactly to upstream Mercury 1.9.23 revision `09f258f8`, including the read-only non-blocking Hamlib
+  frequency telemetry, independent ARQ TX/peer RX payload-mode telemetry, and
+  the merged CoreAudio, broadcast-shutdown, ARQ carousel, call-cap, acquisition,
+  busy-detector, and teardown corrections required by MSP reporting, display,
+  and reliable lifecycle management. Exact-revision GPL, FreeDV, and Hamlib
+  notices are downloaded and checksum-verified separately because the official
+  portable archive does not include them.
 - `packaging/windows/MercurySkyPulse.iss` wraps that payload in a per-user Inno
   Setup installer with MSP branding when Inno Setup 6 is present.
 - `build.linux.sh` creates an Ubuntu `amd64` `.deb` or Fedora `x86_64` `.rpm` on
   the native target. It automatically downloads, checksum-verifies, and compiles
-  pinned upstream Mercury commit `7febb890` when no override/sibling runtime
+  pinned upstream Mercury commit `cbe7ae73` when no override/sibling runtime
   exists, verifies the read-only frequency and ARQ payload-mode telemetry, and
   bundles the runtime. `build.app.sh` applies the same checksum-verified upstream
   source pin when an exact sibling checkout or explicit runtime is unavailable.
@@ -232,6 +272,25 @@ Mercury internals.
   collaboration, issues, and requested releases.
 
 ## Current validation priority
+
+The macOS and Linux builders pin upstream revision `cbe7ae73`, which retains
+the CoreAudio ownership, stable-UID, bounded-reopen, macOS property,
+broadcast-shutdown, frequency, and ARQ-mode telemetry contributions previously
+integrated for MSP. It adds the macOS interruptible forced-exit correction and
+current post-1.9.23 ARQ fixes. The Windows builder remains on Rhizomatica's
+official 1.9.23 portable release at revision `09f258f8`; no unofficial Windows
+runtime is substituted. Clean Apple Silicon compilation and official
+Windows-runtime inspection confirm that MSP's required telemetry fields remain
+present. Mercury's hardware-free suite passes except for its known
+platform-dependent deterministic Watterson checksum on macOS. The complete
+dual-process ARQ integration suite passes on macOS 27, including mixed-bandwidth
+connections, bidirectional transfer, broadcast/beacon reception, bounded large
+queues, and forced-exit unkey/shutdown. MSP's 266-test aggregate suite and the
+canonical macOS build/package gate also pass. Each platform builder pins an
+immutable source revision and verified archive digest. The next radio validation
+remains the
+operator-controlled FT-710 receive-only procedure in
+[`docs/COREAUDIO_254_OPERATOR_TEST.md`](docs/COREAUDIO_254_OPERATOR_TEST.md).
 
 The unified dockable operator console governed by ADR 0028 is implemented for
 field validation. Its purpose is at-a-glance awareness and simultaneous access to

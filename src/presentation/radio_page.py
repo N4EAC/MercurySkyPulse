@@ -34,6 +34,7 @@ class RadioPage(QWidget):
         self.setObjectName("RadioPage")
         self._rigs = ()
         self._configured_model_id = None
+        self._programmatic_radio_selection = False
 
         title = QLabel("Radio Station Setup")
         title.setObjectName("PageTitle")
@@ -50,6 +51,7 @@ class RadioPage(QWidget):
         self.radio_list = QListWidget()
         self.radio_list.setMinimumHeight(220)
         self.radio_list.setAlternatingRowColors(True)
+        self.radio_list.currentItemChanged.connect(self._radio_selected)
         setup_layout.addWidget(self.radio_list, 1)
         form = QFormLayout()
         self.device = QComboBox()
@@ -78,7 +80,7 @@ class RadioPage(QWidget):
         tx_row = QHBoxLayout()
         tx_row.addWidget(QLabel("Modem TX gain"))
         self.tx_gain = QSlider(Qt.Orientation.Horizontal)
-        self.tx_gain.setRange(-20, 0)
+        self.tx_gain.setRange(-20, 6)
         self.tx_gain.setValue(-20)
         self.tx_gain.setTickInterval(5)
         self.tx_gain.setTickPosition(QSlider.TickPosition.TicksBelow)
@@ -137,11 +139,15 @@ class RadioPage(QWidget):
         self.device.setCurrentText(config.device)
         speed_index = self.serial_speed.findData(config.serial_speed)
         self.serial_speed.setCurrentIndex(max(0, speed_index))
-        for index in range(self.radio_list.count()):
-            item = self.radio_list.item(index)
-            if item.data(Qt.ItemDataRole.UserRole) == config.model_id:
-                self.radio_list.setCurrentItem(item)
-                break
+        self._programmatic_radio_selection = True
+        try:
+            for index in range(self.radio_list.count()):
+                item = self.radio_list.item(index)
+                if item.data(Qt.ItemDataRole.UserRole) == config.model_id:
+                    self.radio_list.setCurrentItem(item)
+                    break
+        finally:
+            self._programmatic_radio_selection = False
 
     def set_serial_ports(self, ports) -> None:
         current = self._combo_value(self.device)
@@ -161,7 +167,7 @@ class RadioPage(QWidget):
     def set_tx_gain(self, level_db: float) -> None:
         if self.tx_gain.isSliderDown():
             return
-        level = max(-20, min(0, round(float(level_db))))
+        level = max(-20, min(6, round(float(level_db))))
         self.tx_gain.blockSignals(True)
         self.tx_gain.setValue(level)
         self.tx_gain.blockSignals(False)
@@ -239,20 +245,44 @@ class RadioPage(QWidget):
             item = self.radio_list.item(index)
             item.setHidden(bool(needle) and needle not in item.text().casefold())
 
+    def _radio_selected(self, current, _previous) -> None:
+        if current is None or self._programmatic_radio_selection:
+            return
+        model_id = current.data(Qt.ItemDataRole.UserRole)
+        rig = next((item for item in self._rigs if item.model_id == model_id), None)
+        if rig is None:
+            return
+        is_net_rigctl = (
+            rig.model_id == 2
+            or rig.macro.upper() in {"RIG_MODEL_NETRIGCTL", "RIG_MODEL_NETRIGCTL2"}
+        )
+        if is_net_rigctl:
+            self.device.setCurrentText("")
+            self.device.lineEdit().setPlaceholderText("Enter rigctld host:port")
+            self.serial_speed.setCurrentIndex(0)
+        else:
+            self.device.lineEdit().setPlaceholderText(
+                "Select a COM/USB port or enter serial device / ip:port"
+            )
+
     def _rebuild_list(self) -> None:
         selected = self.radio_list.currentItem()
         selected_id = (
             selected.data(Qt.ItemDataRole.UserRole)
             if selected else self._configured_model_id
         )
-        self.radio_list.clear()
-        for rig in self._rigs:
-            item = QListWidgetItem(f"{rig.manufacturer} — {rig.model}  [#{rig.model_id}, {rig.status}]")
-            item.setData(Qt.ItemDataRole.UserRole, rig.model_id)
-            item.setToolTip(f"{rig.macro} · Hamlib backend {rig.version}")
-            self.radio_list.addItem(item)
-            if rig.model_id == selected_id:
-                self.radio_list.setCurrentItem(item)
+        self._programmatic_radio_selection = True
+        try:
+            self.radio_list.clear()
+            for rig in self._rigs:
+                item = QListWidgetItem(f"{rig.manufacturer} — {rig.model}  [#{rig.model_id}, {rig.status}]")
+                item.setData(Qt.ItemDataRole.UserRole, rig.model_id)
+                item.setToolTip(f"{rig.macro} · Hamlib backend {rig.version}")
+                self.radio_list.addItem(item)
+                if rig.model_id == selected_id:
+                    self.radio_list.setCurrentItem(item)
+        finally:
+            self._programmatic_radio_selection = False
         self._filter_rigs(self.search.text())
 
     def _apply(self) -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import math
 import os
 from pathlib import Path
 import shutil
@@ -21,6 +22,7 @@ class MercuryProcessConfig:
     radio_serial_speed: int = 0
     input_device: str | None = None
     output_device: str | None = None
+    tx_gain_db: float = 0.0
     config_file: Path | None = None
     extra_arguments: tuple[str, ...] = ()
     restart_delays_ms: tuple[int, ...] = (1000, 2000, 4000, 8000, 15000, 30000)
@@ -163,6 +165,13 @@ class MercuryProcessSupervisor(QObject):
         )
         self.restart_now()
 
+    def remember_tx_gain(self, level_db: float) -> None:
+        """Keep live Mercury gain across managed restarts without restarting now."""
+        level = float(level_db)
+        if not math.isfinite(level) or not -20.0 <= level <= 20.0:
+            raise ValueError("Mercury TX gain must be between -20 and +20 dB")
+        self.config = replace(self.config, tx_gain_db=level)
+
     def stop(self) -> None:
         self._intended_running = False
         self._restart_timer.stop()
@@ -234,6 +243,8 @@ class MercuryProcessSupervisor(QObject):
                 f'output_device = "{self._escape_ini(self.config.output_device)}"\n'
                 if self.config.output_device else ""
             )
+            + "\n[audio]\n"
+            + f"tx_gain_db = {self.config.tx_gain_db:.2f}\n"
         )
         temporary.write_text(contents, encoding="utf-8")
         temporary.replace(path)

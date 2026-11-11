@@ -18,9 +18,14 @@ status, and the broadcast path used by MSP beacons.
 - Use the configured real callsign and GRID in normal MSP beacon frames. Never
   invent an identity or hide that the action transmits RF.
 - Send immediately and every three seconds, with scheduling stopped at 12 seconds.
-- Limit the operator control to -20..0 dB even though Mercury accepts up to +20 dB.
+- Limit the operator control to -20..+6 dB even though Mercury accepts up to
+  +20 dB. +6 dB matches Mercury's documented MFSK headroom; the displayed peak
+  remains the authority for avoiding clipping with any active waveform.
 - Apply gain only through Mercury's documented WebSocket command and display
   Mercury's reported `tx_peak_dbfs`.
+- Persist the accepted gain in MSP settings and reproduce it in the managed
+  Mercury INI. MSP regenerates that file at launch, so relying only on Mercury's
+  own WebSocket-side INI write would lose the operator's selection.
 - Refuse start without saved identity or during an active/linking ARQ session.
   Stop on a new link, telemetry loss, explicit stop, Setup close, or shutdown.
 - Do not open CAT or generate modem samples in MSP.

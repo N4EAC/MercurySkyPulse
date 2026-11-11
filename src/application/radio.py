@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 
 TX_TEST_MIN_GAIN_DB = -20
-TX_TEST_MAX_GAIN_DB = 0
+TX_TEST_MAX_GAIN_DB = 6
 TX_TEST_DURATION_MS = 12_000
 TX_TEST_BEACON_INTERVAL_MS = 3_000
 
@@ -170,12 +170,18 @@ class TxLevelTestService(QObject):
     state_changed = Signal(bool, str)
     error_received = Signal(str)
 
-    def __init__(self, beacon_service, telemetry, link_client, parent=None) -> None:
+    def __init__(self, beacon_service, telemetry, link_client, repository=None,
+                 runtime=None, initial_level_db: float = 0.0, parent=None) -> None:
         super().__init__(parent)
         self.beacon_service = beacon_service
         self.telemetry = telemetry
+        self.repository = repository
+        self.runtime = runtime
         self._active = False
-        self._level_db = float(TX_TEST_MIN_GAIN_DB)
+        self._level_db = max(
+            float(TX_TEST_MIN_GAIN_DB),
+            min(float(TX_TEST_MAX_GAIN_DB), float(initial_level_db)),
+        )
         self._link_state = "disconnected"
         self._pulse_timer = QTimer(self)
         self._pulse_timer.setInterval(TX_TEST_BEACON_INTERVAL_MS)
@@ -192,14 +198,22 @@ class TxLevelTestService(QObject):
     def active(self) -> bool:
         return self._active
 
+    @property
+    def level_db(self) -> float:
+        return self._level_db
+
     def set_level(self, level_db: float) -> None:
         try:
             level = float(level_db)
             if not TX_TEST_MIN_GAIN_DB <= level <= TX_TEST_MAX_GAIN_DB:
-                raise ValueError("TX test gain must be between -20 and 0 dB")
+                raise ValueError("TX test gain must be between -20 and +6 dB")
             if self._link_state in {"connected", "linking"}:
                 raise ValueError("Disconnect the active station link before changing TX gain")
             self.telemetry.set_tx_gain_db(level)
+            if self.runtime is not None:
+                self.runtime.remember_tx_gain(level)
+            if self.repository is not None:
+                self.repository.set_setting("radio.tx_gain_db", f"{level:.2f}", "radio-setup")
             self._level_db = level
             self.level_changed.emit(level)
         except (RuntimeError, TypeError, ValueError) as error:

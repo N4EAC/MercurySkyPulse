@@ -564,6 +564,9 @@ class MainWindow(QMainWindow):
             self.setup_window.audio_diagnostics_changed.connect(
                 lambda _active: self._update_spectrum_processing()
             )
+            self.setup_window.audio_refresh_requested.connect(
+                self.telemetry.reconnect_now
+            )
 
     def _update_spectrum_processing(self) -> None:
         audio_diagnostics = bool(

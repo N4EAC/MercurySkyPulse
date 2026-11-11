@@ -93,8 +93,11 @@ class BeaconTests(unittest.TestCase):
             "2026-08-08T12:00:00+00:00",
         )
         encoded = encode_beacon(beacon)
-        self.assertTrue(encoded.startswith(b"MSPB"))
-        self.assertNotIn("voice-chat", decode_beacon(encoded).capabilities)
+        self.assertEqual(len(encoded), 13)
+        decoded = decode_beacon(encoded)
+        self.assertEqual(decoded.callsign, "N0CALL")
+        self.assertEqual(decoded.grid, "FN30")
+        self.assertNotIn("voice-chat", decoded.capabilities)
 
     def test_service_rejects_non_wire_capability_during_construction(self) -> None:
         with self.assertRaisesRegex(ValueError, "radio-setup"):

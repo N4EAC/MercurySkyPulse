@@ -4,8 +4,8 @@ set -euo pipefail
 PROJECT_ROOT="${0:A:h}"
 BUILD_VENV="$PROJECT_ROOT/.venv-build-macos"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-MERCURY_COMMIT="7febb89062e1380487592b42011092d84c60cd5c"
-MERCURY_ARCHIVE_SHA256="c8730492bf1d29f2da827b214d4e6cffe44ac7e8491d8d171bf40aad90b8fd7a"
+MERCURY_COMMIT="cbe7ae73d3827d7eff036259e549df3b376ff50a"
+MERCURY_ARCHIVE_SHA256="f33a127829cdefd1793ffedb41537a639a9794608ac13e8b17a5ed5348100cee"
 MERCURY_ARCHIVE_URL="https://github.com/Rhizomatica/mercury/archive/$MERCURY_COMMIT.tar.gz"
 MERCURY_CACHE="$PROJECT_ROOT/build/mercury-macos-source"
 MERCURY_SOURCE=""
@@ -167,6 +167,8 @@ PLIST="$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $VERSION" "$PLIST"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PLIST" >/dev/null 2>&1 || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Mercury SkyPulse" "$PLIST"
+/usr/libexec/PlistBuddy -c "Delete :NSMicrophoneUsageDescription" "$PLIST" >/dev/null 2>&1 || true
+/usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string Mercury SkyPulse needs access to radio audio input for modem reception." "$PLIST"
 # Editing Info.plist invalidates PyInstaller's ad-hoc signature.
 codesign --force --deep --sign - "$APP"
 

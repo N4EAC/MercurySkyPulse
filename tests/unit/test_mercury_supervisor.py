@@ -153,14 +153,24 @@ class MercurySupervisorTests(unittest.TestCase):
             supervisor = MercuryProcessSupervisor(MercuryProcessConfig(
                 config_file=path, radio_serial_speed=115200,
                 input_device="USB Audio \\\"RX\\\"", output_device="USB Audio TX",
+                tx_gain_db=4.5,
             ))
             supervisor._write_application_config()
             self.assertEqual(
                 path.read_text(encoding="utf-8"),
                 "[main]\nradio_serial_speed = 115200\n"
                 'input_device = "USB Audio \\\\\\"RX\\\\\\""\n'
-                'output_device = "USB Audio TX"\n',
+                'output_device = "USB Audio TX"\n'
+                '\n[audio]\n'
+                'tx_gain_db = 4.50\n',
             )
+
+    def test_live_tx_gain_is_retained_for_future_managed_restarts(self) -> None:
+        supervisor = MercuryProcessSupervisor(MercuryProcessConfig())
+        supervisor.remember_tx_gain(6)
+        self.assertEqual(supervisor.config.tx_gain_db, 6.0)
+        with self.assertRaises(ValueError):
+            supervisor.remember_tx_gain(21)
 
     def test_station_configuration_updates_audio_and_restarts_once(self) -> None:
         supervisor = MercuryProcessSupervisor(MercuryProcessConfig())

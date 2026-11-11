@@ -16,6 +16,7 @@ from .weather_setup_page import WeatherSetupPage
 
 class SetupWindow(QDialog):
     audio_diagnostics_changed = Signal(bool)
+    audio_refresh_requested = Signal()
 
     def __init__(self, radio_service, beacon_service, location_service,
                  tx_level_service=None, psk_reporter_service=None,
@@ -65,6 +66,8 @@ class SetupWindow(QDialog):
         self.radio_page.apply_requested.connect(radio.apply_radio)
         self.radio_page.refresh_devices_requested.connect(radio.station_devices.load)
         self.audio_page.apply_requested.connect(radio.apply_audio)
+        self.audio_page.refresh_requested.connect(radio.station_devices.load)
+        self.audio_page.refresh_requested.connect(self.audio_refresh_requested.emit)
         radio.catalog_changed.connect(self.radio_page.set_catalog)
         radio.serial_ports_changed.connect(self.radio_page.set_serial_ports)
         radio.serial_ports_changed.connect(self.gps_page.set_serial_ports)
@@ -88,6 +91,7 @@ class SetupWindow(QDialog):
             tx.peak_changed.connect(self.radio_page.set_tx_peak)
             tx.state_changed.connect(self.radio_page.set_tx_test_state)
             tx.error_received.connect(self.radio_page.show_error)
+            self.radio_page.set_tx_gain(tx.level_db)
 
         beacon = self.beacon_service
         self.user_page.save_requested.connect(self._save_identity)

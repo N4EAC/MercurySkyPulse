@@ -20,6 +20,9 @@ from .messaging import (
 
 
 CALLSIGN = re.compile(r"^[A-Z0-9][A-Z0-9/-]{0,14}$")
+MERCURY_BEACON_MODE_DATAC16 = 8
+
+
 class ApplicationMessagingClient(QObject):
     state_changed = Signal(str)
     control_event = Signal(str)
@@ -96,8 +99,7 @@ class ApplicationMessagingClient(QObject):
 
     def configure_and_listen(self, local_call: str) -> None:
         call = self.normalize_callsign(local_call)
-        self.transport.send_control(f"MYCALL {call}")
-        self.transport.send_control("LISTEN ON")
+        self._configure_station(call)
         self._set_state("listening")
 
     def connect_station(self, local_call: str, remote_call: str) -> None:
@@ -106,8 +108,7 @@ class ApplicationMessagingClient(QObject):
         # Establish the role before any transport callback can report CONNECTED.
         # CQ answers and direct calls share this exact caller-initiated path.
         self._outgoing_call = True
-        self.transport.send_control(f"MYCALL {local}")
-        self.transport.send_control("LISTEN ON")
+        self._configure_station(local)
         self.transport.send_control(f"CONNECT {local} {remote}")
         self._call_timer.start()
         self._set_state("linking")
@@ -115,6 +116,16 @@ class ApplicationMessagingClient(QObject):
     def disconnect_station(self) -> None:
         self._clear_session_attempt()
         self.transport.send_control("DISCONNECT")
+
+    def _configure_station(self, local_call: str) -> None:
+        self.transport.send_control(f"MYCALL {local_call}")
+        # Mercury mode index 8 is DATAC16: Mercury's most robust compact
+        # station-message mode. MSP's packed beacon/CQ frames fit its 14-byte
+        # payload (13 bytes after the station header). ARQ modes are unchanged.
+        self.transport.send_control(
+            f"BEACONMODE {MERCURY_BEACON_MODE_DATAC16}"
+        )
+        self.transport.send_control("LISTEN ON")
 
     def send_message(self, message_id: str, timestamp: str, text: str) -> None:
         self.transport.write(encode_message(message_id, timestamp, text))

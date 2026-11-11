@@ -21,6 +21,7 @@ NO_ENERGY_WARNING_MS = 5_000
 
 class AudioSetupPage(QWidget):
     apply_requested = Signal(str, str)
+    refresh_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -49,6 +50,9 @@ class AudioSetupPage(QWidget):
         self.playback_id.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         form.addRow("Selected playback endpoint", self.playback_id)
         layout.addLayout(form)
+        refresh = QPushButton("Refresh Audio Devices")
+        refresh.clicked.connect(self.refresh_requested.emit)
+        layout.addWidget(refresh)
         save = QPushButton("Save Audio and Restart Mercury")
         save.setObjectName("PrimaryButton")
         save.clicked.connect(

@@ -22,6 +22,14 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn("CFBundleVersion", gate)
         self.assertIn("brew --prefix espeak-ng", builder)
         self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
+        self.assertIn(
+            'MERCURY_COMMIT="cbe7ae73d3827d7eff036259e549df3b376ff50a"',
+            builder,
+        )
+        self.assertIn(
+            'MERCURY_ARCHIVE_SHA256="f33a127829cdefd1793ffedb41537a639a9794608ac13e8b17a5ed5348100cee"',
+            builder,
+        )
         self.assertIn("github.com/Rhizomatica/mercury/archive", builder)
         self.assertIn("prepare_mercury", builder)
         self.assertIn("--add-binary \"$ESPEAK_RUNTIME/espeak-ng:espeak\"", builder)
@@ -48,6 +56,14 @@ class PackagingScriptTests(unittest.TestCase):
         self.assertIn('VERSION="${MSP_VERSION:-0.1.7}"', builder)
         self.assertIn('candidate="${MERCURY_EXECUTABLE:-}"', builder)
         self.assertIn("MERCURY_ARCHIVE_SHA256=", builder)
+        self.assertIn(
+            'MERCURY_COMMIT="cbe7ae73d3827d7eff036259e549df3b376ff50a"',
+            builder,
+        )
+        self.assertIn(
+            'MERCURY_ARCHIVE_SHA256="f33a127829cdefd1793ffedb41537a639a9794608ac13e8b17a5ed5348100cee"',
+            builder,
+        )
         self.assertIn('curl -L --fail --show-error "$MERCURY_ARCHIVE_URL"', builder)
         self.assertIn('make -C "$MERCURY_ROOT"', builder)
         self.assertIn("hamlib-rigerror2-probe", builder)

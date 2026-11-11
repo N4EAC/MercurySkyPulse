@@ -165,6 +165,22 @@ class RadioStationTests(unittest.TestCase):
         self.assertFalse(service.active)
         self.assertIn("12-second", states[-1][1])
 
+    def test_tx_level_test_accepts_six_db_but_rejects_more(self) -> None:
+        telemetry = FakeTelemetry()
+        service = TxLevelTestService(
+            FakeBeaconService(), telemetry, self.client,
+            self.repository, self.runtime,
+        )
+        errors = []
+        service.error_received.connect(errors.append)
+        service.set_level(6)
+        self.assertEqual(telemetry.levels, [6.0])
+        self.assertEqual(self.repository.get_setting("radio.tx_gain_db"), "6.00")
+        self.runtime.remember_tx_gain.assert_called_once_with(6.0)
+        service.set_level(7)
+        self.assertEqual(telemetry.levels, [6.0])
+        self.assertIn("-20 and +6 dB", errors[-1])
+
     def test_tx_level_test_requires_identity_and_stops_for_active_link(self) -> None:
         telemetry = FakeTelemetry()
         service = TxLevelTestService(FakeBeaconService("", ""), telemetry, self.client)

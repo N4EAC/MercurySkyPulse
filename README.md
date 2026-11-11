@@ -31,11 +31,20 @@ boundary:
   by Rhizomatica in [PR #206](https://github.com/Rhizomatica/mercury/pull/206).
 
 Rhizomatica accepted the non-blocking radio and ARQ telemetry contribution in
-[PR #176](https://github.com/Rhizomatica/mercury/pull/176). Packaged MSP builds
-now pin upstream Mercury 1.9.13 merge revision `7febb890`; every package records
-the complete source revision and licenses. Frequency CAT reads never wait behind
-Mercury's PTT path: a busy radio returns cached telemetry, and PTT activity from
-Hamlib, serial, or CM108 participates in the post-transmit quiet window.
+[PR #176](https://github.com/Rhizomatica/mercury/pull/176). The macOS and Linux
+builders pin upstream revision `cbe7ae73`, a post-1.9.23 revision that includes
+the macOS interruptible forced-exit correction and current ARQ fixes. The
+Windows builder uses Rhizomatica's official 1.9.23 portable release at revision
+`09f258f8`. Every package records its complete source revision and licenses.
+Both pins retain the MSP contributions and the CoreAudio ownership, stable-UID,
+bounded-reopen, and broadcast-shutdown work
+merged through [PR #268](https://github.com/Rhizomatica/mercury/pull/268).
+Frequency CAT reads never wait behind Mercury's PTT path: a busy radio returns
+cached telemetry, and PTT activity from Hamlib, serial, or CM108 participates in
+the post-transmit quiet window. Mercury 1.9.23 and the newer macOS/Linux pin
+also bring the current ARQ carousel, connection/disconnection, busy-detector,
+acquisition, bounded-log, and call-cap corrections while remaining
+process-isolated from MSP.
 
 MSP uses Mercury's documented interfaces:
 
@@ -210,12 +219,21 @@ existing history available for later export.
 
 ### Station beacon
 
-The dockable Beacon panel advertises the station callsign, Maidenhead grid,
-software version and supported data capabilities over
+The dockable Beacon panel advertises the station callsign, Maidenhead grid and
+supported data capabilities over
 Mercury's connectionless KISS broadcast port.
 Beaconing
 is Off by default and supports 1, 5, 10, 15, 30, or 60-minute intervals plus a
 manual **Send Now** action.
+MSP uses a compact, versioned station-frame encoding and explicitly selects
+Mercury's DATAC16 broadcast mode for both capability beacons and CQ calls. Its
+approximately 3.1-second, 36-bit/s frame occupies about 187 Hz and is Mercury's
+most robust compact station-message mode without changing the ARQ listen or
+connected-session payload mode. To fit its 14-byte station frame, the packed
+encoding carries callsigns up to 10 characters, full GRID, and capability flags;
+it omits precise coordinates and version/timestamp text, and reception supplies
+the local receive time. Receivers retain compatibility with older MSP beacon and
+CQ encodings.
 Station Status displays **Next Beacon: Manual** while periodic beaconing is off;
 when an interval is enabled it displays the live time remaining until the next
 scheduled transmission. The countdown text turns bright red only during the
@@ -257,8 +275,9 @@ an APRS packet or APRS-IS announcement.
 ### CQ discovery
 
 Chat provides **Call CQ** without requiring an ARQ connection. MSP broadcasts a
-short-lived callsign, grid, version, and timestamp invitation on the current
-radio frequency. Other MSP stations display valid callers for five minutes and
+short-lived callsign and grid invitation on the current radio frequency using
+the same DATAC16 mode as capability beacons. Other MSP
+stations display valid callers for five minutes and
 can select **Answer CQ** to start the normal Mercury ARQ connection. CQ calls do
 not change the radio frequency or mode and are not submitted to PSK Reporter.
 Both operators must remain on the common frequency while connecting; manually
@@ -284,6 +303,9 @@ radio controller. For a managed local engine, it asks the selected Mercury
 executable for its complete compiled Hamlib catalog with `mercury -K`; the list is
 scrollable and searchable by manufacturer or model. Select a model, a discovered
 COM/USB serial port (or manually enter a device/`ip:port`), and serial speed.
+Selecting Hamlib **NET rigctl** clears any stale serial-device address for fresh
+rigctld `host:port` entry; the operator-entered address is saved and restored on
+later sessions.
 Mercury's WebSocket-reported capture and playback devices populate editable audio
 selectors. When Mercury omits either list, locally discovered operating-system
 audio names provide a fallback that Mercury resolves to its native device ID.
@@ -303,7 +325,10 @@ MSP labels those limits rather than inventing values. ADR 0021 records this poli
 
 **TX Level Test** sends the station's normal real-call beacon every three seconds
 for at most 12 seconds while allowing live modem TX-gain adjustment from -20
-through 0 dB. Mercury's reported TX peak is displayed. The operator must
+through +6 dB. Mercury's reported TX peak is displayed so the operator can
+avoid digital clipping while setting radio input and ALC. MSP saves the selected
+gain and writes it into every managed Mercury configuration so application and
+modem restarts retain it. The operator must
 understand that the action transmits RF; an active ARQ link blocks or stops it.
 
 Audio prefers capture/playback IDs reported by Mercury and falls back to editable
@@ -544,13 +569,15 @@ complete tested payload with Mercury and license material. Without Inno Setup,
 the portable directory remains valid and the builder reports that no installer
 was created. Both outputs are unsigned engineering artifacts.
 
-The builder downloads a pinned Mercury 1.9.13 Windows runtime hosted by the
-public `N4EAC/mercury` fork, verifies its archive SHA-256 digest, and copies the
-complete portable runtime into the build. Its exact corresponding source is
-upstream Rhizomatica merge revision `7febb890`, recorded in the package. This
+The Windows builder downloads Rhizomatica's official Mercury 1.9.23 runtime,
+verifies its archive SHA-256 digest, independently downloads and verifies the
+GPL, FreeDV, and Hamlib license texts from the exact source revision, and copies
+the complete portable runtime into the build. Its corresponding source is
+upstream revision `09f258f8`, recorded in the package. This
 revision retains MSP's frequency and ARQ-mode telemetry with upstream-approved
 non-blocking CAT polling, CAT-duration diagnostics, and common-backend PTT-state
-protection:
+protection, together with the merged CoreAudio and bounded broadcast-shutdown
+corrections from PR #268 and subsequent stable ARQ improvements:
 
 ```text
 dist\MercurySkyPulse\

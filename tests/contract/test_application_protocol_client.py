@@ -54,7 +54,8 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.client.state_changed.connect(states.append)
         self.client.connect_station("n0call", "k1abc")
         self.assertEqual(self.transport.controls,
-                         ["MYCALL N0CALL", "LISTEN ON", "CONNECT N0CALL K1ABC"])
+                         ["MYCALL N0CALL", "BEACONMODE 8", "LISTEN ON",
+                          "CONNECT N0CALL K1ABC"])
         self.assertEqual(states, ["linking"])
 
     def test_caller_role_precedes_synchronous_connected_callback(self) -> None:
@@ -79,7 +80,10 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         states = []
         self.client.state_changed.connect(states.append)
         self.client.configure_and_listen("n0call")
-        self.assertEqual(self.transport.controls, ["MYCALL N0CALL", "LISTEN ON"])
+        self.assertEqual(
+            self.transport.controls,
+            ["MYCALL N0CALL", "BEACONMODE 8", "LISTEN ON"],
+        )
         self.assertEqual(states, ["listening"])
 
     def test_transport_receives_only_encoded_opaque_bytes(self) -> None:
@@ -407,7 +411,10 @@ class ApplicationProtocolClientTests(unittest.TestCase):
         self.transport.session_disconnected.emit()
 
         self.assertEqual(states, ["linking", "ready", "listening"])
-        self.assertEqual(self.transport.controls[-2:], ["MYCALL N0CALL", "LISTEN ON"])
+        self.assertEqual(
+            self.transport.controls[-3:],
+            ["MYCALL N0CALL", "BEACONMODE 8", "LISTEN ON"],
+        )
 
     def test_successful_disconnect_does_not_publish_ready_twice(self) -> None:
         states = []

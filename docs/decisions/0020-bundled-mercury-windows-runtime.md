@@ -19,12 +19,13 @@ does not create a complete runtime.
 
 ## Decision
 
-`build.exe.bat` downloads a pinned Mercury 1.9.13 runtime archive hosted by the
-public `N4EAC/mercury` fork, verifies its SHA-256 digest, extracts the complete
-runtime, and places it under `dist\MercurySkyPulse\mercury`. The archive was
-cross-built from upstream merge revision `7febb890`, contains the GPL and Hamlib
-license notices, and the builder writes the exact upstream corresponding-source
-commit URL into the package.
+`build.exe.bat` downloads Rhizomatica's pinned official Mercury 1.9.23 runtime,
+verifies its SHA-256 digest, extracts the complete runtime, and places it under
+`dist\MercurySkyPulse\mercury`. The archive corresponds to upstream revision
+`09f258f8`. Because the official portable archive omits license files, the
+builder downloads the GPL, FreeDV, and Hamlib license texts from that exact
+revision and verifies each digest before packaging. The builder writes the exact
+upstream corresponding-source commit URL into the package.
 
 The pinned revision incorporates the telemetry patch accepted upstream in
 Rhizomatica/mercury PR #176: optional CAT frequency polling uses a non-blocking
@@ -33,6 +34,10 @@ commands clear the local PTT-active state, and the current WebSocket status
 schema is preserved. PTT state is tracked at Mercury's common backend dispatch
 point so Hamlib, serial, and CM108 keying all protect the CAT quiet window. The
 cross-build archiver correction was accepted separately in upstream PR #206.
+The pinned release retains the CoreAudio ownership, stable-UID,
+bounded-reopen, macOS property, and bounded broadcast-shutdown corrections
+merged through upstream PR #268, plus later stable ARQ, acquisition,
+busy-detector, bounded-log, call-cap, and teardown improvements.
 
 Mercury is bundled as a required Mercury SkyPulse runtime component for Windows,
 but remains an independently supervised child process. Mercury SkyPulse continues
@@ -50,11 +55,12 @@ fails the build rather than producing an incomplete application folder.
 - Mercury and its required DLLs travel together under a versioned runtime folder.
 - Updating Mercury requires an explicit version, source commit, filename, URL,
   archive digest, compatibility test, and ADR/status update.
-- The public fork hosts the checksum-verified Windows runtime archive; complete
-  corresponding source is the recorded upstream GPL-3.0 merge revision.
+- Rhizomatica hosts the checksum-verified Windows runtime archive; complete
+  corresponding source and verified license texts are pinned to the recorded
+  upstream GPL-3.0 revision.
 - Generated Mercury binaries remain excluded from Git; only the builder policy and
   integrity metadata are committed.
-- Any distribution beyond controlled engineering tests requires legal review of
-  Mercury GPL obligations and the still-undecided Mercury SkyPulse license.
+- Distribution must continue to satisfy Mercury, Hamlib, FreeDV, and Mercury
+  SkyPulse license obligations.
 - Managed Mercury remains process-isolated; this decision does not authorize
   importing Mercury internals or moving application features into Mercury.

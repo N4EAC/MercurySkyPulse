@@ -14,7 +14,7 @@ from unittest.mock import patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
-    from application.radio import HamlibRig
+    from application.radio import HamlibRig, RadioStationConfig
     from application.modem import ModemStatus, SpectrumFrame
     from PySide6.QtCore import QPoint
     from PySide6.QtWidgets import QDockWidget, QMessageBox, QPushButton
@@ -407,6 +407,36 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertTrue(page.radio_list.item(1).isHidden())
         page.deleteLater()
 
+    def test_selecting_net_rigctl_clears_stale_address_and_saves_entry(self) -> None:
+        page = RadioPage()
+        page.direct_control.setChecked(True)
+        page.set_catalog((
+            HamlibRig(
+                2, "Hamlib", "NET rigctl", "1", "net", "RIG_MODEL_NETRIGCTL"
+            ),
+        ))
+        page.device.setCurrentText("/dev/cu.previous-radio")
+        page.radio_list.setCurrentRow(0)
+        self.assertEqual(page.device.currentText(), "")
+        self.assertEqual(page.serial_speed.currentData(), 0)
+        page.device.setCurrentText("127.0.0.1:4555")
+        applied = []
+        page.apply_requested.connect(lambda *values: applied.append(values))
+        page.apply_button.click()
+        self.assertEqual(applied, [(2, "127.0.0.1:4555", 0)])
+        page.deleteLater()
+
+    def test_saved_net_rigctl_address_survives_catalog_restore(self) -> None:
+        page = RadioPage()
+        page.set_config(RadioStationConfig(2, "flex.local:4992", 0))
+        page.set_catalog((
+            HamlibRig(
+                2, "Hamlib", "NET rigctl", "1", "net", "RIG_MODEL_NETRIGCTL"
+            ),
+        ))
+        self.assertEqual(page.device.currentText(), "flex.local:4992")
+        page.deleteLater()
+
     def test_radio_catalog_does_not_overlap_cat_fields_when_height_is_constrained(self) -> None:
         page = RadioPage()
         page.resize(900, 560)
@@ -443,6 +473,20 @@ class GuiSmokeTests(unittest.TestCase):
         self.assertEqual(audio_page.output_device.currentData(), "playback:usb")
         radio_page.deleteLater()
         audio_page.deleteLater()
+
+    def test_audio_setup_exposes_device_refresh(self) -> None:
+        page = AudioSetupPage()
+        requested = []
+        page.refresh_requested.connect(lambda: requested.append(True))
+        refresh = next(
+            button for button in page.findChildren(QPushButton)
+            if button.text() == "Refresh Audio Devices"
+        )
+
+        refresh.click()
+
+        self.assertEqual(requested, [True])
+        page.deleteLater()
 
     def test_gps_port_selector_lists_com_ports_and_allows_manual_entry(self) -> None:
         page = LocationPage()

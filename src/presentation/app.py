@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import configparser
 import os
 from pathlib import Path
 import sys
@@ -21,7 +22,12 @@ from application.ping import PingService
 from application.bbs import BbsService
 from application.web_dashboard import WebDashboardSnapshot
 from application.endpoints import MercuryEndpointProfile, MercuryRunMode
-from application.radio import RadioStationService, TxLevelTestService
+from application.radio import (
+    RadioStationService,
+    TX_TEST_MAX_GAIN_DB,
+    TX_TEST_MIN_GAIN_DB,
+    TxLevelTestService,
+)
 from application.psk_reporter import PskReporterService
 from application.weather import WeatherService
 from persistence.chat_repository import ChatRepository
@@ -89,6 +95,30 @@ def _set_application_icon(app: QApplication) -> None:
             return
 
 
+def _load_tx_gain(repository, config_file: Path) -> float:
+    raw = repository.get_setting("radio.tx_gain_db")
+    migrated = False
+    if raw is None and config_file.is_file():
+        parser = configparser.ConfigParser(interpolation=None)
+        try:
+            parser.read(config_file, encoding="utf-8")
+            raw = parser.get("audio", "tx_gain_db", fallback=None)
+            migrated = raw is not None
+        except (configparser.Error, OSError):
+            raw = None
+    try:
+        level = float(raw or "0")
+    except ValueError:
+        level = 0.0
+        migrated = False
+    if not TX_TEST_MIN_GAIN_DB <= level <= TX_TEST_MAX_GAIN_DB:
+        level = 0.0
+        migrated = False
+    if migrated:
+        repository.set_setting("radio.tx_gain_db", f"{level:.2f}", "tx-gain-migration")
+    return level
+
+
 def main() -> int:
     app = create_application()
     endpoint_profile = MercuryEndpointProfile.default()
@@ -99,6 +129,7 @@ def main() -> int:
     diagnostic_log.start_session(QCoreApplication.applicationVersion())
     diagnostic_log.install_exception_hooks()
     repository = ChatRepository(data_directory / "chat-history.sqlite3")
+    mercury_config_file = data_directory / "mercury-skypulse.ini"
     try:
         saved_radio_model = int(repository.get_setting("radio.model_id") or "")
         if saved_radio_model <= 0:
@@ -112,6 +143,7 @@ def main() -> int:
         saved_radio_speed = int(repository.get_setting("radio.serial_speed") or "0")
     except ValueError:
         saved_radio_speed = 0
+    saved_tx_gain_db = _load_tx_gain(repository, mercury_config_file)
     mercury_transport = MercuryTncTransport(
         host=endpoint_profile.control.host,
         control_port=endpoint_profile.control.port,
@@ -150,7 +182,8 @@ def main() -> int:
         radio_serial_speed=saved_radio_speed,
         input_device=saved_input_device,
         output_device=saved_output_device,
-        config_file=data_directory / "mercury-skypulse.ini",
+        tx_gain_db=saved_tx_gain_db,
+        config_file=mercury_config_file,
     ))
     mercury_telemetry = MercuryTelemetryClient(
         endpoint_profile.telemetry.url,
@@ -173,7 +206,8 @@ def main() -> int:
         capabilities,
     )
     tx_level_service = TxLevelTestService(
-        beacon_service, mercury_telemetry, client
+        beacon_service, mercury_telemetry, client, repository,
+        mercury_supervisor, saved_tx_gain_db,
     )
     psk_reporter_service = PskReporterService(
         beacon_service, mercury_telemetry, repository, PskReporterUploader(),

@@ -50,6 +50,8 @@ codesign --verify --deep --strict "$APP"
 [[ "$(plutil -extract CFBundleDisplayName raw "$APP/Contents/Info.plist")" == "Mercury SkyPulse" ]]
 [[ "$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")" == "0.1.7" ]]
 [[ "$(plutil -extract CFBundleVersion raw "$APP/Contents/Info.plist")" == "0.1.7" ]]
+[[ "$(plutil -extract NSMicrophoneUsageDescription raw "$APP/Contents/Info.plist")" == \
+    "Mercury SkyPulse needs access to radio audio input for modem reception." ]]
 [[ "$(file -b "$MERCURY")" == *"Mach-O 64-bit executable arm64"* ]]
 [[ "$(file -b "$ESPEAK")" == *"Mach-O 64-bit executable arm64"* ]]
 SPEECH_TEST="$(mktemp -d)/msp-speech.wav"
