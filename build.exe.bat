@@ -6,6 +6,7 @@ echo Mercury SkyPulse Windows test build
 echo Repository: %CD%
 echo.
 
+set "MSP_UI_REVISION=operator-console-v1"
 set "MSP_MERCURY_VERSION=1.9.23"
 set "MSP_MERCURY_COMMIT=09f258f84a0b69cb4d8556530a25822617ea17dd"
 set "MSP_MERCURY_ARCHIVE_NAME=mercury-1.9.23-w64-09f258f8.zip"
@@ -84,6 +85,7 @@ if errorlevel 1 (
 )
 
 echo Running the aggregate test suite...
+echo UI revision: %MSP_UI_REVISION%
 "%MSP_PYTHON%" tools\run_tests.py all -q
 if errorlevel 1 (
     echo ERROR: Automated tests failed; the executable was not built.
@@ -129,6 +131,12 @@ if errorlevel 1 (
     echo ERROR: The eSpeak NG runtime could not be copied into the test package.
     goto failed
 )
+(
+    echo Mercury SkyPulse 0.1.7
+    echo UI revision: %MSP_UI_REVISION%
+    echo Platform: Windows x86_64
+    echo Mercury: %MSP_MERCURY_VERSION% %MSP_MERCURY_COMMIT%
+) > "dist\MercurySkyPulse\BUILD-INFO.txt"
 
 call :build_installer
 if errorlevel 1 goto failed

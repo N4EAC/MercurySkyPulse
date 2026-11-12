@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QFormLayout,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -51,6 +50,8 @@ class ChatPage(QWidget):
         super().__init__(parent)
         self._conversation_ids: list[int] = []
         root = QVBoxLayout(self)
+        root.setContentsMargins(10, 8, 10, 8)
+        root.setSpacing(7)
         title = QLabel("Station Chat")
         title.setObjectName("PageTitle")
         root.addWidget(title)
@@ -58,16 +59,21 @@ class ChatPage(QWidget):
         controls = QFrame()
         controls.setObjectName("Card")
         control_row = QHBoxLayout(controls)
-        form = QFormLayout()
+        control_row.setContentsMargins(8, 5, 8, 5)
+        control_row.setSpacing(7)
         self.local_call = QLineEdit()
         self.local_call.setPlaceholderText("N0CALL")
         self.local_call.setMaxLength(15)
+        self.local_call.setMaximumWidth(130)
         self.remote_call = QLineEdit()
         self.remote_call.setPlaceholderText("REMOTE")
         self.remote_call.setMaxLength(15)
-        form.addRow("My callsign", self.local_call)
-        form.addRow("Station", self.remote_call)
-        control_row.addLayout(form, 1)
+        self.remote_call.setMaximumWidth(130)
+        control_row.addWidget(QLabel("My callsign"))
+        control_row.addWidget(self.local_call)
+        control_row.addWidget(QLabel("Station"))
+        control_row.addWidget(self.remote_call)
+        control_row.addStretch(1)
         self.listen_button = QPushButton("Listen")
         self.connect_button = QPushButton("Connect")
         self.connect_button.setObjectName("PrimaryButton")
@@ -99,11 +105,11 @@ class ChatPage(QWidget):
         self.call_cq_button.setToolTip(
             "Broadcast one CQ invitation on the current radio frequency"
         )
+        self.call_cq_button.hide()
         self.cq_callers = QComboBox()
         self.cq_callers.setPlaceholderText("No CQ callers heard")
         self.answer_cq_button = QPushButton("Answer CQ")
         self.answer_cq_button.setEnabled(False)
-        cq_row.addWidget(self.call_cq_button)
         cq_row.addWidget(QLabel("CQ callers"))
         cq_row.addWidget(self.cq_callers, 1)
         cq_row.addWidget(self.answer_cq_button)
@@ -114,6 +120,7 @@ class ChatPage(QWidget):
         splitter.setHandleWidth(1)
         self.chat_splitter = splitter
         conversation_panel = QWidget()
+        self.conversation_panel = conversation_panel
         conversation_layout = QVBoxLayout(conversation_panel)
         conversation_layout.setContentsMargins(0, 0, 0, 0)
         conversation_title = QLabel("Conversations")
@@ -130,9 +137,15 @@ class ChatPage(QWidget):
         chat = QWidget()
         chat_layout = QVBoxLayout(chat)
         chat_layout.setContentsMargins(0, 0, 0, 0)
+        heading_row = QHBoxLayout()
         self.heading = QLabel("Connect to a station or select a conversation")
         self.heading.setObjectName("SectionTitle")
-        chat_layout.addWidget(self.heading)
+        self.conversations_button = QPushButton("Conversations")
+        self.conversations_button.setCheckable(True)
+        self.conversations_button.setToolTip("Show or hide saved conversations")
+        heading_row.addWidget(self.heading, 1)
+        heading_row.addWidget(self.conversations_button)
+        chat_layout.addLayout(heading_row)
         self.messages = QListWidget()
         self.messages.setWordWrap(True)
         self.messages.setSelectionMode(QListWidget.SelectionMode.NoSelection)
@@ -184,6 +197,7 @@ class ChatPage(QWidget):
         chat_layout.addLayout(transfer_row)
         splitter.addWidget(chat)
         splitter.setStretchFactor(1, 1)
+        conversation_panel.hide()
         root.addWidget(splitter, 1)
 
         self.listen_button.clicked.connect(
@@ -214,6 +228,7 @@ class ChatPage(QWidget):
             lambda row: self.delete_conversation_button.setEnabled(row >= 0)
         )
         self.delete_conversation_button.clicked.connect(self._delete_conversation)
+        self.conversations_button.toggled.connect(conversation_panel.setVisible)
         self._transfer_id = ""
         self._transfer_path = ""
         self._chat_messages: list[ChatMessage] = []

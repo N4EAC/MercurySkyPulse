@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 from PySide6.QtCore import Qt, QSize, QSettings, QTimer, QUrl
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QKeySequence
+from PySide6.QtGui import (
+    QAction, QActionGroup, QCloseEvent, QDesktopServices, QFont, QKeySequence,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -13,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QStyle,
+    QStatusBar,
     QToolBar,
     QHBoxLayout,
     QWidget,
@@ -179,8 +182,8 @@ class MainWindow(QMainWindow):
         self._default_layout_state = self._build_default_layout_state()
         if not self.restoreGeometry(self._settings.value("main/geometry", b"")):
             self.resize(1280, 820)
-        if not self.restoreState(self._settings.value("main/state", b""), 6):
-            self.restoreState(self._default_layout_state, 6)
+        if not self.restoreState(self._settings.value("main/state", b""), 7):
+            self.restoreState(self._default_layout_state, 7)
         if auto_start:
             QTimer.singleShot(0, self._start_mercury)
 
@@ -209,9 +212,9 @@ class MainWindow(QMainWindow):
     def _create_docks(self) -> None:
         summary = self._make_dock(
             "summary", "Station Status", self.station_summary,
-            Qt.DockWidgetArea.TopDockWidgetArea, 640,
+            Qt.DockWidgetArea.RightDockWidgetArea, 250,
         )
-        summary.setMinimumHeight(180)
+        summary.setMinimumHeight(220)
         activity = self._make_dock(
             "activity",
             "Activity",
@@ -267,11 +270,21 @@ class MainWindow(QMainWindow):
         toolbar.addAction(connect_action)
         toolbar.addSeparator()
 
+        toolbar.addAction(self._docks["summary"].toggleViewAction())
+        toolbar.addSeparator()
+        cq_action = QAction("Call CQ", self)
+        cq_action.triggered.connect(self.chat_page.call_cq_button.click)
+        toolbar.addAction(cq_action)
         for key in (
-            "summary", "frequency", "beacon", "ping",
-            "location", "reporting", "bbs", "activity",
+            "frequency", "beacon", "ping", "location",
+            "reporting", "bbs", "activity",
         ):
             toolbar.addAction(self._docks[key].toggleViewAction())
+        if self.setup_window is not None:
+            toolbar.addSeparator()
+            setup_action = QAction("Setup", self)
+            setup_action.triggered.connect(self._show_setup)
+            toolbar.addAction(setup_action)
         self._toolbar = toolbar
 
     @staticmethod
@@ -282,7 +295,7 @@ class MainWindow(QMainWindow):
         template.setCentralWidget(QWidget())
         docks: dict[str, QDockWidget] = {}
         areas = {
-            "summary": Qt.DockWidgetArea.TopDockWidgetArea,
+            "summary": Qt.DockWidgetArea.RightDockWidgetArea,
             "frequency": Qt.DockWidgetArea.RightDockWidgetArea,
             "beacon": Qt.DockWidgetArea.RightDockWidgetArea,
             "ping": Qt.DockWidgetArea.RightDockWidgetArea,
@@ -302,36 +315,69 @@ class MainWindow(QMainWindow):
         template.tabifyDockWidget(docks["activity"], docks["reporting"])
         docks["beacon"].raise_()
         docks["activity"].raise_()
-        template.resizeDocks([docks["frequency"]], [240], Qt.Orientation.Horizontal)
+        template.resizeDocks([docks["summary"]], [260], Qt.Orientation.Horizontal)
         template.resizeDocks([docks["activity"]], [185], Qt.Orientation.Vertical)
         docks["bbs"].setFloating(True)
         docks["bbs"].resize(960, 650)
         docks["bbs"].move(120, 90)
-        for key in ("activity", "reporting", "bbs"):
+        for key in (
+            "frequency", "beacon", "ping", "location",
+            "activity", "reporting", "bbs",
+        ):
             docks[key].hide()
-        return template.saveState(6)
+        return template.saveState(7)
 
     def _create_status_bar(self) -> None:
+        bar = QStatusBar(self)
+        bar.setObjectName("ModemStatusBar")
+        bar.setSizeGripEnabled(False)
+        self.setStatusBar(bar)
         self.statusBar().showMessage("Starting Mercury")
-        self._telemetry_status = QLabel("Telemetry: disconnected")
-        self._telemetry_status.setObjectName("Muted")
-        self._engine_status = QLabel("Mercury: starting")
-        self._engine_status.setObjectName("StatusPill")
-        self._tx_rx_led = QLabel()
-        self._tx_rx_led.setFixedSize(10, 10)
-        self._tx_rx_led.setAccessibleName("Radio receive indicator")
+        mono = QFont("Monospace")
+        mono.setStyleHint(QFont.StyleHint.Monospace)
+        mono.setPointSizeF(8.0)
+
+        self._tx_led = QLabel()
+        self._tx_led.setFixedSize(7, 7)
+        self._tx_led.setAccessibleName("Transmit indicator")
+        self._rx_led = QLabel()
+        self._rx_led.setFixedSize(7, 7)
+        self._rx_led.setAccessibleName("Receive indicator")
+        self._tx_rx_led = self._rx_led
         self._radio_direction = ""
+        self._status_mode = QLabel("MODE —")
+        self._status_rate = QLabel("RATE 0 BPS")
+        self._status_bytes = QLabel("IN 0 B  OUT 0 B")
+        self._status_calls = QLabel("MY —  TO —")
+        for label in (
+            self._status_mode, self._status_rate,
+            self._status_bytes, self._status_calls,
+        ):
+            label.setObjectName("ModemTelemetry")
+            label.setFont(mono)
         self._set_tx_rx_indicator("rx")
         tx_rx_container = QWidget()
         tx_rx_layout = QHBoxLayout(tx_rx_container)
-        tx_rx_layout.setContentsMargins(8, 0, 8, 0)
-        tx_rx_layout.addWidget(self._tx_rx_led)
+        tx_rx_layout.setContentsMargins(8, 0, 4, 0)
+        tx_rx_layout.setSpacing(4)
+        tx_rx_layout.addWidget(self._tx_led)
+        tx_rx_layout.addWidget(QLabel("TX"))
+        tx_rx_layout.addSpacing(3)
+        tx_rx_layout.addWidget(self._rx_led)
+        tx_rx_layout.addWidget(QLabel("RX"))
         self._tx_rx_container = tx_rx_container
+        self._telemetry_status = QLabel("Telemetry: disconnected")
+        self._telemetry_status.hide()
+        self._engine_status = QLabel("Mercury: starting")
+        self._engine_status.hide()
         self.statusBar().addPermanentWidget(tx_rx_container)
-        self.statusBar().addPermanentWidget(self._telemetry_status)
-        self.statusBar().addPermanentWidget(self._engine_status)
+        self.statusBar().addPermanentWidget(self._status_mode)
+        self.statusBar().addPermanentWidget(self._status_rate)
+        self.statusBar().addPermanentWidget(self._status_bytes)
+        self.statusBar().addPermanentWidget(self._status_calls)
         self._utc_status = QLabel()
-        self._utc_status.setObjectName("Muted")
+        self._utc_status.setObjectName("ModemTelemetry")
+        self._utc_status.setFont(mono)
         self._utc_status.setToolTip("Coordinated Universal Time")
         self.statusBar().addPermanentWidget(self._utc_status)
         self._utc_status_timer = QTimer(self)
@@ -547,6 +593,7 @@ class MainWindow(QMainWindow):
         self.telemetry.status_received.connect(
             lambda status: self._set_tx_rx_indicator(status.direction)
         )
+        self.telemetry.status_received.connect(self._update_modem_status_bar)
         if self.ping_service:
             self.telemetry.status_received.connect(self.ping_service.update_status)
         if hasattr(self.telemetry, "set_spectrum_processing_enabled"):
@@ -979,15 +1026,50 @@ class MainWindow(QMainWindow):
         transmitting = direction == "tx"
         state = "transmit" if transmitting else "receive"
         self._radio_direction = direction
-        self._apply_radio_indicator_color("#e53935" if transmitting else "#2fbf71")
-        self._tx_rx_led.setToolTip(f"Radio {state}")
+        self._tx_led.setStyleSheet(
+            "background:#e53935;border-radius:3px;" if transmitting
+            else "background:#4b2328;border-radius:3px;"
+        )
+        self._rx_led.setStyleSheet(
+            "background:#244b39;border-radius:3px;" if transmitting
+            else "background:#2fbf71;border-radius:3px;"
+        )
+        self._tx_led.setToolTip(
+            "Radio transmitting" if transmitting else "Transmit inactive"
+        )
+        self._rx_led.setToolTip(
+            "Receive inactive" if transmitting else "Radio receiving"
+        )
         self._tx_rx_led.setAccessibleName(f"Radio {state} indicator")
 
     def _apply_radio_indicator_color(self, color: str) -> None:
-        border = "1px solid rgba(0, 0, 0, 90)" if color != "transparent" else "none"
-        self._tx_rx_led.setStyleSheet(
-            f"background-color: {color}; border: {border}; border-radius: 5px;"
+        self._rx_led.setStyleSheet(
+            f"background-color:{color};border-radius:3px;"
         )
+
+    def _update_modem_status_bar(self, status) -> None:
+        tx_mode = status.arq_tx_mode.strip().upper()
+        rx_mode = status.arq_rx_mode.strip().upper()
+        if tx_mode and rx_mode and tx_mode != rx_mode:
+            mode = f"TX {tx_mode} RX {rx_mode}"
+        else:
+            mode = tx_mode or rx_mode or status.modem_mode.strip().upper() or "—"
+        self._status_mode.setText(f"MODE {mode}")
+        self._status_rate.setText(f"RATE {status.bitrate_bps:,} BPS")
+        self._status_bytes.setText(
+            f"IN {status.bytes_received:,} B  OUT {status.bytes_transmitted:,} B"
+        )
+        local = (
+            status.user_callsign.strip().upper()
+            or self.chat_page.local_call.text().strip().upper()
+            or "—"
+        )
+        target = (
+            status.destination_callsign.strip().upper()
+            or self.chat_page.remote_call.text().strip().upper()
+            or "—"
+        )
+        self._status_calls.setText(f"MY {local}  TO {target}")
 
     def _log_transfers(self, transfers) -> None:
         for transfer in transfers:
@@ -1074,7 +1156,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt API
         self._settings.setValue("main/geometry", self.saveGeometry())
-        self._settings.setValue("main/state", self.saveState(6))
+        self._settings.setValue("main/state", self.saveState(7))
         if self.setup_window:
             self._settings.setValue("setup/geometry", self.setup_window.saveGeometry())
         self._settings.sync()

@@ -216,24 +216,27 @@ class GuiSmokeTests(unittest.TestCase):
         )
 
     def test_tx_rx_status_led_is_compact_and_changes_color(self) -> None:
-        self.assertEqual(self.window._tx_rx_led.size().width(), 10)
+        self.assertEqual(self.window._tx_led.size().width(), 7)
+        self.assertEqual(self.window._rx_led.size().width(), 7)
         self.assertGreaterEqual(
             self.window._tx_rx_container.layout().contentsMargins().left(), 8
         )
         self.window._set_tx_rx_indicator("tx")
-        self.assertEqual(self.window._tx_rx_led.toolTip(), "Radio transmit")
-        self.assertIn("#e53935", self.window._tx_rx_led.styleSheet())
+        self.assertEqual(self.window._tx_led.toolTip(), "Radio transmitting")
+        self.assertIn("#e53935", self.window._tx_led.styleSheet())
         self.window._set_tx_rx_indicator("rx")
-        self.assertEqual(self.window._tx_rx_led.toolTip(), "Radio receive")
-        self.assertIn("#2fbf71", self.window._tx_rx_led.styleSheet())
+        self.assertEqual(self.window._rx_led.toolTip(), "Radio receiving")
+        self.assertIn("#2fbf71", self.window._rx_led.styleSheet())
         self.assertFalse(hasattr(self.window, "_rx_blink_timer"))
 
     def test_default_console_reserves_space_for_chat(self) -> None:
         self.window._reset_layout(clear_saved=False)
-        for key in ("activity", "reporting", "bbs"):
+        for key in (
+            "frequency", "beacon", "ping", "location",
+            "activity", "reporting", "bbs",
+        ):
             self.assertTrue(self.window._docks[key].isHidden())
-        for key in ("summary", "frequency", "beacon"):
-            self.assertFalse(self.window._docks[key].isHidden())
+        self.assertFalse(self.window._docks["summary"].isHidden())
         self.assertEqual(15, len(self.window.station_summary.values))
 
     def test_station_status_formats_next_beacon_or_manual_mode(self) -> None:
@@ -361,6 +364,23 @@ class GuiSmokeTests(unittest.TestCase):
             self.window._utc_status.text(),
             r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$",
         )
+
+    def test_status_bar_projects_live_modem_telemetry(self) -> None:
+        self.window._update_modem_status_bar(ModemStatus(
+            bitrate_bps=321,
+            bytes_received=12_844,
+            bytes_transmitted=6_210,
+            user_callsign="N4EAC",
+            destination_callsign="K5ABC",
+            arq_tx_mode="DATAC13",
+            arq_rx_mode="DATAC13",
+        ))
+        self.assertEqual(self.window._status_mode.text(), "MODE DATAC13")
+        self.assertEqual(self.window._status_rate.text(), "RATE 321 BPS")
+        self.assertEqual(
+            self.window._status_bytes.text(), "IN 12,844 B  OUT 6,210 B"
+        )
+        self.assertEqual(self.window._status_calls.text(), "MY N4EAC  TO K5ABC")
 
     def test_station_status_contains_former_overview_modem_metrics(self) -> None:
         self.window.station_summary.update_status(

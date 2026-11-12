@@ -126,7 +126,7 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
     }}
     QFrame#Card {{
         background: {colors['surface']};
-        border: 1px solid {colors['border']};
+        border: 0;
         border-radius: {radius}px;
     }}
     QLabel#PageTitle {{ font-size: 20px; font-weight: 650; }}
@@ -136,7 +136,7 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
     QLabel#StatusPill {{
         background: {colors['surface_alt']};
         color: {colors['muted']};
-        border: 1px solid {colors['border']};
+        border: 0;
         border-radius: 10px;
         padding: 3px 9px;
     }}
@@ -214,9 +214,29 @@ def _stylesheet(colors: dict[str, str], appearance: Appearance) -> str:
     }}
     QDockWidget::title {{
         background: {colors['surface_alt']};
-        border-bottom: 1px solid {colors['border']};
+        border: 0;
         padding: 8px 10px;
         font-weight: 600;
+    }}
+    QWidget#OperatorStatusPanel, QWidget#OperatorFact {{
+        background: {colors['surface']};
+        border: 0;
+    }}
+    QLabel#OperatorFactValue {{
+        background: {colors['surface_alt']};
+        color: {colors['text']};
+        border: 0;
+        border-radius: {max(radius - 2, 2)}px;
+        padding: 4px 7px;
+    }}
+    QStatusBar#ModemStatusBar {{
+        background: #070b10;
+        border: 0;
+        min-height: 22px;
+    }}
+    QLabel#ModemTelemetry {{
+        color: {colors['muted']};
+        padding: 0 6px;
     }}
     QMenuBar, QMenu, QToolBar, QStatusBar {{
         background: {colors['surface']};

@@ -74,12 +74,15 @@ class StationSummaryPanel(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self.setObjectName("OperatorStatusPanel")
         layout = QGridLayout(self)
-        layout.setContentsMargins(10, 6, 10, 6)
-        for column in range(5):
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setHorizontalSpacing(8)
+        layout.setVerticalSpacing(5)
+        for column in range(2):
             layout.setColumnStretch(column, 1)
         self.values: dict[str, QLabel] = {}
-        for index, (key, title, initial) in enumerate((
+        metrics = (
             ("engine", "Mercury", "Starting"),
             ("telemetry", "Telemetry", "Disconnected"),
             ("modem", "Modem", "Offline"),
@@ -95,18 +98,31 @@ class StationSummaryPanel(QWidget):
             ("next_beacon", "Next Beacon", "Manual"),
             ("reporting", "Reporting", "Disabled"),
             ("bbs", "BBS", "Ready"),
-        )):
-            item = QFrame()
-            item.setObjectName("Card")
+        )
+        operator_keys = {
+            "engine", "link", "peer", "frequency", "grid",
+            "next_beacon", "transfer", "bbs",
+        }
+        self._metric_items: list[QWidget] = []
+        visible_index = 0
+        for key, title, initial in metrics:
+            item = QWidget()
+            self._metric_items.append(item)
+            item.setObjectName("OperatorFact")
             item_layout = QVBoxLayout(item)
-            item_layout.setContentsMargins(10, 5, 10, 5)
+            item_layout.setContentsMargins(4, 3, 4, 3)
+            item_layout.setSpacing(2)
             heading = _label(title, "Muted")
-            value = _label(initial, "StatusPill")
-            value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            value = _label(initial, "OperatorFactValue")
+            value.setAlignment(Qt.AlignmentFlag.AlignLeft)
             item_layout.addWidget(heading)
             item_layout.addWidget(value)
-            layout.addWidget(item, index // 5, index % 5)
             self.values[key] = value
+            if key in operator_keys:
+                layout.addWidget(item, visible_index // 2, visible_index % 2)
+                visible_index += 1
+            else:
+                item.hide()
 
     def set_value(self, key: str, value: str) -> None:
         if key in self.values:

@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 BUILD_VENV="$PROJECT_ROOT/.venv-build-linux"
+UI_REVISION="operator-console-v1"
 MERCURY_COMMIT="cbe7ae73d3827d7eff036259e549df3b376ff50a"
 MERCURY_ARCHIVE_SHA256="f33a127829cdefd1793ffedb41537a639a9794608ac13e8b17a5ed5348100cee"
 MERCURY_ARCHIVE_URL="https://github.com/Rhizomatica/mercury/archive/$MERCURY_COMMIT.tar.gz"
@@ -219,6 +220,7 @@ printf 'eSpeak NG %s offline speech runtime\nSource: Linux distribution package\
 "$BUILD_VENV/bin/python" -m pip install --upgrade pip
 "$BUILD_VENV/bin/python" -m pip install -e . pyinstaller
 if [[ "${MSP_SKIP_TESTS:-0}" != "1" ]]; then
+    echo "Validating UI revision: $UI_REVISION"
     QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 \
         "$BUILD_VENV/bin/python" tools/run_tests.py all -q
 fi
@@ -246,6 +248,9 @@ install -m 0644 "$MERCURY_ROOT/LICENSE-freedv" dist/MercurySkyPulse/mercury/LICE
 printf 'Mercury Linux engineering runtime\nSource: %s\nRevision: %s\nLicense: GNU GPL-3.0-or-later; see LICENSE.\n' \
     "$MERCURY_REMOTE" "$MERCURY_REVISION" > dist/MercurySkyPulse/mercury/SOURCE.txt
 install -m 0644 LICENSE dist/MercurySkyPulse/LICENSE
+printf 'Mercury SkyPulse %s\nUI revision: %s\nPlatform: Linux x86_64\nMercury revision: %s\n' \
+    "$VERSION" "$UI_REVISION" "$MERCURY_REVISION" \
+    > dist/MercurySkyPulse/BUILD-INFO.txt
 
 mkdir -p dist/packages
 if [[ "$PACKAGE_KIND" == deb ]]; then
